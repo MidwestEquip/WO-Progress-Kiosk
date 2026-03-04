@@ -18,9 +18,37 @@
             display: none;
         }
     </style>
+    <script>
+        // Global error handler — catches any uncaught JS errors and shows
+        // a user-friendly error screen instead of a blank blue screen
+        window.onerror = function(msg, src, line, col, err) {
+            // Hide the loading fallback if it's still showing
+            var loadingEl = document.getElementById('app-loading');
+            if (loadingEl) loadingEl.style.display = 'none';
+            var el = document.getElementById('app');
+            if (el) {
+                el.removeAttribute('v-cloak');
+                el.style.display = 'flex';
+                el.innerHTML = '<div style="margin:auto;text-align:center;padding:2rem;">'
+                    + '<h2 style="font-size:2rem;font-weight:bold;color:#ef4444;margin-bottom:1rem;">Something went wrong</h2>'
+                    + '<p style="color:#94a3b8;margin-bottom:0.5rem;">Error: ' + msg + '</p>'
+                    + '<p style="color:#64748b;font-size:0.875rem;margin-bottom:1.5rem;">Line ' + line + '</p>'
+                    + '<button onclick="location.reload()" style="background:#2563eb;color:white;padding:0.75rem 2rem;border-radius:0.5rem;font-weight:bold;border:none;cursor:pointer;font-size:1.125rem;">Reload Page</button>'
+                    + '</div>';
+            }
+        };
+    </script>
 </head>
 
 <body class="bg-slate-900 text-white select-none overflow-hidden h-screen w-screen font-sans">
+
+    <!-- Static fallback — visible until Vue mounts, then removed by onMounted -->
+    <div id="app-loading" class="h-full w-full flex items-center justify-center absolute inset-0 z-50 bg-slate-900">
+        <div class="text-center">
+            <h2 class="text-4xl font-bold text-white mb-4">Shop Floor Kiosk</h2>
+            <p class="text-slate-400 text-lg">Loading...</p>
+        </div>
+    </div>
 
     <div id="app" class="h-full w-full flex flex-col" v-cloak>
 
@@ -1419,6 +1447,7 @@
             "TC47446", "TC51070", "TC51077"
         ];
 
+        try {
         const app = createApp({
             setup() {
                 // --- State ---
@@ -1506,6 +1535,12 @@
                     currentTime.value = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 }, 1000);
                 onUnmounted(() => clearInterval(clockInterval));
+
+                // Remove the static loading fallback once Vue has mounted
+                onMounted(() => {
+                    const loadingEl = document.getElementById('app-loading');
+                    if (loadingEl) loadingEl.remove();
+                });
 
                 const appTitle = computed(() => {
                     if (currentView.value === 'splash') return 'Shop Floor Kiosk';
@@ -2294,7 +2329,27 @@
             }
         });
 
+        // Catch Vue runtime errors after mount (e.g. errors in event handlers)
+        app.config.errorHandler = (err, vm, info) => {
+            console.error('Vue runtime error:', err, info);
+        };
+
         app.mount('#app');
+        } catch (err) {
+            console.error('App failed to mount:', err);
+            var loadingEl = document.getElementById('app-loading');
+            if (loadingEl) loadingEl.style.display = 'none';
+            var el = document.getElementById('app');
+            if (el) {
+                el.removeAttribute('v-cloak');
+                el.style.display = 'flex';
+                el.innerHTML = '<div style="margin:auto;text-align:center;padding:2rem;">'
+                    + '<h2 style="font-size:2rem;font-weight:bold;color:#ef4444;margin-bottom:1rem;">App Failed to Load</h2>'
+                    + '<p style="color:#94a3b8;margin-bottom:0.5rem;">' + err.message + '</p>'
+                    + '<button onclick="location.reload()" style="background:#2563eb;color:white;padding:0.75rem 2rem;border-radius:0.5rem;font-weight:bold;border:none;cursor:pointer;font-size:1.125rem;">Reload Page</button>'
+                    + '</div>';
+            }
+        }
     }); // Close DOMContentLoaded event listener
 </script>
 
