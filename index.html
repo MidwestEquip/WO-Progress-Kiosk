@@ -849,6 +849,13 @@
                                 <input v-model="actionForm.notes" type="text" :disabled="!fabWeldOperatorReady" placeholder="Add specific notes here" class="w-full bg-slate-700 p-3 rounded text-sm placeholder:text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed">
                             </div>
                         </div>
+                        <!-- Action history log -->
+                        <div v-if="activeOrder.notes" class="mt-6 border-t border-slate-700 pt-4">
+                            <div class="text-slate-500 font-bold text-xs uppercase mb-2 tracking-widest">&#128196; Action History</div>
+                            <div class="bg-slate-900 rounded-lg p-3 max-h-44 overflow-y-auto">
+                                <pre class="text-slate-400 text-xs whitespace-pre-wrap font-mono leading-relaxed">{{ activeOrder.notes }}</pre>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

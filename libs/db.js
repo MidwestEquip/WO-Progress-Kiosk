@@ -125,11 +125,31 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
         }
     }
 
-    // ── Notes append ──────────────────────────────────────────
-    let newLine = `[${new Date().toLocaleDateString()}] ${opName} marked ${stageKey ? stageKey + ' ' : ''}${newStatus}`;
-    if (newStatus === 'on_hold' && actionForm.holdReason) newLine += ` - Reason: ${actionForm.holdReason}`;
-    if (actionForm.qtyScrap > 0) newLine += ` | SCRAP: ${actionForm.qtyScrap} (${actionForm.scrapReason || 'no reason'})`;
-    if (actionForm.notes) newLine += ` | Notes: ${actionForm.notes}`;
+        // ── Notes / history log ─────────────────────────────────
+    let newLine;
+    if (isFabWeld) {
+        const ts = new Date().toLocaleString([], {
+            month: '2-digit', day: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+        const label = { started: 'STARTED', paused: 'PAUSED', on_hold: 'ON HOLD', completed: 'COMPLETED' }[newStatus] || newStatus.toUpperCase();
+        newLine = `[${ts}] ${opName}: ${label}`;
+        if ((newStatus === 'paused' || newStatus === 'completed') && sessionQty > 0) {
+            newLine += ` | ${sessionQty} pcs this session | Total: ${updates.qty_completed} / ${currentOrder.qty_required}`;
+        }
+        if (newStatus === 'on_hold' && actionForm.holdReason) {
+            newLine += ` | Reason: ${actionForm.holdReason}`;
+        }
+        if (actionForm.qtyScrap > 0) {
+            newLine += ` | Scrap: ${actionForm.qtyScrap}${actionForm.scrapReason ? ' (' + actionForm.scrapReason + ')' : ''}`;
+        }
+        if (actionForm.notes) newLine += ` | ${actionForm.notes}`;
+    } else {
+        newLine = `[${new Date().toLocaleDateString()}] ${opName} marked ${stageKey ? stageKey + ' ' : ''}${newStatus}`;
+        if (newStatus === 'on_hold' && actionForm.holdReason) newLine += ` - Reason: ${actionForm.holdReason}`;
+        if (actionForm.qtyScrap > 0) newLine += ` | SCRAP: ${actionForm.qtyScrap} (${actionForm.scrapReason || 'no reason'})`;
+        if (actionForm.notes) newLine += ` | Notes: ${actionForm.notes}`;
+    }
     updates.notes = currentOrder.notes ? currentOrder.notes + '\n' + newLine : newLine;
 
     return withRetry(() =>
