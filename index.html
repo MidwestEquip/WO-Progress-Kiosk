@@ -817,13 +817,13 @@
                             <div>
                                 <label class="block text-slate-400 font-bold mb-2">Log Scrap or Added Notes</label>
                                 <div class="flex gap-2 p-3 bg-red-900/20 border border-red-900 rounded mb-2">
-                                    <input type="number" v-model="actionForm.qtyScrap" placeholder="Scrapped Qty" class="w-1/3 bg-slate-900 p-2 text-red-400 font-bold rounded text-center">
-                                    <select v-model="actionForm.scrapReason" class="flex-1 bg-slate-800 p-2 text-xs rounded border border-slate-700">
+                                    <input type="number" v-model="actionForm.qtyScrap" :disabled="!fabWeldOperatorReady" placeholder="Scrapped Qty" class="w-1/3 bg-slate-900 p-2 text-red-400 font-bold rounded text-center disabled:opacity-40 disabled:cursor-not-allowed">
+                                    <select v-model="actionForm.scrapReason" :disabled="!fabWeldOperatorReady" class="flex-1 bg-slate-800 p-2 text-xs rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
                                         <option value="">-- Scrap Reason --</option>
                                         <option v-for="r in SCRAP_REASONS" :key="r" :value="r">{{ r }}</option>
                                     </select>
                                 </div>
-                                <input v-model="actionForm.notes" type="text" placeholder="Add specific notes here" class="w-full bg-slate-700 p-3 rounded text-sm placeholder:text-slate-500">
+                                <input v-model="actionForm.notes" type="text" :disabled="!fabWeldOperatorReady" placeholder="Add specific notes here" class="w-full bg-slate-700 p-3 rounded text-sm placeholder:text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed">
                             </div>
                         </div>
                     </div>
