@@ -124,56 +124,63 @@ export const appTitle = computed(() => {
 
 // Static category config (icons + styles) for dashboard groups
 export const dashboardCategories = [
-    {
-        id: 'prioritized', title: 'Prioritized', isPrioritized: true,
-        icon: `<svg class="w-6 h-6 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`,
-        borderColor: 'border-amber-400/50', headerColor: 'bg-amber-500/15 text-amber-300', cardBorderTop: 'border-t-amber-400'
-    },
-    {
-        id: 'started', title: 'In Progress',
-        icon: `<svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
-        borderColor: 'border-blue-500/30', headerColor: 'bg-blue-500/10 text-blue-400', cardBorderTop: 'border-t-blue-500'
-    },
-    {
-        id: 'paused', title: 'Paused',
-        icon: `<svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
-        borderColor: 'border-amber-500/30', headerColor: 'bg-amber-500/10 text-amber-400', cardBorderTop: 'border-t-amber-500'
-    },
-    {
-        id: 'on_hold', title: 'On Hold',
-        icon: `<svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`,
-        borderColor: 'border-red-500/30', headerColor: 'bg-red-500/10 text-red-500', cardBorderTop: 'border-t-red-500'
-    },
-    {
-        id: 'not_started', title: 'Not Started',
-        icon: `<svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>`,
-        borderColor: 'border-slate-600', headerColor: 'bg-slate-700 text-slate-300', cardBorderTop: 'border-t-slate-500'
-    }
+    // Priority levels
+    { id: 'priority_5', title: 'Priority 5', isPriority: true, priority: 5, borderColor: 'border-red-500/50', headerColor: 'bg-red-500/15 text-red-300', cardBorderTop: 'border-t-red-500', icon: '<svg class="w-6 h-6 text-red-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>' },
+    { id: 'priority_4', title: 'Priority 4', isPriority: true, priority: 4, borderColor: 'border-orange-500/50', headerColor: 'bg-orange-500/15 text-orange-300', cardBorderTop: 'border-t-orange-500', icon: '<svg class="w-6 h-6 text-orange-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>' },
+    { id: 'priority_3', title: 'Priority 3', isPriority: true, priority: 3, borderColor: 'border-yellow-500/50', headerColor: 'bg-yellow-500/15 text-yellow-300', cardBorderTop: 'border-t-yellow-500', icon: '<svg class="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>' },
+    { id: 'priority_2', title: 'Priority 2', isPriority: true, priority: 2, borderColor: 'border-blue-500/50', headerColor: 'bg-blue-500/15 text-blue-300', cardBorderTop: 'border-t-blue-500', icon: '<svg class="w-6 h-6 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>' },
+    { id: 'priority_1', title: 'Priority 1', isPriority: true, priority: 1, borderColor: 'border-cyan-500/50', headerColor: 'bg-cyan-500/15 text-cyan-300', cardBorderTop: 'border-t-cyan-500', icon: '<svg class="w-6 h-6 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>' },
+    // Unassigned by status
+    { id: 'unassigned_started', title: 'Unassigned — In Progress', borderColor: 'border-blue-500/30', headerColor: 'bg-blue-500/10 text-blue-400', cardBorderTop: 'border-t-blue-500', icon: '<svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' },
+    { id: 'unassigned_paused', title: 'Unassigned — Paused', borderColor: 'border-amber-500/30', headerColor: 'bg-amber-500/10 text-amber-400', cardBorderTop: 'border-t-amber-500', icon: '<svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' },
+    { id: 'unassigned_on_hold', title: 'Unassigned — On Hold', borderColor: 'border-red-500/30', headerColor: 'bg-red-500/10 text-red-500', cardBorderTop: 'border-t-red-500', icon: '<svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>' },
+    { id: 'unassigned_not_started', title: 'Unassigned — Not Started', borderColor: 'border-slate-600', headerColor: 'bg-slate-700 text-slate-300', cardBorderTop: 'border-t-slate-500', icon: '<svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>' }
 ];
 
-// Orders grouped by status for the dashboard grid
+// Orders grouped by priority (5-1), then unassigned by status
 export const groupedOrders = computed(() => {
     const STATUS_ORDER = { started: 0, resumed: 0, paused: 1, on_hold: 2, not_started: 3 };
-    const groups = { prioritized: [], started: [], paused: [], on_hold: [], not_started: [] };
+    const groups = {
+        priority_5: [], priority_4: [], priority_3: [], priority_2: [], priority_1: [],
+        unassigned_started: [], unassigned_paused: [], unassigned_on_hold: [], unassigned_not_started: []
+    };
+
     orders.value.forEach(o => {
         let stat = o.status || 'not_started';
         if (stat === 'resumed') stat = 'started';
-        if ((o.priority || 0) > 0) {
-            groups.prioritized.push(o);
+
+        const pri = o.priority || 0;
+        if (pri === 5) {
+            groups.priority_5.push(o);
+        } else if (pri === 4) {
+            groups.priority_4.push(o);
+        } else if (pri === 3) {
+            groups.priority_3.push(o);
+        } else if (pri === 2) {
+            groups.priority_2.push(o);
+        } else if (pri === 1) {
+            groups.priority_1.push(o);
         } else {
-            if (groups[stat]) groups[stat].push(o);
-            else groups.not_started.push(o);
+            // Unassigned: organize by status
+            if (stat === 'started') groups.unassigned_started.push(o);
+            else if (stat === 'paused') groups.unassigned_paused.push(o);
+            else if (stat === 'on_hold') groups.unassigned_on_hold.push(o);
+            else groups.unassigned_not_started.push(o);
         }
     });
-    // Sort prioritized: highest priority first, then by status, then by due date
-    groups.prioritized.sort((a, b) => {
-        if ((b.priority || 0) !== (a.priority || 0)) return (b.priority || 0) - (a.priority || 0);
-        const sa = STATUS_ORDER[a.status] ?? 3;
-        const sb = STATUS_ORDER[b.status] ?? 3;
-        if (sa !== sb) return sa - sb;
-        if (a.due_date && b.due_date) return new Date(a.due_date) - new Date(b.due_date);
-        return 0;
+
+    // Within each priority group, sort by status then due date
+    [1, 2, 3, 4, 5].forEach(p => {
+        const key = `priority_${p}`;
+        groups[key].sort((a, b) => {
+            const sa = STATUS_ORDER[a.status] ?? 3;
+            const sb = STATUS_ORDER[b.status] ?? 3;
+            if (sa !== sb) return sa - sb;
+            if (a.due_date && b.due_date) return new Date(a.due_date) - new Date(b.due_date);
+            return 0;
+        });
     });
+
     return groups;
 });
 

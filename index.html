@@ -164,9 +164,7 @@
                                 <div v-for="order in groupedOrders[cat.id]" :key="order.id"
                                     @click="openActionPanel(order)"
                                     class="bg-slate-700/80 p-5 rounded-lg border-t-[6px] cursor-pointer hover:bg-slate-600 relative"
-                                    :class="cat.isPrioritized
-                                        ? (order.priority===5 ? 'border-t-red-500' : order.priority===4 ? 'border-t-orange-500' : order.priority===3 ? 'border-t-yellow-400' : order.priority===2 ? 'border-t-blue-500' : 'border-t-slate-400')
-                                        : cat.cardBorderTop">
+                                    :class="cat.cardBorderTop">
                                     <div class="flex justify-between items-start">
                                         <div class="font-bold border px-1 text-slate-300 text-2xl tracking-tight">{{ order.wo_number }}</div>
                                         <div v-if="order.priority > 0"
