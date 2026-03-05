@@ -221,3 +221,18 @@ export function getFabWeldOperatorName() {
     }
     return base.join(' & ');
 }
+
+// ── holdSince ─────────────────────────────────────────────────
+// Parses the last "ON HOLD" log entry from order.notes and returns
+// the timestamp string, or null if the WO is not on hold / has no log.
+export function holdSince(order) {
+    if (!order || order.status !== 'on_hold' || !order.notes) return null;
+    const lines = order.notes.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].includes(': ON HOLD')) {
+            const m = lines[i].match(/^\[([^\]]+)\]/);
+            return m ? m[1] : null;
+        }
+    }
+    return null;
+}
