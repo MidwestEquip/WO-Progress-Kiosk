@@ -798,11 +798,13 @@
                         <!-- started / resumed: PAUSE + COMPLETE -->
                         <div v-else-if="activeOrder.status === 'started' || activeOrder.status === 'resumed'" class="grid grid-cols-2 gap-6">
                             <div class="bg-slate-700 p-4 rounded-xl border border-slate-600 flex flex-col items-center">
-                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty">
+                                <div class="text-slate-400 text-xs mb-1">Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}</div>
+                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
                                 <button @click="updateOrderStatus('paused')" :disabled="!fabWeldOperatorReady" class="bg-amber-500 hover:bg-amber-400 text-slate-900 w-full rounded py-3 font-extrabold disabled:opacity-40 disabled:cursor-not-allowed">PAUSE DAY</button>
                             </div>
                             <div class="bg-slate-700 p-4 rounded-xl border border-slate-600 flex flex-col items-center">
-                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty">
+                                <div class="text-slate-400 text-xs mb-1">Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}</div>
+                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
                                 <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady" class="bg-emerald-600 hover:bg-emerald-500 w-full rounded py-3 font-extrabold text-white disabled:opacity-40 disabled:cursor-not-allowed">COMPLETE WO</button>
                             </div>
                         </div>
@@ -817,7 +819,8 @@
                                 RESUME JOB
                             </button>
                             <div class="bg-slate-700 p-4 rounded-xl border border-slate-600 flex flex-col items-center">
-                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty">
+                                <div class="text-slate-400 text-xs mb-1">Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}</div>
+                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
                                 <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady" class="bg-emerald-600 hover:bg-emerald-500 w-full rounded py-3 font-extrabold text-white disabled:opacity-40 disabled:cursor-not-allowed">COMPLETE WO</button>
                             </div>
                         </div>

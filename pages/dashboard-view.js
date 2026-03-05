@@ -18,7 +18,7 @@ export function openActionPanel(order) {
     store.otherOperator.value    = '';
     store.selectedOperators.value = [];
     store.actionForm.value       = {
-        qtyCompleted: order.qty_completed || 0,
+        qtyCompleted: (order.department === 'Fab' || order.department === 'Weld') ? 0 : (order.qty_completed || 0),
         qtyScrap:     0,
         scrapReason:  '',
         notes:        '',

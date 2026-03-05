@@ -72,9 +72,14 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
     if (!opName)   return { data: null, error: new Error('Operator name is required') };
 
     const now = new Date().toISOString();
+    const isFabWeld = !stageKey &&
+        (currentOrder.department === 'Fab' || currentOrder.department === 'Weld');
+    const sessionQty = parseFloat(actionForm.qtyCompleted) || 0;
     const updates = {
         operator:      opName,
-        qty_completed: parseFloat(actionForm.qtyCompleted) || 0
+        qty_completed: isFabWeld
+            ? (parseFloat(currentOrder.qty_completed) || 0) + sessionQty
+            : sessionQty
     };
 
     // ── Sub-stage logic (TC Assy / TV Assy) ──────────────────
