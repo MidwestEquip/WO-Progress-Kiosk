@@ -36,7 +36,7 @@ import {
 } from './pages/wo-status-view.js';
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
-    fetchPriorityOrders, updatePriority
+    fetchPriorityOrders, updatePriority, openNotesPanel
 } from './pages/manager-view.js';
 import { searchCS } from './pages/cs-view.js';
 
@@ -161,7 +161,7 @@ try {
 
                 // Manager
                 openManagerSection, loadKpiData, loadDelayedOrders,
-                fetchPriorityOrders, updatePriority,
+                fetchPriorityOrders, updatePriority, openNotesPanel,
 
                 // CS
                 searchCS,

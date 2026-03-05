@@ -171,3 +171,14 @@ export async function updatePriority(id, val) {
         store.showToast('Failed to update priority: ' + err.message);
     }
 }
+
+// ── openNotesPanel ────────────────────────────────────────────
+// Open the notes panel for a WO from manager view (priorities or delayed)
+export function openNotesPanel(order) {
+    store.activeOrder.value = order;
+    store.noteAuthor.value = '';
+    store.noteText.value = '';
+    store.noteAuthorError.value = false;
+    store.noteTextError.value = false;
+    store.notesPanelOpen.value = true;
+}
