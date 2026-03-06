@@ -12,8 +12,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ----- Auth PINs -----
 // Future: move these to Supabase secrets or environment variables
-export const MANAGER_PIN = "1234";
-export const CS_PIN = "5678";
+export const MANAGER_PIN  = "1234";
+export const CS_PIN       = "5678";
+export const CLOSEOUT_PIN = "2580";   // Close-Out view PIN
 
 // ----- Operators per department -----
 export const OPERATORS_BY_DEPT = {

@@ -33,7 +33,8 @@ import {
 } from './pages/dashboard-view.js';
 import {
     searchOfficeReceive, openReceiveModal, submitReceive,
-    openCloseoutModal, submitCloseout, loadReceivingEligible
+    openCloseoutModal, submitCloseout, loadReceivingEligible,
+    switchToCloseout
 } from './pages/wo-status-view.js';
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
@@ -64,9 +65,13 @@ try {
                 if (loadingEl) loadingEl.remove();
             });
 
-            // Load receiving eligible list whenever entering the WO Status view
+            // Load receiving eligible list when entering WO Status; reset Close-Out auth when leaving
             watch(store.currentView, (v) => {
-                if (v === 'wo_status') loadReceivingEligible();
+                if (v === 'wo_status') {
+                    loadReceivingEligible();
+                } else {
+                    store.closeoutAuthorized.value = false;
+                }
             });
 
             // ── Expose everything the templates need ──────────
@@ -122,6 +127,7 @@ try {
                 officeSearchTerm:     store.officeSearchTerm,
                 officeSearchResults:  store.officeSearchResults,
                 receiveEligibleList:  store.receiveEligibleList,
+                closeoutAuthorized:   store.closeoutAuthorized,
                 officeSuccessMsg:     store.officeSuccessMsg,
                 officeCloseoutFilter: store.officeCloseoutFilter,
                 filteredCloseoutOrders: store.filteredCloseoutOrders,
@@ -168,6 +174,7 @@ try {
                 // Office
                 searchOfficeReceive, openReceiveModal, submitReceive,
                 openCloseoutModal, submitCloseout, loadReceivingEligible,
+                switchToCloseout,
 
                 // Manager
                 openManagerSection, loadKpiData, loadDelayedOrders,

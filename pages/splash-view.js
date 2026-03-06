@@ -7,7 +7,7 @@
 
 import * as store  from '../libs/store.js';
 import * as db     from '../libs/db.js';
-import { MANAGER_PIN, CS_PIN } from '../libs/config.js';
+import { MANAGER_PIN, CS_PIN, CLOSEOUT_PIN } from '../libs/config.js';
 
 // ── promptPin ─────────────────────────────────────────────────
 // Opens the PIN modal for manager or CS access
@@ -48,6 +48,17 @@ export async function submitPin() {
         store.csResultInfo.value = null;
         store.csTimeline.value   = [];
         store.csOpenOrders.value = [];
+        return;
+    }
+
+    if (mode === 'closeout_office' && pin === CLOSEOUT_PIN) {
+        store.closeoutAuthorized.value = true;
+        store.officeMode.value         = 'closeout';
+        store.officeSearchTerm.value   = '';
+        store.officeSearchResults.value = [];
+        store.officeSuccessMsg.value   = '';
+        store.pinModalOpen.value       = false;
+        store.pinInput.value           = '';
         return;
     }
 

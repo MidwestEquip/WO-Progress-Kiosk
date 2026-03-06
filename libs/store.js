@@ -69,6 +69,7 @@ export const officeSearchResults  = ref([]);
 export const officeSuccessMsg     = ref('');
 export const officeCloseoutFilter  = ref('');
 export const receiveEligibleList   = ref([]);   // eligible WOs for receiving (from eligible depts, not yet received/closed)
+export const closeoutAuthorized    = ref(false); // true once Close-Out PIN verified; reset when leaving wo_status
 
 // Receive modal
 export const receiveModalOpen  = ref(false);

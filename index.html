@@ -204,7 +204,7 @@
                             {{ officeMode === 'receive' ? 'Receiving' : 'Close-Out' }}
                         </h2>
                     </div>
-                    <button @click="officeMode = officeMode === 'receive' ? 'closeout' : 'receive'; officeSearchTerm = ''; officeSearchResults = []; officeSuccessMsg = ''"
+                    <button @click="officeMode === 'receive' ? switchToCloseout() : (officeMode = 'receive', officeSearchTerm = '', officeSearchResults = [], officeSuccessMsg = '')"
                         class="px-5 py-2 rounded-lg font-bold text-sm transition-all active:scale-95"
                         :class="officeMode==='receive' ? 'bg-violet-700 hover:bg-violet-600 text-white' : 'bg-blue-700 hover:bg-blue-600 text-white'">
                         {{ officeMode === 'receive' ? '&#8594; Go to Close-Out List' : '&#8594; Receive New Items' }}

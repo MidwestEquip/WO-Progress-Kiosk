@@ -38,6 +38,19 @@ export function searchOfficeReceive() {
 }
 
 // ── openReceiveModal ──────────────────────────────────────────
+export function switchToCloseout() {
+    store.officeSearchTerm.value    = '';
+    store.officeSearchResults.value = [];
+    store.officeSuccessMsg.value    = '';
+    if (store.closeoutAuthorized.value) {
+        store.officeMode.value = 'closeout';
+    } else {
+        store.pinInput.value     = '';
+        store.pinMode.value      = 'closeout_office';
+        store.pinModalOpen.value = true;
+    }
+}
+
 export function openReceiveModal(order) {
     store.receiveTarget.value     = order;
     store.receiverName.value      = '';
