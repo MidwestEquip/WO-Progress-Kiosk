@@ -989,7 +989,7 @@
                 <div v-if="tvAssyEntryStep === 2" class="p-6 space-y-4">
                     <div class="text-slate-400 text-xs font-bold uppercase tracking-widest">Step 2 of 2 &mdash; Select Job Type</div>
                     <div class="text-slate-300 text-sm mb-2">Working as: <span class="text-cyan-300 font-bold">{{ tvAssyEntryName }}</span></div>
-                    <button class="w-full py-6 bg-blue-700 hover:bg-blue-600 text-white font-bold text-xl rounded-xl active:scale-95 transition-all border border-blue-500/50 flex flex-col items-center gap-1">
+                    <button @click="openTvAssyUnit(activeOrder)" class="w-full py-6 bg-blue-700 hover:bg-blue-600 text-white font-bold text-xl rounded-xl active:scale-95 transition-all border border-blue-500/50 flex flex-col items-center gap-1">
                         <span>&#128187; This WO is for a Unit</span>
                         <span class="text-blue-300 text-sm font-normal">(Engine + Cart + Final Assy)</span>
                     </button>
@@ -1002,6 +1002,121 @@
                         &#8592; Back
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- TV ASSY UNIT MODAL -->
+        <div v-if="tvAssyUnitOpen" class="fixed z-50 inset-0 bg-black/80 flex items-center justify-center p-4">
+            <div class="bg-slate-800 rounded-2xl w-full max-w-4xl border border-blue-500/40 shadow-2xl flex flex-col" style="max-height:90vh">
+
+                <!-- Header -->
+                <div class="bg-blue-900/30 border-b border-blue-700/40 p-5 flex justify-between items-center rounded-t-2xl shrink-0">
+                    <div>
+                        <div class="font-bold text-blue-300 text-lg">&#128187; Unit TV Assembly</div>
+                        <div class="text-slate-400 text-sm">WO #{{ activeOrder?.wo_number }} &mdash; {{ activeOrder?.part_number }}
+                            <span v-if="activeOrder?.sales_order" class="text-emerald-400 ml-2">SO# {{ activeOrder.sales_order }}</span>
+                        </div>
+                        <div class="text-cyan-400 text-xs mt-0.5">Operator: {{ tvAssyEntryName }} &bull; Qty Required: {{ activeOrder?.qty_required }}</div>
+                    </div>
+                    <button @click="tvAssyUnitOpen = false" class="text-slate-400 hover:text-white bg-slate-700 p-2 rounded text-lg leading-none">&#10005;</button>
+                </div>
+
+                <!-- Stage panels -->
+                <div class="flex-1 overflow-y-auto p-5">
+                    <div class="grid grid-cols-3 gap-4">
+
+                        <!-- ENGINE ASSY -->
+                        <div class="bg-slate-700/80 rounded-xl border border-blue-500/30 p-5 flex flex-col gap-3">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-2xl">&#9881;</span>
+                                <span class="font-bold text-blue-300 text-base uppercase tracking-wide">Engine Assy</span>
+                            </div>
+                            <div>
+                                <div class="text-slate-500 text-xs font-bold uppercase mb-1">Status</div>
+                                <div class="text-sm font-semibold px-2 py-1 rounded inline-block"
+                                    :class="activeOrder?.tv_engine_status === 'completed' ? 'bg-emerald-800 text-emerald-300' : activeOrder?.tv_engine_status === 'started' ? 'bg-blue-800 text-blue-300' : activeOrder?.tv_engine_status === 'paused' ? 'bg-amber-800 text-amber-300' : activeOrder?.tv_engine_status === 'on_hold' ? 'bg-red-900 text-red-300' : 'bg-slate-600 text-slate-400'">
+                                    {{ activeOrder?.tv_engine_status || 'Not Started' }}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-slate-500 text-xs font-bold uppercase mb-1">Done So Far</div>
+                                <div class="text-3xl font-bold text-blue-400">
+                                    {{ activeOrder?.tv_engine_qty ?? '&mdash;' }}
+                                    <span class="text-slate-500 text-base font-normal">/ {{ activeOrder?.qty_required }}</span>
+                                </div>
+                            </div>
+                            <div class="mt-auto pt-3 border-t border-slate-600/50 opacity-40 pointer-events-none">
+                                <div class="h-9 bg-slate-600 rounded-lg flex items-center justify-center text-slate-400 text-xs font-bold">Actions (Patch 5)</div>
+                            </div>
+                        </div>
+
+                        <!-- CART ASSY -->
+                        <div class="bg-slate-700/80 rounded-xl border border-amber-500/30 p-5 flex flex-col gap-3">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-2xl">&#128722;</span>
+                                <span class="font-bold text-amber-300 text-base uppercase tracking-wide">Cart Assy</span>
+                            </div>
+                            <div>
+                                <div class="text-slate-500 text-xs font-bold uppercase mb-1">Status</div>
+                                <div class="text-sm font-semibold px-2 py-1 rounded inline-block"
+                                    :class="activeOrder?.tv_cart_status === 'completed' ? 'bg-emerald-800 text-emerald-300' : activeOrder?.tv_cart_status === 'started' ? 'bg-blue-800 text-blue-300' : activeOrder?.tv_cart_status === 'paused' ? 'bg-amber-800 text-amber-300' : activeOrder?.tv_cart_status === 'on_hold' ? 'bg-red-900 text-red-300' : 'bg-slate-600 text-slate-400'">
+                                    {{ activeOrder?.tv_cart_status || 'Not Started' }}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-slate-500 text-xs font-bold uppercase mb-1">Done So Far</div>
+                                <div class="text-3xl font-bold text-amber-400">
+                                    {{ activeOrder?.tv_cart_qty ?? '&mdash;' }}
+                                    <span class="text-slate-500 text-base font-normal">/ {{ activeOrder?.qty_required }}</span>
+                                </div>
+                            </div>
+                            <div class="mt-auto pt-3 border-t border-slate-600/50 opacity-40 pointer-events-none">
+                                <div class="h-9 bg-slate-600 rounded-lg flex items-center justify-center text-slate-400 text-xs font-bold">Actions (Patch 5)</div>
+                            </div>
+                        </div>
+
+                        <!-- FINAL ASSY -->
+                        <div class="bg-slate-700/80 rounded-xl border p-5 flex flex-col gap-3 transition-opacity"
+                            :class="(activeOrder?.tv_engine_status === 'completed' && activeOrder?.tv_cart_status === 'completed') ? 'border-emerald-500/30' : 'border-slate-600/40 opacity-60'">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-2xl">&#127937;</span>
+                                <span class="font-bold text-emerald-300 text-base uppercase tracking-wide">Final Assy</span>
+                            </div>
+
+                            <!-- Locked -->
+                            <div v-if="!(activeOrder?.tv_engine_status === 'completed' && activeOrder?.tv_cart_status === 'completed')"
+                                class="flex-1 flex flex-col items-center justify-center text-center gap-3 py-8">
+                                <div class="text-5xl">&#128274;</div>
+                                <div class="text-slate-400 text-sm leading-relaxed">
+                                    Waiting for Engine + Cart<br>to be marked done
+                                </div>
+                            </div>
+
+                            <!-- Unlocked -->
+                            <template v-else>
+                                <div>
+                                    <div class="text-slate-500 text-xs font-bold uppercase mb-1">Status</div>
+                                    <div class="text-sm font-semibold px-2 py-1 rounded inline-block"
+                                        :class="activeOrder?.tv_final_status === 'completed' ? 'bg-emerald-800 text-emerald-300' : activeOrder?.tv_final_status === 'started' ? 'bg-blue-800 text-blue-300' : activeOrder?.tv_final_status === 'paused' ? 'bg-amber-800 text-amber-300' : activeOrder?.tv_final_status === 'on_hold' ? 'bg-red-900 text-red-300' : 'bg-slate-600 text-slate-400'">
+                                        {{ activeOrder?.tv_final_status || 'Not Started' }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-slate-500 text-xs font-bold uppercase mb-1">Done So Far</div>
+                                    <div class="text-3xl font-bold text-emerald-400">
+                                        {{ activeOrder?.tv_final_qty ?? '&mdash;' }}
+                                        <span class="text-slate-500 text-base font-normal">/ {{ activeOrder?.qty_required }}</span>
+                                    </div>
+                                </div>
+                                <div class="mt-auto pt-3 border-t border-slate-600/50 opacity-40 pointer-events-none">
+                                    <div class="h-9 bg-slate-600 rounded-lg flex items-center justify-center text-slate-400 text-xs font-bold">Actions (Patch 6)</div>
+                                </div>
+                            </template>
+                        </div>
+
+                    </div><!-- /grid -->
+                </div><!-- /scroll area -->
+
             </div>
         </div>
 

@@ -204,6 +204,13 @@ export function openTvAssyEntry(order) {
     store.tvAssyNameError.value  = false;
 }
 
+export function openTvAssyUnit(order) {
+    store.activeOrder.value      = order;
+    store.tvAssyJobType.value    = 'unit';
+    store.tvAssyEntryOpen.value  = false;
+    store.tvAssyUnitOpen.value   = true;
+}
+
 export function openTvAssyStock(order) {
     store.activeOrder.value        = order;
     store.tvAssyJobType.value      = 'stock';

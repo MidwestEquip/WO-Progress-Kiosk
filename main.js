@@ -28,7 +28,7 @@ import { formatDateLocal } from './libs/utils.js';
 import { selectDept, promptPin, submitPin, goBack } from './pages/splash-view.js';
 import {
     openActionPanel, openTvAssyEntry, tvAssyNameContinue,
-    openTvAssyStock, submitTvStockActionFromUi,
+    openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
     getFinalOperatorName, getFabWeldOperatorName, holdSince,
     updateOrderStatus, undoLastAction,
     submitNewWo, submitNote
@@ -141,6 +141,7 @@ try {
                 pinInput:     store.pinInput,
 
                 // TV Assy stock
+                tvAssyUnitOpen:   store.tvAssyUnitOpen,
                 tvAssyStockOpen:  store.tvAssyStockOpen,
                 tvStockPending:   store.tvStockPending,
                 tvStockSessionQty: store.tvStockSessionQty,
@@ -202,7 +203,7 @@ try {
 
                 // Dashboard
                 openActionPanel, openTvAssyEntry, tvAssyNameContinue,
-                openTvAssyStock, submitTvStockActionFromUi,
+                openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
                 updateOrderStatus, undoLastAction,
                 submitNewWo, submitNote,
 

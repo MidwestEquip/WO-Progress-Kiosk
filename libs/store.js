@@ -114,6 +114,7 @@ export const tvAssyEntryName  = ref('');
 export const tvAssyNameError  = ref(false);
 export const tvAssyJobType    = ref('');    // 'stock' | 'unit'
 export const tvAssyStockOpen  = ref(false);
+export const tvAssyUnitOpen   = ref(false);
 export const tvStockPending   = ref('');    // ''|'start'|'cant_start'|'pause'|'resume'|'complete'|'hold'
 export const tvStockSessionQty = ref('');
 export const tvStockReason    = ref('');
