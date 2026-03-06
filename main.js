@@ -33,8 +33,7 @@ import {
 } from './pages/dashboard-view.js';
 import {
     searchOfficeReceive, openReceiveModal, submitReceive,
-    openCloseoutModal, submitCloseout, loadReceivingEligible,
-    switchToCloseout
+    openCloseoutModal, submitCloseout, loadReceivingEligible
 } from './pages/wo-status-view.js';
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
@@ -75,6 +74,21 @@ try {
             });
 
             // ── Expose everything the templates need ──────────
+            // Close-Out mode switch: defined here in setup() to avoid cross-module caching issues.
+            // Uses optional chaining so it degrades safely if closeoutAuthorized ref is missing.
+            function goToCloseout() {
+                store.officeSearchTerm.value    = '';
+                store.officeSearchResults.value = [];
+                store.officeSuccessMsg.value    = '';
+                if (store.closeoutAuthorized?.value) {
+                    store.officeMode.value = 'closeout';
+                } else {
+                    store.pinInput.value     = '';
+                    store.pinMode.value      = 'closeout_office';
+                    store.pinModalOpen.value = true;
+                }
+            }
+
             return {
                 // Navigation state
                 currentView:   store.currentView,
@@ -174,7 +188,7 @@ try {
                 // Office
                 searchOfficeReceive, openReceiveModal, submitReceive,
                 openCloseoutModal, submitCloseout, loadReceivingEligible,
-                switchToCloseout,
+                goToCloseout,
 
                 // Manager
                 openManagerSection, loadKpiData, loadDelayedOrders,
