@@ -941,11 +941,39 @@
 
         <!-- RECEIVE MODAL -->
         <div v-if="receiveModalOpen" class="fixed z-50 inset-0 bg-black/80 flex items-center justify-center p-4">
-            <div class="bg-slate-800 rounded-2xl w-full max-w-md border border-blue-500/30 shadow-2xl">
-                <div class="bg-blue-900/30 border-b border-blue-500/30 p-5 rounded-t-2xl">
-                    <div class="font-bold text-blue-300 text-lg">Receive Items</div>
-                    <div class="text-slate-400 text-sm mt-0.5">WO #{{ receiveTarget?.wo_number }} &#8212; {{ receiveTarget?.part_number }}</div>
+            <div class="bg-slate-800 rounded-2xl w-full max-w-2xl border border-blue-500/30 shadow-2xl">
+                <!-- WO details header -->
+                <div class="bg-blue-900/30 border-b border-blue-500/30 p-6 rounded-t-2xl">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <div class="text-blue-400 text-xs font-bold uppercase tracking-widest mb-1">Receiving</div>
+                            <div class="font-extrabold text-white text-3xl">WO #{{ receiveTarget?.wo_number }}</div>
+                        </div>
+                        <span class="text-sm px-3 py-1 rounded-full font-bold mt-1"
+                            :class="receiveTarget?.department==='Weld'?'bg-red-700/60 text-red-300':receiveTarget?.department==='Fab'?'bg-amber-700/60 text-amber-300':'bg-emerald-700/60 text-emerald-300'">
+                            {{ receiveTarget?.department }}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <div class="text-slate-500 text-xs uppercase tracking-wide mb-0.5">Part #</div>
+                            <div class="text-white font-medium">{{ receiveTarget?.part_number }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-500 text-xs uppercase tracking-wide mb-0.5">Description</div>
+                            <div class="text-white font-medium">{{ receiveTarget?.description || '&#8212;' }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-500 text-xs uppercase tracking-wide mb-0.5">Qty Required</div>
+                            <div class="text-white font-bold text-lg">{{ receiveTarget?.qty_required ?? '&#8212;' }}</div>
+                        </div>
+                        <div v-if="receiveTarget?.qty_completed != null">
+                            <div class="text-slate-500 text-xs uppercase tracking-wide mb-0.5">Qty Completed</div>
+                            <div class="text-emerald-400 font-bold text-lg">{{ receiveTarget.qty_completed }}</div>
+                        </div>
+                    </div>
                 </div>
+                <!-- Form -->
                 <div class="p-6 space-y-4">
                     <div>
                         <label class="block text-slate-400 text-sm font-bold mb-1 uppercase tracking-wide">Receiver Name <span class="text-red-400">*</span></label>
@@ -955,14 +983,14 @@
                         <div v-if="receiverNameError" class="text-red-400 text-xs mt-1">Name is required</div>
                     </div>
                     <div>
-                        <label class="block text-slate-400 text-sm font-bold mb-1 uppercase tracking-wide">Qty Received <span class="text-slate-600 text-xs normal-case">(optional)</span></label>
+                        <label class="block text-slate-400 text-sm font-bold mb-1 uppercase tracking-wide">QTY Counted <span class="text-slate-600 text-xs normal-case">(optional)</span></label>
                         <input v-model.number="receiverQty" type="number" min="0"
                             :placeholder="String(receiveTarget?.qty_completed || receiveTarget?.qty_required || '')"
                             class="w-full p-3 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
                     </div>
                     <div class="flex gap-3 pt-2">
                         <button @click="receiveModalOpen = false" class="flex-1 p-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold">CANCEL</button>
-                        <button @click="submitReceive" class="flex-1 p-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold text-white">RECEIVE &#10003;</button>
+                        <button @click="submitReceive" class="flex-1 p-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-extrabold text-white text-lg">Mark as Received &#10003;</button>
                     </div>
                 </div>
             </div>
