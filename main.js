@@ -37,7 +37,7 @@ import {
 } from './pages/wo-status-view.js';
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
-    fetchPriorityOrders, updatePriority, openNotesPanel
+    fetchPriorityOrders, updatePriority, openNotesPanel, loadManagerAlerts
 } from './pages/manager-view.js';
 import { searchCS } from './pages/cs-view.js';
 
@@ -64,13 +64,15 @@ try {
                 if (loadingEl) loadingEl.remove();
             });
 
-            // Load receiving eligible list when entering WO Status; reset Close-Out auth when leaving
+            // Load data on view entry; reset Close-Out auth when leaving wo_status
             watch(store.currentView, (v) => {
-                if (v === 'wo_status') {
-                    loadReceivingEligible();
-                } else {
-                    store.closeoutAuthorized.value = false;
-                }
+                if (v !== 'wo_status') store.closeoutAuthorized.value = false;
+                if (v === 'wo_status') loadReceivingEligible();
+                if (v === 'manager')   loadManagerAlerts();
+            });
+            // Reload alerts when navigating back to Manager Hub home from any sub-section
+            watch(store.managerSubView, (v) => {
+                if (v === 'home' && store.currentView.value === 'manager') loadManagerAlerts();
             });
 
             // ── Expose everything the templates need ──────────
@@ -166,6 +168,7 @@ try {
                 kpiCycleTime:   store.kpiCycleTime,
                 kpiHoldReasons: store.kpiHoldReasons,
                 kpiOldestWos:   store.kpiOldestWos,
+                managerAlerts:  store.managerAlerts,
 
                 // CS
                 csSearchTerm:  store.csSearchTerm,
@@ -192,7 +195,7 @@ try {
 
                 // Manager
                 openManagerSection, loadKpiData, loadDelayedOrders,
-                fetchPriorityOrders, updatePriority, openNotesPanel,
+                fetchPriorityOrders, updatePriority, openNotesPanel, loadManagerAlerts,
 
                 // CS
                 searchCS,

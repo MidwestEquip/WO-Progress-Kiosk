@@ -325,7 +325,7 @@
             <div v-if="currentView === 'manager'" class="h-full w-full bg-slate-900 overflow-y-auto absolute inset-0">
 
                 <!-- Home -->
-                <div v-if="managerSubView === 'home'" class="flex flex-col items-center justify-center h-full p-8">
+                <div v-if="managerSubView === 'home'" class="flex flex-col items-center p-8 pb-12">
                     <div class="text-center mb-10">
                         <h2 class="text-5xl font-extrabold text-yellow-400 mb-2">Manager's Hub</h2>
                         <p class="text-slate-400 text-lg">Select a section to dive in</p>
@@ -350,6 +350,82 @@
                             <span class="text-red-300 text-sm text-center">Overdue by department thresholds</span>
                         </button>
                     </div>
+
+                    <!-- Alert Buckets: 2x2 grid below nav buttons -->
+                    <div class="w-full max-w-5xl mt-10">
+                        <div class="text-slate-500 font-bold text-xs uppercase tracking-widest mb-4">&#9888; Live Alerts</div>
+                        <div class="grid grid-cols-2 gap-5">
+
+                            <!-- 1. Completed Not Received (Yellow) -->
+                            <div class="rounded-xl border border-yellow-500/40 overflow-hidden">
+                                <div class="bg-yellow-900/40 px-4 py-3 border-b border-yellow-500/30">
+                                    <div class="font-bold text-yellow-300 text-sm">Completed Not Received</div>
+                                    <div class="text-yellow-700 text-xs mt-0.5">Completed &gt; 7 days &amp; not yet received</div>
+                                </div>
+                                <div class="p-3 space-y-2 bg-slate-800/60 min-h-[4rem]">
+                                    <div v-if="managerAlerts.completedNotReceived.length === 0" class="text-slate-600 text-sm py-3 text-center">None</div>
+                                    <div v-for="o in managerAlerts.completedNotReceived" :key="o.id"
+                                        class="flex items-center justify-between bg-slate-900/60 rounded-lg px-3 py-2">
+                                        <span class="font-bold text-white text-sm">WO #{{ o.wo_number }}</span>
+                                        <span class="text-slate-400 text-xs">{{ o.part_number }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Paused / On Hold > 5 Days (Orange) -->
+                            <div class="rounded-xl border border-orange-500/40 overflow-hidden">
+                                <div class="bg-orange-900/40 px-4 py-3 border-b border-orange-500/30">
+                                    <div class="font-bold text-orange-300 text-sm">Paused / On Hold &gt; 5 Days</div>
+                                    <div class="text-orange-700 text-xs mt-0.5">Paused or on hold, started &gt; 5 days ago</div>
+                                </div>
+                                <div class="p-3 space-y-2 bg-slate-800/60 min-h-[4rem]">
+                                    <div v-if="managerAlerts.pausedOnHold.length === 0" class="text-slate-600 text-sm py-3 text-center">None</div>
+                                    <div v-for="o in managerAlerts.pausedOnHold" :key="o.id"
+                                        class="flex items-center justify-between bg-slate-900/60 rounded-lg px-3 py-2">
+                                        <span class="font-bold text-white text-sm">WO #{{ o.wo_number }}</span>
+                                        <span class="text-slate-400 text-xs">{{ o.part_number }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 3. Started No Progress > 2 Days (Red) -->
+                            <div class="rounded-xl border border-red-500/40 overflow-hidden">
+                                <div class="bg-red-900/40 px-4 py-3 border-b border-red-500/30">
+                                    <div class="font-bold text-red-300 text-sm">Started No Progress &gt; 2 Days</div>
+                                    <div class="text-red-700 text-xs mt-0.5">Started &gt; 2 days ago with 0 qty completed</div>
+                                </div>
+                                <div class="p-3 space-y-2 bg-slate-800/60 min-h-[4rem]">
+                                    <div v-if="managerAlerts.startedNoProgress.length === 0" class="text-slate-600 text-sm py-3 text-center">None</div>
+                                    <div v-for="o in managerAlerts.startedNoProgress" :key="o.id"
+                                        class="flex items-center justify-between bg-slate-900/60 rounded-lg px-3 py-2">
+                                        <span class="font-bold text-white text-sm">WO #{{ o.wo_number }}</span>
+                                        <span class="text-slate-400 text-xs">{{ o.part_number }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 4. Qty Mismatch (Light Blue) -->
+                            <div class="rounded-xl border border-sky-500/40 overflow-hidden">
+                                <div class="bg-sky-900/40 px-4 py-3 border-b border-sky-500/30">
+                                    <div class="font-bold text-sky-300 text-sm">Qty Mismatch</div>
+                                    <div class="text-sky-700 text-xs mt-0.5">Received qty &#8800; completed qty</div>
+                                </div>
+                                <div class="p-3 space-y-2 bg-slate-800/60 min-h-[4rem]">
+                                    <div v-if="managerAlerts.qtyMismatch.length === 0" class="text-slate-600 text-sm py-3 text-center">None</div>
+                                    <div v-for="o in managerAlerts.qtyMismatch" :key="o.id"
+                                        class="flex items-center justify-between bg-slate-900/60 rounded-lg px-3 py-2">
+                                        <div>
+                                            <span class="font-bold text-white text-sm">WO #{{ o.wo_number }}</span>
+                                            <span class="text-slate-400 text-xs ml-2">{{ o.part_number }}</span>
+                                        </div>
+                                        <span class="text-sky-400 text-xs font-bold">rcvd {{ o.qty_received }} / done {{ o.qty_completed }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- KPIs -->

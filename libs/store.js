@@ -94,6 +94,12 @@ export const kpiByOperator  = ref([]);
 export const kpiCycleTime   = ref([]);
 export const kpiHoldReasons = ref([]);
 export const kpiOldestWos   = ref([]);
+export const managerAlerts  = ref({
+    completedNotReceived: [],
+    pausedOnHold:         [],
+    startedNoProgress:    [],
+    qtyMismatch:          []
+});
 
 // ── Customer Service ──────────────────────────────────────────
 export const csSearchTerm  = ref('');

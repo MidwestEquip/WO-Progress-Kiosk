@@ -19,6 +19,21 @@ export async function openManagerSection(section) {
 }
 
 // ── loadKpiData ───────────────────────────────────────────────
+export async function loadManagerAlerts() {
+    try {
+        const result = await db.fetchManagerAlerts();
+        if (result.error) throw result.error;
+        store.managerAlerts.value = {
+            completedNotReceived: result.completedNotReceived,
+            pausedOnHold:         result.pausedOnHold,
+            startedNoProgress:    result.startedNoProgress,
+            qtyMismatch:          result.qtyMismatch
+        };
+    } catch (err) {
+        store.showToast('Failed to load manager alerts: ' + err.message);
+    }
+}
+
 export async function loadKpiData() {
     store.loading.value = true;
     try {

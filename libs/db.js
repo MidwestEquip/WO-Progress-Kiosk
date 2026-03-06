@@ -352,6 +352,98 @@ export async function closeOutWorkOrder(id, closedBy) {
 
 // ── Manager queries ───────────────────────────────────────────
 
+export async function fetchManagerAlerts() {
+    const now          = new Date();
+    const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
+    const fiveDaysAgo  = new Date(now); fiveDaysAgo.setDate(now.getDate() - 5);
+    const twoDaysAgo   = new Date(now); twoDaysAgo.setDate(now.getDate() - 2);
+
+    // 3 parallel queries
+    const [completedRes, activeRes, trackingRes] = await Promise.all([
+        withRetry(() =>
+            supabase.from('work_orders')
+                .select('id,wo_number,part_number,description,department,comp_date')
+                .eq('status', 'completed')
+                .lt('comp_date', sevenDaysAgo.toISOString())
+        ),
+        withRetry(() =>
+            supabase.from('work_orders')
+                .select('id,wo_number,part_number,description,department,status,start_date,qty_completed,created_at')
+                .in('status', ['paused', 'on_hold', 'started', 'resumed'])
+        ),
+        withRetry(() =>
+            supabase.from('wo_status_tracking')
+                .select('id,wo_number,qty_received,erp_status')
+                .in('erp_status', ['received', 'closed'])
+        )
+    ]);
+
+    const completedWos = completedRes.data || [];
+    const activeWos    = activeRes.data    || [];
+    const tracked      = trackingRes.data  || [];
+
+    // Alert 1: Completed Not Received (completed > 7 days, not in tracking)
+    const receivedOrClosedNums = new Set(tracked.map(t => t.wo_number));
+    const completedNotReceived = completedWos
+        .filter(w => !receivedOrClosedNums.has(w.wo_number))
+        .slice(0, 5);
+
+    // Alert 2: Paused / On Hold > 5 Days (use start_date as proxy)
+    const pausedOnHold = activeWos
+        .filter(w => ['paused', 'on_hold'].includes(w.status))
+        .filter(w => {
+            const ref = w.start_date || w.created_at;
+            return ref && new Date(ref) < fiveDaysAgo;
+        })
+        .slice(0, 5);
+
+    // Alert 3: Started with no qty progress for > 2 days
+    const startedNoProgress = activeWos
+        .filter(w => ['started', 'resumed'].includes(w.status))
+        .filter(w => {
+            const ref = w.start_date || w.created_at;
+            return ref && new Date(ref) < twoDaysAgo && (parseFloat(w.qty_completed) || 0) === 0;
+        })
+        .slice(0, 5);
+
+    // Alert 4: Qty Mismatch (received qty != completed qty on work_orders)
+    const receivedOnly = tracked.filter(t => t.erp_status === 'received');
+    let qtyMismatch = [];
+    if (receivedOnly.length > 0) {
+        const woNums = receivedOnly.map(t => t.wo_number);
+        const { data: wos } = await withRetry(() =>
+            supabase.from('work_orders')
+                .select('wo_number,part_number,description,qty_completed')
+                .in('wo_number', woNums)
+        );
+        const woMap = {};
+        (wos || []).forEach(w => { woMap[w.wo_number] = w; });
+        qtyMismatch = receivedOnly
+            .filter(t => {
+                const wo = woMap[t.wo_number];
+                if (!wo) return false;
+                return parseFloat(t.qty_received) !== parseFloat(wo.qty_completed);
+            })
+            .map(t => ({
+                id:            t.id,
+                wo_number:     t.wo_number,
+                qty_received:  t.qty_received,
+                qty_completed: woMap[t.wo_number]?.qty_completed,
+                part_number:   woMap[t.wo_number]?.part_number,
+                description:   woMap[t.wo_number]?.description
+            }))
+            .slice(0, 5);
+    }
+
+    return {
+        completedNotReceived,
+        pausedOnHold,
+        startedNoProgress,
+        qtyMismatch,
+        error: completedRes.error || activeRes.error || trackingRes.error
+    };
+}
+
 export async function fetchKpiData() {
     const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const sevenDaysAgo  = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
