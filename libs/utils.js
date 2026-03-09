@@ -105,6 +105,14 @@ export function deepClone(obj) {
 }
 
 // Clamp a number between min and max
+// Return the cumulative qty for a TV Assy unit stage from the notes history.
+// prefix is one of: TVENG, TVCRT, TVFIN
+export function getStageCum(order, prefix) {
+    const lines = (order?.notes || '').split('\n').filter(l => l.startsWith(prefix + '|'));
+    if (!lines.length) return 0;
+    return parseFloat(lines.at(-1).split('|')[5]) || 0;
+}
+
 export function clamp(n, min, max) {
     return Math.min(Math.max(n, min), max);
 }

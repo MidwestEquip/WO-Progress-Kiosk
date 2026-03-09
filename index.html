@@ -228,6 +228,55 @@
                                             FIN {{ (order.tv_engine_status === 'completed' && order.tv_cart_status === 'completed') ? (order.tv_final_status === 'completed' ? '&#10003;' : order.tv_final_status === 'started' ? '&#9654;' : 'Waiting') : 'Locked' }}
                                         </span>
                                     </div>
+                                    <!-- Progress bar(s) -->
+                                    <!-- TV Assy Unit: three stage bars (ENG / CRT / FIN) -->
+                                    <div v-if="order.department === 'TV Assy' && (order.tv_engine_status || order.tv_cart_status || order.tv_final_status)"
+                                        class="mt-3 space-y-1.5">
+                                        <div>
+                                            <div class="flex justify-between text-xs mb-0.5">
+                                                <span class="text-blue-400 font-semibold">ENG</span>
+                                                <span class="text-slate-400">{{ getStageCum(order, 'TVENG') }} / {{ order.qty_required }}</span>
+                                            </div>
+                                            <div class="h-1.5 bg-slate-600 rounded-full overflow-hidden">
+                                                <div class="h-full bg-blue-500 rounded-full transition-all"
+                                                    :style="`width:${Math.min(100, order.qty_required > 0 ? Math.round(getStageCum(order,'TVENG')/order.qty_required*100) : 0)}%`"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between text-xs mb-0.5">
+                                                <span class="text-amber-400 font-semibold">CRT</span>
+                                                <span class="text-slate-400">{{ getStageCum(order, 'TVCRT') }} / {{ order.qty_required }}</span>
+                                            </div>
+                                            <div class="h-1.5 bg-slate-600 rounded-full overflow-hidden">
+                                                <div class="h-full bg-amber-500 rounded-full transition-all"
+                                                    :style="`width:${Math.min(100, order.qty_required > 0 ? Math.round(getStageCum(order,'TVCRT')/order.qty_required*100) : 0)}%`"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between text-xs mb-0.5">
+                                                <span class="text-emerald-400 font-semibold">FIN</span>
+                                                <span v-if="order.tv_engine_status === 'completed' && order.tv_cart_status === 'completed'" class="text-slate-400">{{ getStageCum(order, 'TVFIN') }} / {{ order.qty_required }}</span>
+                                                <span v-else class="text-slate-500 italic text-xs">Waiting</span>
+                                            </div>
+                                            <div class="h-1.5 bg-slate-600 rounded-full overflow-hidden">
+                                                <div v-if="order.tv_engine_status === 'completed' && order.tv_cart_status === 'completed'"
+                                                    class="h-full bg-emerald-500 rounded-full transition-all"
+                                                    :style="`width:${Math.min(100, order.qty_required > 0 ? Math.round(getStageCum(order,'TVFIN')/order.qty_required*100) : 0)}%`"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Single bar: Fab / Weld / TC Assy / TV Assy Stock/unstarted -->
+                                    <div v-else-if="order.qty_required > 0" class="mt-3">
+                                        <div class="flex justify-between text-xs text-slate-500 mb-1">
+                                            <span>{{ Math.min(100, Math.round((order.qty_completed || 0) / order.qty_required * 100)) }}%</span>
+                                            <span>{{ order.qty_completed || 0 }} / {{ order.qty_required }}</span>
+                                        </div>
+                                        <div class="h-2 bg-slate-600 rounded-full overflow-hidden">
+                                            <div class="h-full rounded-full transition-all"
+                                                :class="(order.qty_completed || 0) >= order.qty_required ? 'bg-emerald-500' : 'bg-blue-500'"
+                                                :style="`width:${Math.min(100, Math.round((order.qty_completed || 0) / order.qty_required * 100))}%`"></div>
+                                        </div>
+                                    </div>
                                     <div v-if="order.status === 'on_hold' && holdSince(order)" class="mt-2 flex items-center gap-1 text-xs text-red-400 font-bold">
                                         <span>&#9632;</span> On Hold since {{ holdSince(order) }}
                                     </div>
