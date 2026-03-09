@@ -106,6 +106,8 @@ try {
                 allOrders:          store.allOrders,
                 dashboardCategories: store.dashboardCategories,
                 groupedOrders:      store.groupedOrders,
+                dashSearch:         store.dashSearch,
+                filteredOrders:     store.filteredOrders,
                 isReel:             store.isReel,
                 OPERATORS_BY_DEPT,
                 HOLD_REASONS,

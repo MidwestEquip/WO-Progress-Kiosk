@@ -94,6 +94,7 @@ export async function selectDept(dept) {
 
     // Production departments (Fab, Weld, TV Assy, TC Assy)
     store.selectedDept.value = dept;
+    store.dashSearch.value   = '';
     store.currentView.value  = 'dashboard';
     await _loadDeptOrders(dept);
 }
@@ -103,6 +104,7 @@ export async function selectDept(dept) {
 export function goBack() {
     store.currentView.value    = 'splash';
     store.selectedDept.value   = '';
+    store.dashSearch.value     = '';
     store.managerSubView.value = 'home';
     store.priorityDept.value   = '';
     store.priorityOrders.value = [];

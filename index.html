@@ -144,6 +144,30 @@
                     <div v-if="selectedDept === 'TV Assy' || selectedDept === 'TC Assy'" class="flex justify-end">
                         <button @click="newWoModalOpen = true" class="bg-blue-600 px-6 py-3 font-bold text-lg rounded-lg">+ Add Manual Job</button>
                     </div>
+                    <!-- Department search bar -->
+                    <div class="flex items-center gap-3">
+                        <div class="relative flex-1 max-w-lg">
+                            <input v-model="dashSearch" type="text"
+                                placeholder="Search WO#, Part#, Description, SO#, Operator..."
+                                class="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-600 focus:border-blue-500 rounded-xl text-white placeholder-slate-500 focus:outline-none transition-colors text-sm">
+                            <svg class="absolute left-3 top-3.5 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+                            </svg>
+                        </div>
+                        <button v-if="dashSearch" @click="dashSearch = ''"
+                            class="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-xl transition-all text-sm shrink-0">
+                            &#10005; Clear
+                        </button>
+                    </div>
+                    <!-- Active search indicator -->
+                    <div v-if="dashSearch.trim()" class="bg-blue-900/40 border border-blue-500/40 rounded-xl px-4 py-2.5">
+                        <span v-if="filteredOrders.length > 0" class="text-blue-300 text-sm font-bold">
+                            &#128269; Showing {{ filteredOrders.length }} result{{ filteredOrders.length === 1 ? '' : 's' }} for &ldquo;{{ dashSearch.trim() }}&rdquo;
+                        </span>
+                        <span v-else class="text-red-300 text-sm font-bold">
+                            &#128269; No work orders match &ldquo;{{ dashSearch.trim() }}&rdquo;
+                        </span>
+                    </div>
                     <!-- Empty state -->
                     <div v-if="!loading && orders.length === 0" class="flex flex-col items-center justify-center py-24 text-slate-500">
                         <svg class="w-20 h-20 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,6 +175,14 @@
                         </svg>
                         <p class="text-2xl font-bold mb-2">No Active Jobs</p>
                         <p class="text-slate-600">No work orders found for {{ selectedDept }}. Jobs will appear here once added.</p>
+                    </div>
+                    <!-- Search no-results empty state -->
+                    <div v-if="!loading && orders.length > 0 && dashSearch.trim() && filteredOrders.length === 0"
+                        class="flex flex-col items-center justify-center py-16 text-slate-500">
+                        <div class="text-6xl mb-4">&#128269;</div>
+                        <p class="text-2xl font-bold mb-2 text-slate-400">No work orders match</p>
+                        <p class="text-slate-500 text-lg">&ldquo;{{ dashSearch.trim() }}&rdquo;</p>
+                        <button @click="dashSearch = ''" class="mt-6 px-5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-bold transition-all">Clear Search</button>
                     </div>
                     <!-- Grouped cards -->
                     <template v-for="(cat, cIdx) in dashboardCategories" :key="cIdx">

@@ -18,6 +18,7 @@ export const currentTime   = ref('');
 
 // ── Work order data ───────────────────────────────────────────
 export const orders        = ref([]);   // current dept orders (dashboard)
+export const dashSearch    = ref('');   // per-department search filter
 export const allOrders     = ref([]);   // all active orders (manager overview)
 export const woStatusOrders = ref([]);  // wo_status_tracking rows (not yet closed)
 export const closeoutOrders = ref([]);  // wo_status_tracking rows with erp_status='received'
@@ -183,6 +184,18 @@ export const dashboardCategories = [
 ];
 
 // Orders grouped by priority (5-1), then unassigned by status
+export const filteredOrders = computed(() => {
+    const q = dashSearch.value.trim().toLowerCase();
+    if (!q) return orders.value;
+    return orders.value.filter(o =>
+        (o.wo_number   || '').toLowerCase().includes(q) ||
+        (o.part_number || '').toLowerCase().includes(q) ||
+        (o.description || '').toLowerCase().includes(q) ||
+        (o.sales_order || '').toLowerCase().includes(q) ||
+        (o.operator    || '').toLowerCase().includes(q)
+    );
+});
+
 export const groupedOrders = computed(() => {
     const STATUS_ORDER = { started: 0, resumed: 0, paused: 1, on_hold: 2, not_started: 3 };
     const groups = {
@@ -190,7 +203,7 @@ export const groupedOrders = computed(() => {
         unassigned_started: [], unassigned_paused: [], unassigned_on_hold: [], unassigned_not_started: []
     };
 
-    orders.value.forEach(o => {
+    filteredOrders.value.forEach(o => {
         let stat = o.status || 'not_started';
         if (stat === 'resumed') stat = 'started';
 
