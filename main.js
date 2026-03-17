@@ -27,7 +27,7 @@ import { formatDateLocal, getStageCum } from './libs/utils.js';
 // ── Page controllers ──────────────────────────────────────────
 import { selectDept, promptPin, submitPin, goBack } from './pages/splash-view.js';
 import {
-    openActionPanel, openTvAssyEntry, tvAssyNameContinue,
+    openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
     submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
     getFinalOperatorName, getFabWeldOperatorName, holdSince,
     updateOrderStatus, undoLastAction,
@@ -214,7 +214,7 @@ try {
                 selectDept, promptPin, submitPin, goBack,
 
                 // Dashboard
-                openActionPanel, openTvAssyEntry, tvAssyNameContinue,
+                openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
                 submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
                 updateOrderStatus, undoLastAction,
                 submitNewWo, submitNote,

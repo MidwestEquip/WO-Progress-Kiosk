@@ -197,23 +197,12 @@ export async function submitNote() {
 // ── Internal helpers ──────────────────────────────────────────
 
 export function openTvAssyEntry(order) {
-    // If mode already saved for this WO, skip entry modal and go straight to workflow
-    if (order.tv_job_mode === 'unit') {
-        store.tvAssyEntryName.value = order.operator || '';
-        openTvAssyUnit(order);
-        return;
-    }
-    if (order.tv_job_mode === 'stock') {
-        store.tvAssyEntryName.value = order.operator || '';
-        openTvAssyStock(order);
-        return;
-    }
-    // Mode not yet chosen — open entry modal, prefill name from last operator
-    store.activeOrder.value      = order;
-    store.tvAssyEntryOpen.value  = true;
-    store.tvAssyEntryStep.value  = 1;
-    store.tvAssyEntryName.value  = order.operator || '';
-    store.tvAssyNameError.value  = false;
+    // Always open modal so operator can confirm/change their name.
+    // tv_job_mode (if set) is shown as a read-only badge; if not set, type buttons are shown.
+    store.activeOrder.value     = order;
+    store.tvAssyEntryOpen.value = true;
+    store.tvAssyEntryName.value = order.operator || '';
+    store.tvAssyNameError.value = false;
 }
 
 export async function submitTvUnitStageFromUi(stageName) {
@@ -366,6 +355,18 @@ export function tvAssyNameContinue() {
     }
     store.tvAssyNameError.value = false;
     store.tvAssyEntryStep.value = 2;
+}
+
+// Single-screen entry: validate name then route to unit or stock workflow
+export function tvAssyContinue(mode) {
+    if (!store.tvAssyEntryName.value.trim()) {
+        store.tvAssyNameError.value = true;
+        return;
+    }
+    store.tvAssyNameError.value = false;
+    const order = store.activeOrder.value;
+    if (mode === 'unit')  openTvAssyUnit(order);
+    else                  openTvAssyStock(order);
 }
 
 async function _refreshDeptOrders() {
