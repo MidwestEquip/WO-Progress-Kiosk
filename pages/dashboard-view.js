@@ -197,8 +197,14 @@ export async function submitNote() {
 // ── Internal helpers ──────────────────────────────────────────
 
 export function openTvAssyEntry(order) {
-    // Always open modal so operator can confirm/change their name.
-    // tv_job_mode (if set) is shown as a read-only badge; if not set, type buttons are shown.
+    // Returning WO with saved mode and known operator: skip modal entirely
+    if (order.tv_job_mode && order.operator) {
+        store.tvAssyEntryName.value = order.operator;
+        if (order.tv_job_mode === 'unit')  openTvAssyUnit(order);
+        else                               openTvAssyStock(order);
+        return;
+    }
+    // New WO (no mode) or mode set but no operator yet: open single-screen modal
     store.activeOrder.value     = order;
     store.tvAssyEntryOpen.value = true;
     store.tvAssyEntryName.value = order.operator || '';
