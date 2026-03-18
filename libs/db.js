@@ -744,3 +744,24 @@ export async function fetchCsSupplementalData(woNumber, partNumber) {
         error:       statusRes.error || historyRes.error
     };
 }
+
+// ── Progress event logging ────────────────────────────────────
+// Fire-and-forget: inserts one row into wo_progress_events.
+// Failures are logged to console only — never blocks the main action.
+export async function insertProgressEvent({ workOrderId, woNumber, department, stage, operatorName, action, sessionQty, cumulativeQtyAfter, reason }) {
+    try {
+        await supabase.from('wo_progress_events').insert([{
+            work_order_id:        workOrderId  || null,
+            wo_number:            woNumber     || '',
+            department:           department   || '',
+            stage:                stage        || null,
+            operator_name:        operatorName || '',
+            action:               action       || '',
+            session_qty:          parseFloat(sessionQty)         || 0,
+            cumulative_qty_after: parseFloat(cumulativeQtyAfter) || 0,
+            reason:               reason       || null
+        }]);
+    } catch (err) {
+        console.warn('[insertProgressEvent] failed silently:', err);
+    }
+}
