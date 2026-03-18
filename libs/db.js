@@ -88,14 +88,13 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
         updates[stageKey + '_status'] = newStatus;
         if (stageKey.startsWith('tc_')) updates[stageKey + '_operator'] = opName;
 
-        // TC Assy: recompute overall status from all 3 stages
+        // TC Assy: recompute overall status from pre-lap + final (packaging removed)
         if (currentOrder.department === 'TC Assy') {
-            const pack = stageKey === 'tc_packaging' ? newStatus : currentOrder.tc_packaging_status;
-            const fin  = stageKey === 'tc_final'     ? newStatus : currentOrder.tc_final_status;
-            const pre  = stageKey === 'tc_pre_lap'   ? newStatus : currentOrder.tc_pre_lap_status;
-            if (pack === 'completed')                                                overallStatus = 'completed';
-            else if (pre === 'started' || fin === 'started' || pack === 'started')  overallStatus = 'started';
-            else                                                                     overallStatus = currentOrder.status;
+            const fin = stageKey === 'tc_final'   ? newStatus : currentOrder.tc_final_status;
+            const pre = stageKey === 'tc_pre_lap' ? newStatus : currentOrder.tc_pre_lap_status;
+            if (fin === 'completed')                          overallStatus = 'completed';
+            else if (pre === 'started' || fin === 'started') overallStatus = 'started';
+            else                                              overallStatus = currentOrder.status;
         }
 
         // TV Assy: recompute from 3 sub-stages
@@ -187,6 +186,14 @@ export async function saveTvJobMode(id, mode) {
     if (!id || !mode) return { data: null, error: new Error('Missing id or mode') };
     return withRetry(() =>
         supabase.from('work_orders').update({ tv_job_mode: mode }).eq('id', id).select()
+    );
+}
+
+// TC Assy: persist the job mode (unit|stock) for a WO
+export async function saveTcJobMode(id, mode) {
+    if (!id || !mode) return { data: null, error: new Error('Missing id or mode') };
+    return withRetry(() =>
+        supabase.from('work_orders').update({ tc_job_mode: mode }).eq('id', id).select()
     );
 }
 

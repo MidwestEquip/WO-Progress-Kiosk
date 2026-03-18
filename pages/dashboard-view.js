@@ -377,6 +377,67 @@ export function tvAssyContinue(mode) {
     else                  openTvAssyStock(order);
 }
 
+// ── TC Assy entry ──────────────────────────────────────────────
+export function openTcAssyEntry(order) {
+    // Returning WO with saved mode and known operator: skip modal entirely
+    if (order.tc_job_mode && order.operator) {
+        store.tcAssyEntryName.value = order.operator;
+        if (order.tc_job_mode === 'unit')  openTcAssyUnit(order);
+        else                               openTcAssyStock(order);
+        return;
+    }
+    // New WO (no mode) or mode set but no operator yet: open single-screen modal
+    store.activeOrder.value     = order;
+    store.tcAssyEntryOpen.value = true;
+    store.tcAssyEntryName.value = order.operator || '';
+    store.tcAssyNameError.value = false;
+}
+
+export function tcAssyContinue(mode) {
+    if (!store.tcAssyEntryName.value.trim()) {
+        store.tcAssyNameError.value = true;
+        return;
+    }
+    store.tcAssyNameError.value = false;
+    const order = store.activeOrder.value;
+    if (mode === 'unit')  openTcAssyUnit(order);
+    else                  openTcAssyStock(order);
+}
+
+export function openTcAssyUnit(order) {
+    store.activeOrder.value     = order;
+    store.tcAssyJobType.value   = 'unit';
+    store.tcAssyEntryOpen.value = false;
+    store.tcAssyUnitOpen.value  = true;
+    // Persist mode on first selection
+    if (!order.tc_job_mode) {
+        db.saveTcJobMode(order.id, 'unit').then(res => {
+            if (!res.error && res.data?.[0]) {
+                const updated = res.data[0];
+                store.activeOrder.value = updated;
+                store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
+            }
+        });
+    }
+}
+
+export function openTcAssyStock(order) {
+    store.activeOrder.value      = order;
+    store.tcAssyJobType.value    = 'stock';
+    store.tcAssyEntryOpen.value  = false;
+    store.tcAssyStockOpen.value  = true;
+    // Persist mode on first selection
+    if (!order.tc_job_mode) {
+        db.saveTcJobMode(order.id, 'stock').then(res => {
+            if (!res.error && res.data?.[0]) {
+                const updated = res.data[0];
+                store.activeOrder.value = updated;
+                store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
+            }
+        });
+    }
+}
+
 async function _refreshDeptOrders() {
     const dept = store.selectedDept.value;
     if (!dept) return;

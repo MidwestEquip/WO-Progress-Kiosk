@@ -29,6 +29,7 @@ import { selectDept, promptPin, submitPin, goBack } from './pages/splash-view.js
 import {
     openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
     submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
+    openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock,
     getFinalOperatorName, getFabWeldOperatorName, holdSince,
     updateOrderStatus, undoLastAction,
     submitNewWo, submitNote
@@ -166,6 +167,14 @@ try {
                 tvAssyOpEditing: store.tvAssyOpEditing,
                 tvAssyNameError: store.tvAssyNameError,
 
+                // TC Assy entry
+                tcAssyEntryOpen:  store.tcAssyEntryOpen,
+                tcAssyEntryName:  store.tcAssyEntryName,
+                tcAssyNameError:  store.tcAssyNameError,
+                tcAssyJobType:    store.tcAssyJobType,
+                tcAssyUnitOpen:   store.tcAssyUnitOpen,
+                tcAssyStockOpen:  store.tcAssyStockOpen,
+
                 // Office / WO Status
                 officeMode:           store.officeMode,
                 officeSearchTerm:     store.officeSearchTerm,
@@ -217,6 +226,7 @@ try {
                 // Dashboard
                 openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
                 submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
+                openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock,
                 updateOrderStatus, undoLastAction,
                 submitNewWo, submitNote,
 

@@ -125,6 +125,14 @@ export const tvStockReasonError = ref(false);
 
 // ── TV Assy Unit: per-stage action state ──────────────────────
 export const tvEngStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
+
+// ── TC Assy entry / workflow ──────────────────────────────────
+export const tcAssyEntryOpen  = ref(false);
+export const tcAssyEntryName  = ref('');
+export const tcAssyNameError  = ref(false);
+export const tcAssyJobType    = ref('');    // 'stock' | 'unit'
+export const tcAssyUnitOpen   = ref(false);
+export const tcAssyStockOpen  = ref(false);
 export const tvCrtStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
 export const tvFinStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
 
