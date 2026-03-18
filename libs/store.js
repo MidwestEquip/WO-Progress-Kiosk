@@ -133,6 +133,12 @@ export const tcAssyNameError  = ref(false);
 export const tcAssyJobType    = ref('');    // 'stock' | 'unit'
 export const tcAssyUnitOpen   = ref(false);
 export const tcAssyStockOpen  = ref(false);
+export const tcAssyOpEditing  = ref(false);  // inline operator-name edit in stock/unit modal
+export const tcStockPending   = ref('');    // ''|'start'|'cant_start'|'pause'|'resume'|'complete'|'hold'
+export const tcStockSessionQty = ref('');
+export const tcStockReason    = ref('');
+export const tcStockQtyError  = ref(false);
+export const tcStockReasonError = ref(false);
 export const tvCrtStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
 export const tvFinStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
 

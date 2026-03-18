@@ -29,7 +29,7 @@ import { selectDept, promptPin, submitPin, goBack } from './pages/splash-view.js
 import {
     openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
     submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
-    openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock,
+    openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
     getFinalOperatorName, getFabWeldOperatorName, holdSince,
     updateOrderStatus, undoLastAction,
     submitNewWo, submitNote
@@ -174,6 +174,12 @@ try {
                 tcAssyJobType:    store.tcAssyJobType,
                 tcAssyUnitOpen:   store.tcAssyUnitOpen,
                 tcAssyStockOpen:  store.tcAssyStockOpen,
+                tcAssyOpEditing:  store.tcAssyOpEditing,
+                tcStockPending:   store.tcStockPending,
+                tcStockSessionQty: store.tcStockSessionQty,
+                tcStockReason:    store.tcStockReason,
+                tcStockQtyError:  store.tcStockQtyError,
+                tcStockReasonError: store.tcStockReasonError,
 
                 // Office / WO Status
                 officeMode:           store.officeMode,
@@ -226,7 +232,7 @@ try {
                 // Dashboard
                 openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
                 submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
-                openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock,
+                openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
                 updateOrderStatus, undoLastAction,
                 submitNewWo, submitNote,
 

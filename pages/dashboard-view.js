@@ -422,10 +422,16 @@ export function openTcAssyUnit(order) {
 }
 
 export function openTcAssyStock(order) {
-    store.activeOrder.value      = order;
-    store.tcAssyJobType.value    = 'stock';
-    store.tcAssyEntryOpen.value  = false;
-    store.tcAssyStockOpen.value  = true;
+    store.activeOrder.value        = order;
+    store.tcAssyJobType.value      = 'stock';
+    store.tcAssyEntryOpen.value    = false;
+    store.tcAssyStockOpen.value    = true;
+    store.tcAssyOpEditing.value    = false;
+    store.tcStockPending.value     = '';
+    store.tcStockSessionQty.value  = '';
+    store.tcStockReason.value      = '';
+    store.tcStockQtyError.value    = false;
+    store.tcStockReasonError.value = false;
     // Persist mode on first selection
     if (!order.tc_job_mode) {
         db.saveTcJobMode(order.id, 'stock').then(res => {
@@ -435,6 +441,53 @@ export function openTcAssyStock(order) {
                 store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
             }
         });
+    }
+}
+
+export async function submitTcStockActionFromUi() {
+    const order      = store.activeOrder.value;
+    const pending    = store.tcStockPending.value;
+    const operator   = store.tcAssyEntryName.value;
+    const sessionQty = store.tcStockSessionQty.value;
+    const reason     = store.tcStockReason.value.trim();
+
+    store.tcStockQtyError.value    = false;
+    store.tcStockReasonError.value = false;
+    let hasError = false;
+    if ((pending === 'pause' || pending === 'complete') && String(sessionQty).trim() === '') {
+        store.tcStockQtyError.value = true; hasError = true;
+    }
+    if ((pending === 'cant_start' || pending === 'hold') && !reason) {
+        store.tcStockReasonError.value = true; hasError = true;
+    }
+    if (hasError) return;
+
+    const STATUS_MAP = { start: 'started', pause: 'paused', resume: 'started', complete: 'completed', hold: 'on_hold', cant_start: null };
+    const keepStatus = pending === 'cant_start';
+
+    store.loading.value = true;
+    try {
+        const result = await db.submitTcStockAction({
+            id:           order.id,
+            currentOrder: order,
+            newStatus:    STATUS_MAP[pending],
+            opName:       operator,
+            sessionQty:   (pending === 'pause' || pending === 'complete') ? parseFloat(sessionQty) : 0,
+            reason,
+            keepStatus
+        });
+        if (result.error) throw result.error;
+        const updated = result.data[0];
+        store.activeOrder.value = updated;
+        store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
+        store.tcStockPending.value    = '';
+        store.tcStockSessionQty.value = '';
+        store.tcStockReason.value     = '';
+        store.showToast('Action recorded', 'success');
+    } catch (err) {
+        store.showToast('Failed: ' + err.message);
+    } finally {
+        store.loading.value = false;
     }
 }
 
