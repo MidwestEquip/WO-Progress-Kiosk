@@ -113,6 +113,7 @@ export const tvAssyEntryOpen  = ref(false);
 export const tvAssyEntryStep  = ref(1);
 export const tvAssyEntryName  = ref('');
 export const tvAssyNameError  = ref(false);
+export const tvAssyOpEditing  = ref(false);  // inline operator-name edit in unit/stock modal
 export const tvAssyJobType    = ref('');    // 'stock' | 'unit'
 export const tvAssyStockOpen  = ref(false);
 export const tvAssyUnitOpen   = ref(false);

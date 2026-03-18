@@ -163,6 +163,7 @@ try {
                 tvAssyEntryOpen: store.tvAssyEntryOpen,
                 tvAssyEntryStep: store.tvAssyEntryStep,
                 tvAssyEntryName: store.tvAssyEntryName,
+                tvAssyOpEditing: store.tvAssyOpEditing,
                 tvAssyNameError: store.tvAssyNameError,
 
                 // Office / WO Status

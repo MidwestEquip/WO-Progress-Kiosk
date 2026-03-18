@@ -268,6 +268,7 @@ export function openTvAssyUnit(order) {
     store.tvAssyJobType.value    = 'unit';
     store.tvAssyEntryOpen.value  = false;
     store.tvAssyUnitOpen.value   = true;
+    store.tvAssyOpEditing.value  = false;
     // Reset all stage pending states so reopening shows a clean slate
     const blank = { pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false };
     store.tvEngStage.value = { ...blank };
@@ -290,6 +291,7 @@ export function openTvAssyStock(order) {
     store.tvAssyJobType.value      = 'stock';
     store.tvAssyEntryOpen.value    = false;
     store.tvAssyStockOpen.value    = true;
+    store.tvAssyOpEditing.value  = false;
     store.tvStockPending.value     = '';
     store.tvStockSessionQty.value  = '';
     store.tvStockReason.value      = '';
