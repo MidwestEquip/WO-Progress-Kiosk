@@ -402,8 +402,10 @@ export async function completeTcWo({ id, currentOrder, opName, unitFields, notes
         month: 'numeric', day: 'numeric', year: '2-digit',
         hour: 'numeric', minute: '2-digit'
     });
-    // TCWOC|ts|operator|WO completed (manual)|||
-    const histLine = `TCWOC|${ts}|${opName}|WO completed (manual)|||`;
+    
+    // Embed the completion note cleanly into the history line
+    const cleanNote = addNotes ? addNotes.trim().replace(/\n/g, ' ') : '';
+    const histLine = `TCWOC|${ts}|${opName}|WO completed (manual)|||${cleanNote}`;
     const notes    = currentOrder.notes ? currentOrder.notes + '\n' + histLine : histLine;
 
     // Log to wo_progress_events (fire-and-forget)
@@ -416,7 +418,7 @@ export async function completeTcWo({ id, currentOrder, opName, unitFields, notes
         action:              'WO completed (manual)',
         sessionQty:          0,
         cumulativeQtyAfter:  currentOrder.qty_required || 0,
-        reason:              ''
+        reason:              cleanNote
     });
 
     const updateObj = {
@@ -429,9 +431,6 @@ export async function completeTcWo({ id, currentOrder, opName, unitFields, notes
 
     if (unitFields) {
         Object.assign(updateObj, unitFields);
-    }
-    if (addNotes) {
-        updateObj.description = currentOrder.description ? (currentOrder.description + '\n\nOperator Notes:\n' + addNotes) : addNotes;
     }
 
     return withRetry(() =>
