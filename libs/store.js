@@ -157,6 +157,10 @@ export const tcFinStage = ref({ pending: '', sessionQty: '', reason: '', qtyErro
 export const tvCrtStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
 export const tvFinStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
 
+export const tcAssyCompleteModalOpen = ref(false);
+export const tcAssyCompleteForm = ref({ salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '', notes: '' });
+export const tcAssyCompleteErrors = ref({ salesOrder: false, unitSerial: false, engine: false, engineSerial: false, numBlades: false });
+
 export const toastMessage  = ref('');
 export const toastType     = ref('error');   // 'error' | 'success' | 'info'
 let toastTimer = null;

@@ -393,7 +393,7 @@ export async function submitTcUnitStageAction({ id, currentOrder, stageKey, stag
 }
 
 // TC Assy Unit: mark whole WO complete regardless of stage completion
-export async function completeTcWo({ id, currentOrder, opName }) {
+export async function completeTcWo({ id, currentOrder, opName, unitFields, notes: addNotes }) {
     if (!id)     return { data: null, error: new Error('Missing WO ID') };
     if (!opName) return { data: null, error: new Error('Operator required') };
 
@@ -419,14 +419,23 @@ export async function completeTcWo({ id, currentOrder, opName }) {
         reason:              ''
     });
 
+    const updateObj = {
+        status:        'completed',
+        qty_completed: currentOrder.qty_required || 0,
+        comp_date:     now,
+        operator:      opName,
+        notes          // original history notes log
+    };
+
+    if (unitFields) {
+        Object.assign(updateObj, unitFields);
+    }
+    if (addNotes) {
+        updateObj.description = currentOrder.description ? (currentOrder.description + '\n\nOperator Notes:\n' + addNotes) : addNotes;
+    }
+
     return withRetry(() =>
-        supabase.from('work_orders').update({
-            status:        'completed',
-            qty_completed: currentOrder.qty_required || 0,
-            comp_date:     now,
-            operator:      opName,
-            notes
-        }).eq('id', id).select()
+        supabase.from('work_orders').update(updateObj).eq('id', id).select()
     );
 }
 

@@ -1339,7 +1339,7 @@
 
                     <!-- Whole WO Complete button -->
                     <div class="pt-2">
-                        <button v-if="activeOrder?.status !== 'completed'" @click="completeTcWoFromUi()"
+                        <button v-if="activeOrder?.status !== 'completed'" @click="openTcAssyCompleteModal()"
                             class="w-full py-4 bg-violet-700 hover:bg-violet-600 text-white font-bold text-lg rounded-xl active:scale-95 transition-all border border-violet-500/50 flex items-center justify-center gap-2">
                             <span>&#9989;</span> Mark Whole WO Complete
                         </button>
@@ -1374,6 +1374,76 @@
 
                 </div><!-- /scrollable body -->
 
+            </div>
+        </div>
+
+        <!-- TC ASSY UNIT COMPLETE PROMPT MODAL -->
+        <div v-if="tcAssyCompleteModalOpen" class="fixed z-50 inset-0 bg-black/80 flex items-center justify-center p-4">
+            <div class="bg-slate-800 rounded-xl w-full max-w-lg border border-violet-500/50 shadow-2xl flex flex-col">
+                <div class="bg-violet-900/30 border-b border-violet-700/40 px-6 py-5 rounded-t-xl shrink-0">
+                    <h2 class="text-2xl font-bold text-violet-300">&#9989; Complete Unit WO</h2>
+                    <p class="text-slate-400 text-sm mt-0.5">Please check all unit details and add any notes.</p>
+                </div>
+                <div class="p-6 space-y-4">
+                    <!-- Notes / Differences field -->
+                    <div>
+                        <label class="block font-bold text-slate-400 text-sm mb-1">Notes / Differences / Modifications</label>
+                        <textarea v-model="tcAssyCompleteForm.notes" rows="3"
+                            class="w-full bg-slate-900 p-3 rounded-lg border border-slate-700 focus:outline-none focus:border-violet-500 transition-colors"
+                            placeholder="Any differences from standard build?"></textarea>
+                    </div>
+
+                    <div class="text-violet-300 text-xs font-bold uppercase tracking-widest mt-4 mb-2">Required Unit Details</div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Sales Order -->
+                        <div>
+                            <label class="block font-bold text-slate-400 text-sm mb-1">Sales Order #</label>
+                            <input v-model="tcAssyCompleteForm.salesOrder" type="text"
+                                class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors"
+                                :class="tcAssyCompleteErrors.salesOrder ? 'border-red-500' : 'border-slate-700'">
+                            <div v-if="tcAssyCompleteErrors.salesOrder" class="text-red-400 text-xs mt-1">Required</div>
+                        </div>
+                        <!-- Unit Serial # -->
+                        <div>
+                            <label class="block font-bold text-slate-400 text-sm mb-1">Unit Serial #</label>
+                            <input v-model="tcAssyCompleteForm.unitSerial" type="text"
+                                class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors font-mono"
+                                :class="tcAssyCompleteErrors.unitSerial ? 'border-red-500' : 'border-slate-700'">
+                            <div v-if="tcAssyCompleteErrors.unitSerial" class="text-red-400 text-xs mt-1">Required</div>
+                        </div>
+                        <!-- Engine -->
+                        <div>
+                            <label class="block font-bold text-slate-400 text-sm mb-1">Engine</label>
+                            <input v-model="tcAssyCompleteForm.engine" type="text"
+                                class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors"
+                                :class="tcAssyCompleteErrors.engine ? 'border-red-500' : 'border-slate-700'">
+                            <div v-if="tcAssyCompleteErrors.engine" class="text-red-400 text-xs mt-1">Required</div>
+                        </div>
+                        <!-- Engine Serial # -->
+                        <div>
+                            <label class="block font-bold text-slate-400 text-sm mb-1">Engine Serial #</label>
+                            <input v-model="tcAssyCompleteForm.engineSerial" type="text"
+                                class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors font-mono"
+                                :class="tcAssyCompleteErrors.engineSerial ? 'border-red-500' : 'border-slate-700'">
+                            <div v-if="tcAssyCompleteErrors.engineSerial" class="text-red-400 text-xs mt-1">Required</div>
+                        </div>
+                        <!-- # of Blades -->
+                        <div class="col-span-2">
+                            <label class="block font-bold text-slate-400 text-sm mb-1"># of Blades</label>
+                            <input v-model="tcAssyCompleteForm.numBlades" type="text"
+                                class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors"
+                                :class="tcAssyCompleteErrors.numBlades ? 'border-red-500' : 'border-slate-700'">
+                            <div v-if="tcAssyCompleteErrors.numBlades" class="text-red-400 text-xs mt-1">Required</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 py-5 border-t border-slate-700 flex gap-4 shrink-0">
+                    <button @click="tcAssyCompleteModalOpen = false" class="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition-all">CANCEL</button>
+                    <button @click="confirmTcWoComplete"
+                        class="flex-1 px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-lg font-bold text-white active:scale-95 transition-all">
+                        CONFIRM COMPLETE
+                    </button>
+                </div>
             </div>
         </div>
 

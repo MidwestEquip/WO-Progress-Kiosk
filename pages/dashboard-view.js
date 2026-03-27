@@ -590,21 +590,64 @@ export async function submitTcUnitStageFromUi(stageName) {
     }
 }
 
-export async function completeTcWoFromUi() {
+export function openTcAssyCompleteModal() {
     const order    = store.activeOrder.value;
     const operator = store.tcAssyEntryName.value.trim();
     if (!operator) {
         store.showToast('Enter your name before completing the WO.', 'error');
         return;
     }
+    store.tcAssyCompleteForm.value = {
+        salesOrder:   order.sales_order || '',
+        unitSerial:   order.unit_serial_number || '',
+        engine:       order.engine || '',
+        engineSerial: order.engine_serial_number || '',
+        numBlades:    order.num_blades || '',
+        notes:        ''
+    };
+    store.tcAssyCompleteErrors.value = {
+        salesOrder: false, unitSerial: false, engine: false, engineSerial: false, numBlades: false
+    };
+    store.tcAssyCompleteModalOpen.value = true;
+}
+
+export async function confirmTcWoComplete() {
+    const order = store.activeOrder.value;
+    const operator = store.tcAssyEntryName.value.trim();
+    const form = store.tcAssyCompleteForm.value;
+    const errors = store.tcAssyCompleteErrors.value;
+
+    errors.salesOrder   = !isNonEmpty(form.salesOrder);
+    errors.unitSerial   = !isNonEmpty(form.unitSerial);
+    errors.engine       = !isNonEmpty(form.engine);
+    errors.engineSerial = !isNonEmpty(form.engineSerial);
+    errors.numBlades    = !isNonEmpty(form.numBlades);
+
+    if (errors.salesOrder || errors.unitSerial || errors.engine || errors.engineSerial || errors.numBlades) {
+        return; // wait for user to fix
+    }
+
     store.loading.value = true;
     try {
-        const result = await db.completeTcWo({ id: order.id, currentOrder: order, opName: operator });
+        const result = await db.completeTcWo({ 
+            id: order.id, 
+            currentOrder: order, 
+            opName: operator,
+            unitFields: {
+                sales_order: form.salesOrder,
+                unit_serial_number: form.unitSerial,
+                engine: form.engine,
+                engine_serial_number: form.engineSerial,
+                num_blades: form.numBlades
+            },
+            notes: form.notes
+        });
         if (result.error) throw result.error;
         const updated = result.data[0];
         store.activeOrder.value = updated;
         store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
         store.showToast('WO marked complete', 'success');
+        store.tcAssyCompleteModalOpen.value = false;
     } catch (err) {
         store.showToast('Failed: ' + err.message);
     } finally {

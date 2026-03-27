@@ -30,7 +30,7 @@ import {
     openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
     submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
     openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
-    submitTcUnitStageFromUi, completeTcWoFromUi,
+    submitTcUnitStageFromUi, openTcAssyCompleteModal, confirmTcWoComplete,
     getFinalOperatorName, getFabWeldOperatorName, holdSince,
     updateOrderStatus, undoLastAction,
     submitNewWo, submitNote
@@ -189,6 +189,15 @@ try {
                 tcPreCum:     store.tcPreCum,
                 tcFinCum:     store.tcFinCum,
 
+                // TC Assy complete modal
+                tcAssyCompleteModalOpen: store.tcAssyCompleteModalOpen,
+                tcAssyCompleteForm:      store.tcAssyCompleteForm,
+                tcAssyCompleteErrors:    store.tcAssyCompleteErrors,
+                tcPreStage:   store.tcPreStage,
+                tcFinStage:   store.tcFinStage,
+                tcPreCum:     store.tcPreCum,
+                tcFinCum:     store.tcFinCum,
+
                 // Office / WO Status
                 officeMode:           store.officeMode,
                 officeSearchTerm:     store.officeSearchTerm,
@@ -241,7 +250,7 @@ try {
                 openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
                 submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
                 openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
-                submitTcUnitStageFromUi, completeTcWoFromUi,
+                submitTcUnitStageFromUi, openTcAssyCompleteModal, confirmTcWoComplete,
                 updateOrderStatus, undoLastAction,
                 submitNewWo, submitNote,
 
