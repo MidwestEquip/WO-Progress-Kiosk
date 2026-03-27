@@ -22,7 +22,7 @@ import {
 // ── State & computed ──────────────────────────────────────────
 import * as store from './libs/store.js';
 import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS } from './libs/config.js';
-import { formatDateLocal, getStageCum } from './libs/utils.js';
+import { formatDateLocal, getStageCum, detectTcMode } from './libs/utils.js';
 
 // ── Page controllers ──────────────────────────────────────────
 import { selectDept, promptPin, submitPin, goBack } from './pages/splash-view.js';
@@ -30,7 +30,7 @@ import {
     openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
     submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
     openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
-    submitTcUnitStageFromUi, openTcAssyCompleteModal, confirmTcWoComplete,
+    submitTcUnitStageFromUi, openTcAssyCompleteModal, confirmTcWoComplete, toggleTcNewWoMode,
     getFinalOperatorName, getFabWeldOperatorName, holdSince,
     updateOrderStatus, undoLastAction,
     submitNewWo, submitNote
@@ -128,7 +128,9 @@ try {
                 // New WO modal
                 newWoModalOpen:   store.newWoModalOpen,
                 newWoForm:        store.newWoForm,
-                newWoFormErrors:  store.newWoFormErrors,
+                newWoFormErrors:     store.newWoFormErrors,
+                tcNewWoModeOverride: store.tcNewWoModeOverride,
+                tcNewWoMode:         store.tcNewWoMode,
 
                 // Notes modal
                 notesPanelOpen:  store.notesPanelOpen,
@@ -252,7 +254,7 @@ try {
                 openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
                 submitTcUnitStageFromUi, openTcAssyCompleteModal, confirmTcWoComplete,
                 updateOrderStatus, undoLastAction,
-                submitNewWo, submitNote,
+                submitNewWo, submitNote, toggleTcNewWoMode,
 
                 // Office
                 searchOfficeReceive, openReceiveModal, submitReceive,
@@ -267,7 +269,7 @@ try {
                 searchCS,
 
                 // Utilities available in templates
-                formatDateLocal
+                formatDateLocal, detectTcMode
             };
         }
     });
