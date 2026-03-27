@@ -490,12 +490,22 @@ export async function submitTcStockAction({ id, currentOrder, newStatus, opName,
 }
 
 // Create a new manual work order (TV Assy / TC Assy only)
-export async function insertManualWorkOrder({ partNumber, description, qty, dept, woType, tcJobMode, salesOrder, unitSerial, engine, engineSerial, numBlades }) {
+export async function insertManualWorkOrder({ partNumber, description, qty, dept, woType, tcJobMode, salesOrder, unitSerial, engine, engineSerial, numBlades, customWoNumber }) {
     if (!partNumber) return { data: null, error: new Error('Part number is required') };
     if (!dept)       return { data: null, error: new Error('Department is required') };
 
-    // Use timestamp-based suffix for collision avoidance
-    const woNumber = 'MANUAL-' + Date.now().toString(36).toUpperCase().slice(-5);
+    // Optional custom WO #: check for duplicate then use; else auto-generate
+    let woNumber;
+    if (customWoNumber && customWoNumber.trim()) {
+        const chk = await withRetry(() =>
+            supabase.from('work_orders').select('id').eq('wo_number', customWoNumber.trim()).maybeSingle()
+        );
+        if (chk.data) return { data: null, error: new Error(`WO # ${customWoNumber.trim()} already exists.`) };
+        woNumber = customWoNumber.trim().toUpperCase();
+    } else {
+        // Use timestamp-based suffix for collision avoidance
+        woNumber = 'MANUAL-' + Date.now().toString(36).toUpperCase().slice(-5);
+    }
 
     const row = {
         wo_number:     woNumber,
