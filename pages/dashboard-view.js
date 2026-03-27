@@ -7,7 +7,7 @@
 
 import * as store  from '../libs/store.js';
 import * as db     from '../libs/db.js';
-import { deepClone, sanitizeText, isNonEmpty, isValidQty } from '../libs/utils.js';
+import { deepClone, sanitizeText, isNonEmpty, isValidQty, detectTcMode } from '../libs/utils.js';
 import { fetchDeptOrders } from '../libs/db.js';
 
 // ── openActionPanel ───────────────────────────────────────────
@@ -136,8 +136,8 @@ export async function submitNewWo() {
         errors.part    = !isNonEmpty(form.part);
         errors.desc    = !isNonEmpty(form.desc);
         errors.qty     = !isValidQty(form.qty) || parseInt(form.qty, 10) < 1;
-        errors.jobType = !form.jobType;
-        if (errors.part || errors.desc || errors.qty || errors.jobType) return;
+
+        if (errors.part || errors.desc || errors.qty) return;
 
         store.loading.value = true;
         try {
@@ -146,10 +146,9 @@ export async function submitNewWo() {
                 description:  sanitizeText(form.desc),
                 qty:          parseInt(form.qty, 10),
                 dept,
-                woType:       form.jobType,   // 'Unit' or 'Subassy'
-                // TC-specific: map Unit→'unit', Subassy→'stock'
-                tcJobMode:    form.jobType === 'Unit' ? 'unit' : 'stock',
-                salesOrder:   sanitizeText(form.salesOrder),
+                woType:       store.tcNewWoMode.value === 'unit' ? 'Unit' : 'Subassy',
+                tcJobMode:    store.tcNewWoMode.value || 'stock',
+                customWoNumber: sanitizeText(form.woNumber),
                 unitSerial:   sanitizeText(form.unitSerial),
                 engine:       sanitizeText(form.engine),
                 engineSerial: sanitizeText(form.engineSerial),
@@ -158,8 +157,9 @@ export async function submitNewWo() {
             if (error) throw error;
 
             store.newWoModalOpen.value  = false;
-            store.newWoFormErrors.value = { part: false, desc: false, qty: false, jobType: false };
-            store.newWoForm.value = { part: '', desc: '', qty: 1, type: 'Unit', jobType: '', salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '' };
+            store.newWoFormErrors.value = { part: false, desc: false, qty: false };
+            store.newWoForm.value = { part: '', desc: '', qty: 1, type: 'Unit', woNumber: '', salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '' };
+            store.tcNewWoModeOverride.value = null;
             await _refreshDeptOrders();
             store.showToast('Work order added to board.', 'success');
         } catch (err) {
@@ -192,7 +192,7 @@ export async function submitNewWo() {
         if (error) throw error;
 
         store.newWoModalOpen.value = false;
-        store.newWoForm.value = { part: '', desc: '', qty: 1, type: 'Unit', jobType: '', salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '' };
+        store.newWoForm.value = { part: '', desc: '', qty: 1, type: 'Unit', woNumber: '', salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '' };
         await _refreshDeptOrders();
         store.showToast('Work order added to board.', 'success');
     } catch (err) {
@@ -200,6 +200,14 @@ export async function submitNewWo() {
     } finally {
         store.loading.value = false;
     }
+}
+
+// ── toggleTcNewWoMode ────────────────────────────────────────
+// Flips the user override for the new TC WO form between unit and stock.
+// If no auto-detected mode exists, defaults the override to 'unit'.
+export function toggleTcNewWoMode() {
+    const current = store.tcNewWoMode.value;
+    store.tcNewWoModeOverride.value = current === 'unit' ? 'stock' : 'unit';
 }
 
 // ── submitNote ────────────────────────────────────────────────
