@@ -2023,6 +2023,32 @@
                             placeholder="e.g. TC-1234-A">
                         <div v-if="newWoFormErrors.part" class="text-red-400 text-xs mt-1">&#9888; Part # is required.</div>
                     </div>
+                    <!-- Auto-detected mode + Change control -->
+                    <div class="flex items-center gap-3 px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600/50 min-h-[2.5rem]">
+                        <span class="text-slate-400 text-sm font-semibold">Mode:</span>
+                        <template v-if="tcNewWoMode === 'unit'">
+                            <span class="text-blue-300 font-bold text-sm">&#128187; UNIT</span>
+                        </template>
+                        <template v-else-if="tcNewWoMode === 'stock'">
+                            <span class="text-emerald-300 font-bold text-sm">&#128230; SUBASSY</span>
+                        </template>
+                        <template v-else>
+                            <span class="text-slate-500 text-sm italic">Not detected &mdash; enter part # above</span>
+                        </template>
+                        <button v-if="tcNewWoMode"
+                            @click="toggleTcNewWoMode()"
+                            class="ml-auto text-xs text-slate-400 hover:text-slate-200 bg-slate-600 hover:bg-slate-500 px-2 py-1 rounded transition-all">
+                            Change
+                        </button>
+                    </div>
+
+                    <!-- WO # (optional) -->
+                    <div>
+                        <label class="block font-bold text-slate-400 text-sm mb-1">WO # <span class="text-slate-500 font-normal text-xs">(optional &mdash; leave blank to auto-generate)</span></label>
+                        <input v-model="newWoForm.woNumber" type="text"
+                            class="w-full bg-slate-900 p-3 rounded-lg font-mono border border-slate-600 focus:outline-none focus:border-teal-500 transition-colors uppercase"
+                            placeholder="e.g. 12345 (optional)">
+                    </div>
 
                     <!-- Description -->
                     <div>
@@ -2034,35 +2060,8 @@
                         <div v-if="newWoFormErrors.desc" class="text-red-400 text-xs mt-1">&#9888; Description is required.</div>
                     </div>
 
-                    <!-- Qty + Job Type -->
-                    <div class="flex gap-4">
-                        <div class="flex-1">
-                            <label class="block font-bold text-slate-400 text-sm mb-1">Qty Required <span class="text-red-400">*</span></label>
-                            <input v-model="newWoForm.qty" type="number" min="1"
-                                class="w-full bg-slate-900 p-3 rounded-lg font-bold border focus:outline-none focus:border-teal-500 transition-colors"
-                                :class="newWoFormErrors.qty ? 'border-red-500' : 'border-slate-700'">
-                            <div v-if="newWoFormErrors.qty" class="text-red-400 text-xs mt-1">&#9888; Must be at least 1.</div>
-                        </div>
-                        <div class="flex-1">
-                            <label class="block font-bold text-slate-400 text-sm mb-1">Job Type <span class="text-red-400">*</span></label>
-                            <div class="flex gap-2 mt-1">
-                                <button @click="newWoForm.jobType = 'Unit'"
-                                    class="flex-1 py-3 rounded-lg font-bold text-sm border-2 transition-all active:scale-95"
-                                    :class="newWoForm.jobType === 'Unit' ? 'bg-blue-700 border-blue-500 text-white' : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-blue-500/50'">
-                                    &#128187; Unit
-                                </button>
-                                <button @click="newWoForm.jobType = 'Subassy'"
-                                    class="flex-1 py-3 rounded-lg font-bold text-sm border-2 transition-all active:scale-95"
-                                    :class="newWoForm.jobType === 'Subassy' ? 'bg-emerald-700 border-emerald-500 text-white' : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-emerald-500/50'">
-                                    &#128230; Subassy
-                                </button>
-                            </div>
-                            <div v-if="newWoFormErrors.jobType" class="text-red-400 text-xs mt-1">&#9888; Select a job type.</div>
-                        </div>
-                    </div>
-
-                    <!-- Unit-only fields (shown when Job Type = Unit) -->
-                    <div v-if="newWoForm.jobType === 'Unit'"
+                    <!-- Unit-only fields (shown when mode = UNIT) -->
+                    <div v-if="tcNewWoMode === 'unit'"
                         class="bg-slate-700/50 border border-blue-500/20 rounded-xl p-4 space-y-4">
                         <div class="text-blue-300 text-xs font-bold uppercase tracking-widest">
                             Unit Details
