@@ -126,8 +126,9 @@ try {
                 actionForm:       store.actionForm,
 
                 // New WO modal
-                newWoModalOpen: store.newWoModalOpen,
-                newWoForm:      store.newWoForm,
+                newWoModalOpen:   store.newWoModalOpen,
+                newWoForm:        store.newWoForm,
+                newWoFormErrors:  store.newWoFormErrors,
 
                 // Notes modal
                 notesPanelOpen:  store.notesPanelOpen,

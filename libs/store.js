@@ -44,7 +44,20 @@ export const actionForm        = ref({
 
 // ── New manual WO modal ───────────────────────────────────────
 export const newWoModalOpen = ref(false);
-export const newWoForm      = ref({ part: '', desc: '', qty: 1, type: 'Unit' });
+// Base fields (all depts) + TC-specific fields (jobType, salesOrder, unitSerial, engine, engineSerial, numBlades)
+export const newWoForm      = ref({
+    // Shared
+    part: '', desc: '', qty: 1, type: 'Unit',
+    // TC Assy specific
+    jobType:      '',   // 'Unit' | 'Subassy'
+    salesOrder:   '',
+    unitSerial:   '',
+    engine:       '',
+    engineSerial: '',
+    numBlades:    ''
+});
+// Inline field-level validation errors for the TC Assy form
+export const newWoFormErrors = ref({ part: false, desc: false, qty: false, jobType: false });
 
 // ── Notes modal ───────────────────────────────────────────────
 export const notesPanelOpen  = ref(false);
