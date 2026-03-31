@@ -429,21 +429,16 @@ export function tvAssyContinue(mode) {
 }
 
 // ── TC Assy entry ──────────────────────────────────────────────
+// Always skips the entry modal and goes directly to the workflow screen.
+// Mode resolution: saved tc_job_mode → detectTcMode(part#) → 'stock' default.
+// If no operator is saved, opens the inline name editor automatically.
 export function openTcAssyEntry(order) {
-    // Returning WO with saved mode and known operator: skip modal entirely
-    if (order.tc_job_mode && order.operator) {
-        store.tcAssyEntryName.value = order.operator;
-        if (order.tc_job_mode === 'unit')  openTcAssyUnit(order);
-        else                               openTcAssyStock(order);
-        return;
-    }
-    // New WO (no mode) or mode set but no operator yet: open single-screen modal
-    store.activeOrder.value          = order;
-    store.tcAssyEntryOpen.value      = true;
-    store.tcAssyEntryName.value      = order.operator || '';
-    store.tcAssyNameError.value      = false;
-    // Seed override from saved mode so Change button works on returning WOs too
-    store.tcEntryModeOverride.value  = order.tc_job_mode || null;
+    const mode = order.tc_job_mode || detectTcMode(order.part_number) || 'stock';
+    store.tcAssyEntryName.value = order.operator || '';
+    if (mode === 'unit') openTcAssyUnit(order);
+    else                 openTcAssyStock(order);
+    // Set AFTER openTcAssyUnit/Stock — they both reset opEditing to false
+    store.tcAssyOpEditing.value = !order.operator;
 }
 
 // ── toggleTcEntryMode ────────────────────────────────────────
