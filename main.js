@@ -30,6 +30,7 @@ import {
     openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
     submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
     openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
+    saveTcStockNotes, saveTcUnitDetails,
     submitTcUnitStageFromUi, openTcAssyCompleteModal, confirmTcWoComplete, toggleTcNewWoMode,
     toggleTcEntryMode,
     getFinalOperatorName, getFabWeldOperatorName, holdSince,
@@ -187,6 +188,7 @@ try {
                 tcStockReason:    store.tcStockReason,
                 tcStockQtyError:  store.tcStockQtyError,
                 tcStockReasonError: store.tcStockReasonError,
+                tcStockNotes:     store.tcStockNotes,
 
                 // TC Assy unit stage state
                 tcPreStage:   store.tcPreStage,
@@ -198,6 +200,7 @@ try {
                 tcAssyCompleteModalOpen: store.tcAssyCompleteModalOpen,
                 tcAssyCompleteForm:      store.tcAssyCompleteForm,
                 tcAssyCompleteErrors:    store.tcAssyCompleteErrors,
+                tcUnitInfoForm:          store.tcUnitInfoForm,
                 tcPreStage:   store.tcPreStage,
                 tcFinStage:   store.tcFinStage,
                 tcPreCum:     store.tcPreCum,
@@ -255,6 +258,7 @@ try {
                 openActionPanel, openTvAssyEntry, tvAssyNameContinue, tvAssyContinue,
                 submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
                 openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
+                saveTcStockNotes, saveTcUnitDetails,
                 submitTcUnitStageFromUi, openTcAssyCompleteModal, confirmTcWoComplete,
                 updateOrderStatus, undoLastAction,
                 submitNewWo, submitNote, toggleTcNewWoMode, toggleTcEntryMode,

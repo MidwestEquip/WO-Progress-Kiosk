@@ -18,18 +18,18 @@ export const CLOSEOUT_PIN = "2580";   // Close-Out view PIN
 
 // ----- Operators per department -----
 export const OPERATORS_BY_DEPT = {
-    "Fab":     ["Jeff", "Greg"],
-    "Weld":    ["Pete", "Tom J.", "Bryce"],
-    "TV Assy": ["Art", "Dave", "Bryce", "Tim"],
-    "TC Assy": ["Art", "Dave", "Bryce", "Tim"]
+    "Fab":           ["Jeff", "Greg"],
+    "Weld":          ["Pete", "Tom J.", "Bryce"],
+    "Trac Vac Assy": ["Art", "Dave", "Bryce", "Tim"],
+    "Tru Cut Assy":  ["Art", "Dave", "Bryce", "Tim"]
 };
 
 // ----- Hold reasons per department (null = free-text) -----
 export const HOLD_REASONS = {
-    "Fab":     ["Material Shortage", "Machine/Tooling Problem", "Bent Wrong", "Cut Wrong", "Other"],
-    "Weld":    ["Pulled off WO", "Missing Subparts", "Machine/Jig/Fixture Problem", "Weld Mistake", "Subpart not usable", "Other"],
-    "TV Assy": null,
-    "TC Assy": null
+    "Fab":           ["Material Shortage", "Machine/Tooling Problem", "Bent Wrong", "Cut Wrong", "Other"],
+    "Weld":          ["Pulled off WO", "Missing Subparts", "Machine/Jig/Fixture Problem", "Weld Mistake", "Subpart not usable", "Other"],
+    "Trac Vac Assy": null,
+    "Tru Cut Assy":  null
 };
 
 // ----- Scrap reasons (shared across departments) -----
@@ -48,10 +48,10 @@ export const REEL_PART_NUMBERS = [
 
 // ----- Department delay thresholds (days before flagged as delayed) -----
 export const DELAY_THRESHOLDS = {
-    "Fab":     5,
-    "Weld":    10,
-    "TV Assy": 5,
-    "TC Assy": 5
+    "Fab":           5,
+    "Weld":          10,
+    "Trac Vac Assy": 5,
+    "Tru Cut Assy":  5
 };
 
 // ----- CS default lead times per stage (business days) -----
@@ -64,4 +64,4 @@ export const CS_LEAD_TIME_DEFAULTS = {
 };
 
 // ----- Valid department names -----
-export const DEPT_NAMES = ["Fab", "Weld", "TV Assy", "TC Assy", "WO Status", "CS"];
+export const DEPT_NAMES = ["Fab", "Weld", "Trac Vac Assy", "Tru Cut Assy", "WO Status", "CS"];

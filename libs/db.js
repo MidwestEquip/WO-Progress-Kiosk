@@ -42,16 +42,40 @@ async function withRetry(operation, maxRetries = 2) {
 
 // ── Dashboard queries ─────────────────────────────────────────
 
+// Department aliases: Google Sheets sends "TC. Assy" / "TV. Assy" with a dot.
+// DEPT_ALIASES maps canonical name → all accepted DB variants (for querying).
+// DEPT_CANONICAL maps any variant → canonical name (for normalizing results).
+const DEPT_ALIASES = {
+    'Tru Cut Assy':  ['TC Assy', 'TC. Assy', 'Tru Cut Assy'],
+    'Trac Vac Assy': ['TV Assy', 'TV. Assy', 'TV Assy.', 'Trac Vac Assy'],
+};
+const DEPT_CANONICAL = {
+    'TC Assy':  'Tru Cut Assy',
+    'TC. Assy': 'Tru Cut Assy',
+    'TV Assy':  'Trac Vac Assy',
+    'TV. Assy': 'Trac Vac Assy',
+    'TV Assy.': 'Trac Vac Assy',
+};
+
+// Normalize a single row's department to its canonical name.
+function normalizeDept(row) {
+    const canon = DEPT_CANONICAL[row.department];
+    return canon ? { ...row, department: canon } : row;
+}
+
 export async function fetchDeptOrders(dept) {
     if (!dept) return { data: [], error: null };
-    return withRetry(() =>
+    const deptFilter = DEPT_ALIASES[dept] || [dept];
+    const result = await withRetry(() =>
         supabase.from('work_orders')
             .select('*')
-            .eq('department', dept)
+            .in('department', deptFilter)
             .neq('status', 'completed')
             .order('priority', { ascending: false })
             .order('due_date',  { ascending: true })
     );
+    if (result.data) result.data = result.data.map(normalizeDept);
+    return result;
 }
 
 export async function fetchAllActiveOrders() {
@@ -89,7 +113,7 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
         if (stageKey.startsWith('tc_')) updates[stageKey + '_operator'] = opName;
 
         // TC Assy: recompute overall status from pre-lap + final (packaging removed)
-        if (currentOrder.department === 'TC Assy') {
+        if (currentOrder.department === 'Tru Cut Assy') {
             const fin = stageKey === 'tc_final'   ? newStatus : currentOrder.tc_final_status;
             const pre = stageKey === 'tc_pre_lap' ? newStatus : currentOrder.tc_pre_lap_status;
             if (fin === 'completed')                          overallStatus = 'completed';
@@ -98,7 +122,7 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
         }
 
         // TV Assy: recompute from 3 sub-stages
-        if (currentOrder.department === 'TV Assy') {
+        if (currentOrder.department === 'Trac Vac Assy') {
             const fin = stageKey === 'tv_final'  ? newStatus : currentOrder.tv_final_status;
             const eng = stageKey === 'tv_engine' ? newStatus : currentOrder.tv_engine_status;
             const crt = stageKey === 'tv_cart'   ? newStatus : currentOrder.tv_cart_status;
@@ -118,8 +142,8 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
         updates.comp_date = now;
         // For standard Fab/Weld: if qty not set, default to required qty
         if (!stageKey &&
-            currentOrder.department !== 'TC Assy' &&
-            currentOrder.department !== 'TV Assy') {
+            currentOrder.department !== 'Tru Cut Assy' &&
+            currentOrder.department !== 'Trac Vac Assy') {
             if (!updates.qty_completed) updates.qty_completed = currentOrder.qty_required;
         }
     }
@@ -264,7 +288,7 @@ export async function submitTvUnitStageAction({ id, currentOrder, stageKey, stag
     insertProgressEvent({
         workOrderId:         id,
         woNumber:            currentOrder.wo_number || '',
-        department:          'TV Assy',
+        department:          'Trac Vac Assy',
         stage:               stageKey,
         operatorName:        opName,
         action:              keepStatus ? "can't start" : newStatus,
@@ -313,7 +337,7 @@ export async function submitTvStockAction({ id, currentOrder, newStatus, opName,
     insertProgressEvent({
         workOrderId:         id,
         woNumber:            currentOrder.wo_number || '',
-        department:          'TV Assy',
+        department:          'Trac Vac Assy',
         stage:               'stock',
         operatorName:        opName,
         action:              keepStatus ? "can't start" : newStatus,
@@ -378,7 +402,7 @@ export async function submitTcUnitStageAction({ id, currentOrder, stageKey, stag
     insertProgressEvent({
         workOrderId:         id,
         woNumber:            currentOrder.wo_number || '',
-        department:          'TC Assy',
+        department:          'Tru Cut Assy',
         stage:               stageKey,
         operatorName:        opName,
         action:              keepStatus ? "can't start" : newStatus,
@@ -411,7 +435,7 @@ export async function completeTcWo({ id, currentOrder, opName, unitFields, notes
     insertProgressEvent({
         workOrderId:         id,
         woNumber:            currentOrder.wo_number || '',
-        department:          'TC Assy',
+        department:          'Tru Cut Assy',
         stage:               null,
         operatorName:        opName,
         action:              'WO completed (manual)',
@@ -440,8 +464,37 @@ export async function completeTcWo({ id, currentOrder, opName, unitFields, notes
     );
 }
 
+// Save unit detail fields on the TC Unit workflow screen (any time, not just at completion)
+// All fields optional — only non-undefined values are written.
+export async function saveTcUnitInfo(id, fields) {
+    if (!id) return { data: null, error: new Error('Missing WO ID') };
+    const updates = {
+        sales_order:                    fields.salesOrder   || null,
+        unit_serial_number:             fields.unitSerial   || null,
+        engine:                         fields.engine       || null,
+        engine_serial_number:           fields.engineSerial || null,
+        num_blades:                     fields.numBlades    || null,
+        tc_assy_notes_differences_mods: fields.notes        || null,
+    };
+    return withRetry(() =>
+        supabase.from('work_orders').update(updates).eq('id', id).select()
+    );
+}
+
+// Save the notes/differences/mods field for a TC Assy WO (standalone, any time)
+// Accepts id (WO id) and notes (string). Clears the field if notes is empty.
+export async function saveTcAssyNotes(id, notes) {
+    if (!id) return { data: null, error: new Error('Missing WO ID') };
+    return withRetry(() =>
+        supabase.from('work_orders')
+            .update({ tc_assy_notes_differences_mods: notes && notes.trim() ? notes.trim() : null })
+            .eq('id', id)
+            .select()
+    );
+}
+
 // TC Assy Stock: write one action entry, additive qty, structured history
-export async function submitTcStockAction({ id, currentOrder, newStatus, opName, sessionQty, reason, keepStatus }) {
+export async function submitTcStockAction({ id, currentOrder, newStatus, opName, sessionQty, reason, keepStatus, notes = '' }) {
     if (!id)     return { data: null, error: new Error('Missing WO ID') };
     if (!opName) return { data: null, error: new Error('Operator name required') };
 
@@ -470,12 +523,15 @@ export async function submitTcStockAction({ id, currentOrder, newStatus, opName,
     // Pipe-delimited history line: TCST|ts|operator|action|sessionQty|cumQty|reason
     const histLine = `TCST|${ts}|${opName}|${actionLabel}|${sessionStr}|${cumStr}|${reason || ''}`;
     updates.notes = currentOrder.notes ? currentOrder.notes + '\n' + histLine : histLine;
+    if (newStatus === 'completed' && notes && notes.trim()) {
+        updates.tc_assy_notes_differences_mods = notes.trim();
+    }
 
     // Log to wo_progress_events (fire-and-forget)
     insertProgressEvent({
         workOrderId:         id,
         woNumber:            currentOrder.wo_number || '',
-        department:          'TC Assy',
+        department:          'Tru Cut Assy',
         stage:               'stock',
         operatorName:        opName,
         action:              keepStatus ? "can't start" : newStatus,
@@ -616,7 +672,7 @@ export async function fetchReceivingEligible() {
     const { data: wos, error: woErr } = await withRetry(() =>
         supabase.from('work_orders')
             .select('*')
-            .in('department', ['Fab', 'Weld', 'TV Assy', 'TC Assy'])
+            .in('department', ['Fab', 'Weld', 'TV Assy', 'TV. Assy', 'TV Assy.', 'TC Assy', 'TC. Assy', 'Trac Vac Assy', 'Tru Cut Assy'])
     );
     if (woErr) return { data: [], error: woErr };
 

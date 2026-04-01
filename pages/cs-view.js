@@ -53,11 +53,11 @@ export async function searchCS() {
 
         const hasFab  = timelineRows.some(r => r.department === 'Fab');
         const hasWeld = timelineRows.some(r => r.department === 'Weld');
-        const hasAssy = timelineRows.some(r => ['TV Assy', 'TC Assy', 'Assy'].includes(r.department));
+        const hasAssy = timelineRows.some(r => ['TV Assy', 'TV. Assy', 'TV Assy.', 'TC Assy', 'TC. Assy', 'Trac Vac Assy', 'Tru Cut Assy', 'Assy'].includes(r.department));
 
         const fabRow  = timelineRows.find(r => r.department === 'Fab');
         const weldRow = timelineRows.find(r => r.department === 'Weld');
-        const assyRow = timelineRows.find(r => ['TV Assy', 'TC Assy', 'Assy'].includes(r.department));
+        const assyRow = timelineRows.find(r => ['TV Assy', 'TV. Assy', 'TV Assy.', 'TC Assy', 'TC. Assy', 'Trac Vac Assy', 'Tru Cut Assy', 'Assy'].includes(r.department));
 
         // Fetch status tracking row and historical cycle data
         const { statusRows, historyRows, error: suppErr } = await db.fetchCsSupplementalData(

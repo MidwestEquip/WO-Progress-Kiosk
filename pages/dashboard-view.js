@@ -131,7 +131,7 @@ export async function submitNewWo() {
     const dept = store.selectedDept.value;
 
     // ── TC Assy: specific validation + save ───────────────────
-    if (dept === 'TC Assy') {
+    if (dept === 'Tru Cut Assy') {
         const errors = store.newWoFormErrors.value;
         errors.part    = !isNonEmpty(form.part);
         errors.desc    = !isNonEmpty(form.desc);
@@ -468,6 +468,14 @@ export function openTcAssyUnit(order) {
     const _blank = { pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false };
     store.tcPreStage.value = { ..._blank };
     store.tcFinStage.value = { ..._blank };
+    store.tcUnitInfoForm.value = {
+        salesOrder:   order.sales_order                    || '',
+        unitSerial:   order.unit_serial_number             || '',
+        engine:       order.engine                         || '',
+        engineSerial: order.engine_serial_number           || '',
+        numBlades:    order.num_blades                     || '',
+        notes:        order.tc_assy_notes_differences_mods || '',
+    };
     // Persist mode on first selection
     if (!order.tc_job_mode) {
         db.saveTcJobMode(order.id, 'unit').then(res => {
@@ -477,6 +485,26 @@ export function openTcAssyUnit(order) {
                 store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
             }
         });
+    }
+}
+
+// ── saveTcUnitDetails ─────────────────────────────────────────
+// Saves all unit info fields from the TC Unit workflow screen.
+export async function saveTcUnitDetails() {
+    const order = store.activeOrder.value;
+    if (!order) return;
+    store.loading.value = true;
+    try {
+        const result = await db.saveTcUnitInfo(order.id, store.tcUnitInfoForm.value);
+        if (result.error) throw result.error;
+        const updated = result.data[0];
+        store.activeOrder.value = updated;
+        store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
+        store.showToast('Details saved.', 'success');
+    } catch (err) {
+        store.showToast('Failed to save details: ' + err.message);
+    } finally {
+        store.loading.value = false;
     }
 }
 
@@ -491,6 +519,7 @@ export function openTcAssyStock(order) {
     store.tcStockReason.value      = '';
     store.tcStockQtyError.value    = false;
     store.tcStockReasonError.value = false;
+    store.tcStockNotes.value       = order.tc_assy_notes_differences_mods || '';
     // Persist mode on first selection
     if (!order.tc_job_mode) {
         db.saveTcJobMode(order.id, 'stock').then(res => {
@@ -509,6 +538,7 @@ export async function submitTcStockActionFromUi() {
     const operator   = store.tcAssyEntryName.value;
     const sessionQty = store.tcStockSessionQty.value;
     const reason     = store.tcStockReason.value.trim();
+    const notes      = pending === 'complete' ? store.tcStockNotes.value.trim() : '';
 
     store.tcStockQtyError.value    = false;
     store.tcStockReasonError.value = false;
@@ -533,7 +563,8 @@ export async function submitTcStockActionFromUi() {
             opName:       operator,
             sessionQty:   (pending === 'pause' || pending === 'complete') ? parseFloat(sessionQty) : 0,
             reason,
-            keepStatus
+            keepStatus,
+            notes
         });
         if (result.error) throw result.error;
         const updated = result.data[0];
@@ -542,9 +573,31 @@ export async function submitTcStockActionFromUi() {
         store.tcStockPending.value    = '';
         store.tcStockSessionQty.value = '';
         store.tcStockReason.value     = '';
+        store.tcStockNotes.value      = updated.tc_assy_notes_differences_mods || '';
         store.showToast('Action recorded', 'success');
     } catch (err) {
         store.showToast('Failed: ' + err.message);
+    } finally {
+        store.loading.value = false;
+    }
+}
+
+// ── saveTcStockNotes ──────────────────────────────────────────
+// Saves the notes/differences/mods textarea on the subassy screen.
+// Can be called at any point during the workflow.
+export async function saveTcStockNotes() {
+    const order = store.activeOrder.value;
+    if (!order) return;
+    store.loading.value = true;
+    try {
+        const result = await db.saveTcAssyNotes(order.id, store.tcStockNotes.value);
+        if (result.error) throw result.error;
+        const updated = result.data[0];
+        store.activeOrder.value = updated;
+        store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
+        store.showToast('Notes saved.', 'success');
+    } catch (err) {
+        store.showToast('Failed to save notes: ' + err.message);
     } finally {
         store.loading.value = false;
     }

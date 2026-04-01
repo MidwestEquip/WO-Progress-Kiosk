@@ -158,6 +158,7 @@ export const tcStockSessionQty = ref('');
 export const tcStockReason    = ref('');
 export const tcStockQtyError  = ref(false);
 export const tcStockReasonError = ref(false);
+export const tcStockNotes     = ref('');    // optional notes on subassy completion
 export const tcPreStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
 export const tcFinStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
 export const tvCrtStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
@@ -173,6 +174,9 @@ export const tcEntryMode = computed(() =>
 export const tcAssyCompleteModalOpen = ref(false);
 export const tcAssyCompleteForm = ref({ salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '', notes: '' });
 export const tcAssyCompleteErrors = ref({ salesOrder: false, unitSerial: false, engine: false, engineSerial: false, numBlades: false });
+
+// Inline-editable unit detail fields on the TC Unit workflow screen
+export const tcUnitInfoForm = ref({ salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '', notes: '' });
 
 export const toastMessage  = ref('');
 export const toastType     = ref('error');   // 'error' | 'success' | 'info'
