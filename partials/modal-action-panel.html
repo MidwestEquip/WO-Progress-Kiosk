@@ -1,0 +1,319 @@
+        <!-- ACTION PANEL — full-screen 3-zone workstation layout -->
+        <div v-if="actionPanelOpen" class="fixed z-50 inset-0 flex flex-col bg-gray-100">
+            <div class="flex flex-col h-screen">
+
+                <!-- ── Top bar ─────────────────────────────────────────── -->
+                <div class="shrink-0 bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center gap-4">
+                    <button @click="actionPanelOpen = false" class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded font-bold text-sm">✕ CLOSE</button>
+                    <div class="flex items-center gap-4 min-w-0 flex-1">
+                        <span class="text-2xl font-extrabold text-blue-400 shrink-0">WO #{{ activeOrder?.wo_number }}</span>
+                        <span class="text-base font-bold text-slate-300 border border-slate-600 px-2 py-0.5 rounded shrink-0">{{ activeOrder?.part_number }}</span>
+                        <span class="text-slate-400 text-sm truncate">{{ activeOrder?.description }}</span>
+                    </div>
+                    <button @click="notesPanelOpen = true"
+                        class="shrink-0 bg-yellow-700 hover:bg-yellow-600 px-3 py-1.5 rounded font-bold text-sm flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        ADD NOTE
+                    </button>
+                </div>
+
+                <!-- ── 3-zone body ─────────────────────────────────────── -->
+                <div class="flex flex-1 min-h-0 overflow-hidden">
+
+                    <!-- LEFT: all existing action controls (unchanged content) -->
+                    <div class="w-96 shrink-0 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
+                        <div class="p-5">
+                    <!-- Operator select -->
+                    <div v-if="activeOrder?.department !== 'Fab' && activeOrder?.department !== 'Weld'" class="flex gap-4 items-end mb-8 border-b border-slate-700 pb-6">
+                        <div class="flex-1">
+                            <label class="block text-slate-400 font-bold mb-2 uppercase text-sm">Logging As:</label>
+                            <select v-model="selectedOperator" class="w-full bg-slate-700 border border-slate-600 rounded p-4 text-xl">
+                                <option value="">-- Who is doing this? --</option>
+                                <option v-for="op in OPERATORS_BY_DEPT[activeOrder?.department] || []" :key="op" :value="op">{{ op }}</option>
+                                <option value="Other">Other (Enter below)</option>
+                            </select>
+                            <input v-if="selectedOperator === 'Other'" v-model="otherOperator" type="text"
+                                placeholder="Type your name..."
+                                class="mt-2 w-full bg-slate-700 border p-4 text-xl rounded">
+                        </div>
+                        <div class="w-32 text-center bg-slate-900 rounded-lg p-3">
+                            <div class="text-slate-500 text-xs font-bold uppercase">Required Qty</div>
+                            <div class="text-3xl font-bold text-emerald-400">{{ activeOrder?.qty_required }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Trac Vac Assy stages (Tru Cut Assy has its own modal) -->
+                    <div v-if="activeOrder?.department === 'Trac Vac Assy'" class="p-4 bg-slate-700 rounded-lg">
+                        <h3 class="text-xl font-bold mb-4">TV Sub-Assemblies:</h3>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <h4 class="font-bold text-blue-300">Engine/Subassy</h4>
+                                <div class="text-slate-400 text-sm mb-2">{{ activeOrder.tv_engine_status || 'Not Started' }}</div>
+                                <button @click="updateOrderStatus('completed', 'tv_engine')" class="w-full bg-emerald-600 py-2 rounded text-sm font-bold">Mark Completed</button>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-amber-300">Cart</h4>
+                                <div class="text-slate-400 text-sm mb-2">{{ activeOrder.tv_cart_status || 'Not Started' }}</div>
+                                <button @click="updateOrderStatus('completed', 'tv_cart')" class="w-full bg-emerald-600 py-2 rounded text-sm font-bold">Mark Completed</button>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-emerald-300">Final Unit</h4>
+                                <div class="text-slate-400 text-sm mb-2">{{ activeOrder.tv_final_status || 'Not Started' }}</div>
+                                <button @click="updateOrderStatus('completed', 'tv_final')" class="w-full bg-emerald-600 py-2 rounded text-sm font-bold">Mark Completed</button>
+                            </div>
+                        </div>
+                        <div class="mt-8">
+                            <button @click="updateOrderStatus('started')" class="bg-blue-600 px-6 py-2 rounded font-bold mr-2">START WHOLE WO</button>
+                            <button @click="updateOrderStatus('on_hold')" class="bg-red-600 px-6 py-2 rounded font-bold">HOLD WO</button>
+                        </div>
+                    </div>
+
+                    <!-- Fab / Weld standard controls -->
+                    <div v-else>
+                        <!-- Fab/Weld: Mandatory operator multi-select -->
+                        <div class="mb-6 border-b border-slate-700 pb-6">
+                            <label class="block text-slate-400 font-bold mb-3 uppercase text-sm">Who is doing this? <span class="text-red-400">*</span></label>
+                            <div class="flex flex-wrap gap-3">
+                                <label v-for="op in OPERATORS_BY_DEPT[activeOrder?.department] || []" :key="op"
+                                    class="flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer border-2 transition-colors select-none font-bold text-lg"
+                                    :class="selectedOperators.includes(op) ? 'border-blue-400 bg-blue-900/40 text-white' : 'border-slate-600 bg-slate-700 text-slate-300'">
+                                    <input type="checkbox" :value="op" v-model="selectedOperators" class="sr-only"> {{ op }}
+                                </label>
+                                <label class="flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer border-2 transition-colors select-none font-bold text-lg"
+                                    :class="selectedOperators.includes('Other') ? 'border-yellow-400 bg-yellow-900/40 text-white' : 'border-slate-600 bg-slate-700 text-slate-300'">
+                                    <input type="checkbox" value="Other" v-model="selectedOperators" class="sr-only"> Other
+                                </label>
+                            </div>
+                            <input v-if="selectedOperators.includes('Other')" v-model="otherOperator" type="text"
+                                placeholder="Type name(s), comma-separated..."
+                                class="mt-3 w-full bg-slate-700 border border-slate-600 rounded p-3 text-lg placeholder:text-slate-500">
+                            <p v-if="!fabWeldOperatorReady" class="text-red-400 text-xs mt-2 font-semibold">&#9888; Select at least one operator to enable actions.</p>
+                        </div>
+
+                        <div v-if="isReel" class="bg-yellow-900/50 p-4 rounded border border-yellow-700 mb-6 flex items-center justify-between">
+                            <span class="font-bold text-yellow-500 uppercase tracking-widest text-sm">Reel Detected - Require Tool:</span>
+                            <div class="flex gap-4">
+                                <label class="font-bold flex items-center gap-2"><input type="radio" v-model="actionForm.weldGrind" value="weld" class="w-6 h-6"> WELD</label>
+                                <label class="font-bold flex items-center gap-2"><input type="radio" v-model="actionForm.weldGrind" value="grind" class="w-6 h-6"> GRIND</label>
+                            </div>
+                        </div>
+                        <!-- not_started: START only -->
+                        <div v-if="!activeOrder?.status || activeOrder.status === 'not_started'">
+                            <button @click="updateOrderStatus('started')" :disabled="!fabWeldOperatorReady"
+                                class="w-full bg-blue-600 hover:bg-blue-500 rounded-xl p-6 font-bold text-2xl active:scale-95 transition-transform flex items-center justify-center gap-4 border border-blue-400/50 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                START JOB
+                            </button>
+                        </div>
+                        <!-- started / resumed: PAUSE + COMPLETE -->
+                        <div v-else-if="activeOrder.status === 'started' || activeOrder.status === 'resumed'" class="grid grid-cols-2 gap-6">
+                            <div class="bg-slate-700 p-4 rounded-xl border border-slate-600 flex flex-col items-center">
+                                <div class="text-slate-400 text-xs mb-1">Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}</div>
+                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
+                                <button @click="updateOrderStatus('paused')" :disabled="!fabWeldOperatorReady" class="bg-amber-500 hover:bg-amber-400 text-slate-900 w-full rounded py-3 font-extrabold disabled:opacity-40 disabled:cursor-not-allowed">PAUSE DAY</button>
+                            </div>
+                            <div class="bg-slate-700 p-4 rounded-xl border border-slate-600 flex flex-col items-center">
+                                <div class="text-slate-400 text-xs mb-1">Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}</div>
+                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
+                                <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady" class="bg-emerald-600 hover:bg-emerald-500 w-full rounded py-3 font-extrabold text-white disabled:opacity-40 disabled:cursor-not-allowed">COMPLETE WO</button>
+                            </div>
+                        </div>
+                        <!-- paused / on_hold: RESUME + COMPLETE -->
+                        <div v-else class="grid grid-cols-2 gap-6">
+                            <button @click="updateOrderStatus('started')" :disabled="!fabWeldOperatorReady"
+                                class="bg-emerald-700 hover:bg-emerald-600 rounded-xl p-6 font-bold text-2xl active:scale-95 transition-transform flex flex-col items-center justify-center border border-emerald-500/50 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                RESUME JOB
+                            </button>
+                            <div class="bg-slate-700 p-4 rounded-xl border border-slate-600 flex flex-col items-center">
+                                <div class="text-slate-400 text-xs mb-1">Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}</div>
+                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
+                                <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady" class="bg-emerald-600 hover:bg-emerald-500 w-full rounded py-3 font-extrabold text-white disabled:opacity-40 disabled:cursor-not-allowed">COMPLETE WO</button>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 border-t border-slate-700 pt-6 flex flex-col gap-5">
+                            <div>
+                                <label class="block text-slate-400 font-bold mb-2">Put on Hold / Delay</label>
+                                <div class="flex gap-2">
+                                    <select v-if="HOLD_REASONS[activeOrder?.department]" v-model="actionForm.holdReason" class="w-full bg-slate-700 border border-slate-600 p-3 rounded">
+                                        <option value="">Select Reason...</option>
+                                        <option v-for="r in HOLD_REASONS[activeOrder?.department]" :key="r" :value="r">{{ r }}</option>
+                                    </select>
+                                    <input v-else v-model="actionForm.holdReason" type="text" class="w-full bg-slate-700 p-3 rounded" placeholder="Reason...">
+                                    <button @click="updateOrderStatus('on_hold')" :disabled="!fabWeldOperatorReady || !actionForm.holdReason.trim()" class="bg-red-600 font-bold px-4 rounded hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed">HOLD</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-slate-400 font-bold mb-2">Log Scrap or Added Notes</label>
+                                <div class="flex gap-2 p-3 bg-red-900/20 border border-red-900 rounded mb-2">
+                                    <input type="number" v-model="actionForm.qtyScrap" :disabled="!fabWeldOperatorReady" placeholder="Scrapped Qty" class="w-1/3 bg-slate-900 p-2 text-red-400 font-bold rounded text-center disabled:opacity-40 disabled:cursor-not-allowed">
+                                    <select v-model="actionForm.scrapReason" :disabled="!fabWeldOperatorReady" class="flex-1 bg-slate-800 p-2 text-xs rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                                        <option value="">-- Scrap Reason --</option>
+                                        <option v-for="r in SCRAP_REASONS" :key="r" :value="r">{{ r }}</option>
+                                    </select>
+                                </div>
+                                <input v-model="actionForm.notes" type="text" :disabled="!fabWeldOperatorReady" placeholder="Add specific notes here" class="w-full bg-slate-700 p-3 rounded text-sm placeholder:text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed">
+                            </div>
+                        </div>
+                        <!-- Action history log -->
+                        <div v-if="activeOrder.notes" class="mt-6 border-t border-slate-700 pt-4">
+                            <div class="text-slate-500 font-bold text-xs uppercase mb-2 tracking-widest">&#128196; Action History</div>
+                            <div class="bg-slate-900 rounded-lg p-3 max-h-44 overflow-y-auto">
+                                <pre class="text-slate-400 text-xs whitespace-pre-wrap font-mono leading-relaxed">{{ activeOrder.notes }}</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                        </div><!-- /p-5 -->
+                    </div><!-- /LEFT column -->
+
+                    <!-- CENTER: Prints & PDF viewer -->
+                    <div class="flex-1 bg-gray-50 flex flex-col min-w-0 overflow-hidden">
+
+                        <!-- File toolbar -->
+                        <div class="shrink-0 bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-3">
+                            <span class="text-gray-500 font-bold text-xs uppercase tracking-widest shrink-0">&#128206; Prints &amp; Files</span>
+                            <!-- Loading spinner -->
+                            <span v-if="woFilesLoading" class="text-gray-400 text-xs">&#8987; Loading...</span>
+                            <!-- File chips -->
+                            <div v-else class="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto">
+                                <span v-if="woFiles.length === 0" class="text-gray-300 text-xs italic">No files attached</span>
+                                <template v-else>
+                                    <div v-for="f in woFiles" :key="f.name"
+                                        class="flex items-center gap-1.5 bg-gray-100 border border-gray-200 rounded px-2 py-1 shrink-0">
+                                        <span class="text-xs font-bold text-gray-500 uppercase">{{ f.name.split('.').pop() }}</span>
+                                        <a :href="getWoFilePublicUrl(activeOrder.wo_number, f.name)" target="_blank"
+                                            class="text-blue-600 hover:text-blue-500 text-xs font-medium max-w-[140px] truncate">{{ f.name }}</a>
+                                        <button @click="handleWoFileDelete(f.name)"
+                                            class="text-gray-300 hover:text-red-500 text-xs leading-none transition-colors" title="Remove">&#10005;</button>
+                                    </div>
+                                </template>
+                            </div>
+                            <!-- Attach button -->
+                            <label class="cursor-pointer shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                Attach File
+                                <input type="file" class="sr-only" accept=".pdf,.dxf,.dwg,.png,.jpg" @change="handleWoFileUpload($event)">
+                            </label>
+                        </div>
+
+                        <!-- PDF viewer — fills remaining height -->
+                        <div class="flex-1 min-h-0 overflow-hidden">
+                            <!-- No PDF attached: empty state -->
+                            <div v-if="woFiles.filter(f => f.name.toLowerCase().endsWith('.pdf')).length === 0 && !woFilesLoading"
+                                class="h-full flex flex-col items-center justify-center">
+                                <svg class="w-20 h-20 text-gray-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <p class="text-gray-300 text-sm font-medium">No print attached</p>
+                                <p class="text-gray-300 text-xs mt-1">Use Attach File above to upload a PDF</p>
+                            </div>
+                            <!-- PDF iframes -->
+                            <template v-if="!woFilesLoading">
+                                <iframe v-for="f in woFiles.filter(f => f.name.toLowerCase().endsWith('.pdf'))" :key="'pdf-'+f.name"
+                                    :src="getWoFilePublicUrl(activeOrder.wo_number, f.name)"
+                                    class="w-full h-full border-0" title="PDF Preview"></iframe>
+                            </template>
+                        </div>
+
+                    </div><!-- /CENTER -->
+
+                    <!-- RIGHT: tab panel -->
+                    <div class="w-72 shrink-0 bg-white border-l border-gray-200 flex flex-col">
+
+                        <!-- Tab strip -->
+                        <div class="flex border-b border-gray-200 shrink-0">
+                            <button @click="woActionTab = 'attach'"
+                                class="flex-1 py-3 px-1 text-xs font-bold uppercase tracking-wide border-b-2 transition-colors"
+                                :class="woActionTab === 'attach' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700 hover:border-gray-300'">
+                                📎 Attach
+                            </button>
+                            <button @click="woActionTab = 'notes'"
+                                class="flex-1 py-3 px-1 text-xs font-bold uppercase tracking-wide border-b-2 transition-colors"
+                                :class="woActionTab === 'notes' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700 hover:border-gray-300'">
+                                📝 Problems w/ WO
+                            </button>
+                            <button @click="woActionTab = 'complete'"
+                                class="flex-1 py-3 px-1 text-xs font-bold uppercase tracking-wide border-b-2 transition-colors"
+                                :class="woActionTab === 'complete' ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-700 hover:border-gray-300'">
+                                ✓ Done
+                            </button>
+                        </div>
+
+                        <!-- ── ATTACH tab ──────────────────────────── -->
+                        <div v-if="woActionTab === 'attach'" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+                            <label class="w-full cursor-pointer bg-blue-600 hover:bg-blue-500 text-white px-3 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                Attach File
+                                <input type="file" class="sr-only" accept=".pdf,.dxf,.dwg,.png,.jpg" @change="handleWoFileUpload($event)">
+                            </label>
+                            <div v-if="woFilesLoading" class="text-gray-400 text-xs text-center py-4">&#8987; Loading...</div>
+                            <div v-else-if="woFiles.length === 0" class="text-gray-400 text-xs text-center italic py-4">No files attached yet</div>
+                            <div v-else class="space-y-2">
+                                <div v-for="f in woFiles" :key="'rt-'+f.name"
+                                    class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                    <span class="text-xs font-bold text-gray-500 uppercase shrink-0">{{ f.name.split('.').pop() }}</span>
+                                    <a :href="getWoFilePublicUrl(activeOrder.wo_number, f.name)" target="_blank"
+                                        class="flex-1 text-blue-600 hover:text-blue-500 text-xs font-medium truncate">{{ f.name }}</a>
+                                    <button @click="handleWoFileDelete(f.name)"
+                                        class="text-gray-300 hover:text-red-500 text-xs transition-colors shrink-0" title="Remove">&#10005;</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── NOTES tab ───────────────────────────── -->
+                        <div v-if="woActionTab === 'notes'" class="flex-1 flex flex-col overflow-hidden">
+                            <div class="p-3 border-b border-gray-100 shrink-0">
+                                <button @click="notesPanelOpen = true"
+                                    class="w-full bg-amber-500 hover:bg-amber-400 text-white px-3 py-3 rounded-lg font-bold flex flex-col items-center justify-center gap-0.5 transition-colors">
+                                    <span class="flex items-center gap-2 text-sm">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        Add Problem with WO
+                                    </span>
+                                    <span class="text-xs font-normal opacity-80">Ex: Die problem, machine problem…</span>
+                                </button>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-3">
+                                <div v-if="!activeOrder?.notes" class="text-gray-300 text-xs text-center italic py-6">No action history yet</div>
+                                <pre v-else class="text-gray-500 text-xs whitespace-pre-wrap font-mono leading-relaxed">{{ activeOrder.notes }}</pre>
+                            </div>
+                        </div>
+
+                        <!-- ── COMPLETE tab ────────────────────────── -->
+                        <div v-if="woActionTab === 'complete'" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+                            <!-- Fab / Weld completion -->
+                            <template v-if="activeOrder?.department === 'Fab' || activeOrder?.department === 'Weld'">
+                                <div>
+                                    <div class="text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Qty this session</div>
+                                    <input type="number" v-model="actionForm.qtyCompleted" min="0"
+                                        class="w-full bg-gray-50 border border-gray-200 p-3 text-center text-3xl font-bold rounded-lg">
+                                    <div class="text-gray-400 text-xs text-center mt-1">
+                                        Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}
+                                    </div>
+                                </div>
+                                <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady"
+                                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-5 font-extrabold text-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                    ✓ COMPLETE WO
+                                </button>
+                                <p v-if="!fabWeldOperatorReady" class="text-red-400 text-xs text-center -mt-2">
+                                    &#9888; Select an operator in the left panel first
+                                </p>
+                            </template>
+                            <!-- Other depts -->
+                            <div v-else class="text-gray-400 text-xs text-center italic py-6">
+                                Completion is handled in the left panel for this department
+                            </div>
+                        </div>
+
+                    </div><!-- /RIGHT panel -->
+
+                </div><!-- /3-zone body -->
+            </div><!-- /h-screen -->
+        </div><!-- /ACTION PANEL -->

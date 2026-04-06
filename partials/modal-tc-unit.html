@@ -1,0 +1,358 @@
+        <!-- TC ASSY UNIT MODAL — 3-zone workstation layout -->
+        <div v-if="tcAssyUnitOpen" class="fixed z-50 inset-0 flex flex-col bg-gray-100">
+            <div class="flex flex-col h-screen">
+
+                <!-- Top bar -->
+                <div class="shrink-0 bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center gap-4">
+                    <button @click="tcAssyUnitOpen = false" class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded font-bold text-sm">&#10005; CLOSE</button>
+                    <img src="assets/tru-cut-logo.png" alt="Tru-Cut" class="h-8 object-contain shrink-0">
+                    <!-- Operator + mode toggle -->
+                    <div class="flex items-center gap-3 shrink-0">
+                        <template v-if="!tcAssyOpEditing">
+                            <span class="text-teal-400 text-sm">Op: <span class="font-semibold">{{ tcAssyEntryName || '—' }}</span></span>
+                            <button @click="tcAssyOpEditing = true" class="text-slate-500 hover:text-teal-400 underline text-xs transition-colors">Change</button>
+                        </template>
+                        <template v-else>
+                            <input v-model="tcAssyEntryName" type="text" placeholder="Operator name"
+                                class="px-2 py-0.5 text-xs bg-slate-900 border border-teal-500 rounded text-white w-32 focus:outline-none">
+                            <button @click="tcAssyOpEditing = false" class="text-teal-400 text-xs font-bold px-2 py-0.5 bg-slate-700 rounded">&#10003;</button>
+                        </template>
+                        <div class="flex rounded-lg overflow-hidden border border-slate-600 shrink-0">
+                            <span class="px-3 py-1.5 text-xs font-bold bg-teal-600 text-white">UNIT</span>
+                            <button @click="tcAssyUnitOpen = false; tcAssyStockOpen = true" class="px-3 py-1.5 text-xs font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">SUBASSY</button>
+                        </div>
+                    </div>
+                    <!-- WO info -->
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <span class="text-xl font-extrabold text-teal-400 shrink-0">WO #{{ activeOrder?.wo_number }}</span>
+                        <span class="text-sm font-bold text-slate-300 border border-slate-600 px-2 py-0.5 rounded shrink-0">{{ activeOrder?.part_number }}</span>
+                        <span v-if="activeOrder?.sales_order" class="text-emerald-400 text-sm shrink-0">SO# {{ activeOrder.sales_order }}</span>
+                        <span class="text-slate-500 text-xs shrink-0">Qty: {{ activeOrder?.qty_required }}</span>
+                    </div>
+                </div>
+
+                <!-- 2-zone body -->
+                <div class="flex flex-1 min-h-0 overflow-hidden">
+
+                    <!-- LEFT: unit details + stage panels + complete button -->
+                    <div class="flex-1 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
+                        <div class="p-4 flex flex-col gap-4">
+
+                            <!-- Unit Details card -->
+                            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center justify-between mb-1">
+                                    <div class="text-gray-500 text-xs font-bold uppercase tracking-wide">Unit Details</div>
+                                    <div class="text-gray-500 text-xs">Qty Required: <span class="text-gray-800 font-bold">{{ activeOrder?.qty_required }}</span></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Sales Order</label>
+                                        <input v-model="tcUnitInfoForm.salesOrder" @blur="saveTcUnitDetails()" type="text" placeholder="—"
+                                            class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-emerald-700 text-sm transition-colors">
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Unit Serial #</label>
+                                        <input v-model="tcUnitInfoForm.unitSerial" @blur="saveTcUnitDetails()" type="text" placeholder="—"
+                                            class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-teal-700 font-mono text-sm transition-colors">
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Engine</label>
+                                        <input v-model="tcUnitInfoForm.engine" @blur="saveTcUnitDetails()" type="text" placeholder="—"
+                                            class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-gray-800 text-sm transition-colors">
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Engine Serial #</label>
+                                        <input v-model="tcUnitInfoForm.engineSerial" @blur="saveTcUnitDetails()" type="text" placeholder="—"
+                                            class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-teal-700 font-mono text-sm transition-colors">
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1"># of Blades</label>
+                                        <input v-model="tcUnitInfoForm.numBlades" @blur="saveTcUnitDetails()" type="text" placeholder="—"
+                                            class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-gray-800 text-sm transition-colors">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Notes / Differences / Modifications</label>
+                                    <textarea v-model="tcUnitInfoForm.notes" @blur="saveTcUnitDetails()" rows="3"
+                                        class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-gray-800 text-sm transition-colors"
+                                        placeholder="Log any changes or anything different in this assembled unit/part here."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- PRELAP ASSY stage panel -->
+                            <div class="bg-white border border-blue-200 rounded-xl p-4 flex flex-col gap-3">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xl">&#9881;</span>
+                                    <span class="font-bold text-blue-700 text-base uppercase tracking-wide">Prelap Assy</span>
+                                </div>
+                                <div>
+                                    <div class="text-gray-500 text-xs font-bold uppercase mb-1">Status</div>
+                                    <div class="text-sm font-semibold px-2 py-1 rounded inline-block"
+                                        :class="activeOrder?.tc_pre_lap_status === 'completed' ? 'bg-emerald-100 text-emerald-700' : activeOrder?.tc_pre_lap_status === 'started' ? 'bg-blue-100 text-blue-700' : activeOrder?.tc_pre_lap_status === 'paused' ? 'bg-amber-100 text-amber-700' : activeOrder?.tc_pre_lap_status === 'on_hold' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'">
+                                        {{ activeOrder?.tc_pre_lap_status || 'Not Started' }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-gray-500 text-xs font-bold uppercase mb-1">Done So Far</div>
+                                    <div class="text-2xl font-bold text-blue-600">
+                                        {{ tcPreCum }}<span class="text-gray-400 text-base font-normal"> / {{ activeOrder?.qty_required }}</span>
+                                    </div>
+                                    <div v-if="tcPreCum > (activeOrder?.qty_required || 0)"
+                                        class="mt-1 bg-amber-50 border border-amber-300 rounded px-2 py-1 text-amber-700 text-xs font-semibold">
+                                        &#9888; Qty exceeds WO requirement
+                                    </div>
+                                </div>
+                                <div class="mt-auto pt-3 border-t border-gray-200">
+                                    <div v-if="tcPreStage.pending === ''" class="flex flex-wrap gap-2">
+                                        <template v-if="!activeOrder?.tc_pre_lap_status || activeOrder?.tc_pre_lap_status === 'not_started'">
+                                            <button @click="tcPreStage.pending = 'start'" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Start</button>
+                                            <button @click="tcPreStage.pending = 'cant_start'" class="px-3 py-2 text-xs font-bold bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg active:scale-95 transition-all">&#10007; Can't Start</button>
+                                        </template>
+                                        <template v-else-if="activeOrder?.tc_pre_lap_status === 'started'">
+                                            <button @click="tcPreStage.pending = 'pause'" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-white rounded-lg active:scale-95 transition-all">&#9646;&#9646; Pause</button>
+                                            <button @click="tcPreStage.pending = 'complete'" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg active:scale-95 transition-all">&#10003; Done</button>
+                                            <button @click="tcPreStage.pending = 'hold'" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
+                                        </template>
+                                        <template v-else-if="activeOrder?.tc_pre_lap_status === 'paused' || activeOrder?.tc_pre_lap_status === 'on_hold'">
+                                            <button @click="tcPreStage.pending = 'resume'" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Resume</button>
+                                            <button @click="tcPreStage.pending = 'hold'" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
+                                        </template>
+                                        <div v-else-if="activeOrder?.tc_pre_lap_status === 'completed'" class="text-emerald-600 text-xs font-bold py-1.5">&#10003; Stage Complete</div>
+                                    </div>
+                                    <div v-if="tcPreStage.pending !== ''" class="space-y-2">
+                                        <div class="text-gray-700 text-xs font-bold uppercase">{{ tcPreStage.pending === 'start' ? 'Start Prelap' : tcPreStage.pending === 'resume' ? 'Resume' : tcPreStage.pending === 'pause' ? 'Pause + Qty' : tcPreStage.pending === 'complete' ? 'Complete Stage' : tcPreStage.pending === 'cant_start' ? "Can't Start" : 'Hold Stage' }}</div>
+                                        <input v-if="tcPreStage.pending === 'pause' || tcPreStage.pending === 'complete'"
+                                            type="number" v-model="tcPreStage.sessionQty" placeholder="Session qty (neg=correction)"
+                                            class="w-full p-2 text-sm bg-white rounded border" :class="tcPreStage.qtyError ? 'border-red-500' : 'border-gray-300'">
+                                        <div v-if="tcPreStage.qtyError" class="text-red-500 text-xs">Enter a qty.</div>
+                                        <input v-if="tcPreStage.pending === 'cant_start' || tcPreStage.pending === 'hold'"
+                                            type="text" v-model="tcPreStage.reason" placeholder="Reason..."
+                                            class="w-full p-2 text-sm bg-white rounded border" :class="tcPreStage.reasonError ? 'border-red-500' : 'border-gray-300'">
+                                        <div v-if="tcPreStage.reasonError" class="text-red-500 text-xs">Enter reason.</div>
+                                        <div class="flex gap-2">
+                                            <button @click="tcPreStage.pending = ''; tcPreStage.sessionQty = ''; tcPreStage.reason = ''; tcPreStage.qtyError = false; tcPreStage.reasonError = false"
+                                                class="px-3 py-1.5 text-xs font-bold bg-gray-200 text-gray-700 rounded">Cancel</button>
+                                            <button @click="submitTcUnitStageFromUi('prelap')"
+                                                class="flex-1 px-3 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded active:scale-95 transition-all">Confirm &#10003;</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- FINAL ASSY stage panel -->
+                            <div class="bg-white border border-emerald-200 rounded-xl p-4 flex flex-col gap-3">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xl">&#9989;</span>
+                                    <span class="font-bold text-emerald-700 text-base uppercase tracking-wide">Final Assy</span>
+                                    <span class="ml-auto text-gray-400 text-xs italic font-semibold">Independent</span>
+                                </div>
+                                <div>
+                                    <div class="text-gray-500 text-xs font-bold uppercase mb-1">Status</div>
+                                    <div class="text-sm font-semibold px-2 py-1 rounded inline-block"
+                                        :class="activeOrder?.tc_final_status === 'completed' ? 'bg-emerald-100 text-emerald-700' : activeOrder?.tc_final_status === 'started' ? 'bg-blue-100 text-blue-700' : activeOrder?.tc_final_status === 'paused' ? 'bg-amber-100 text-amber-700' : activeOrder?.tc_final_status === 'on_hold' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'">
+                                        {{ activeOrder?.tc_final_status || 'Not Started' }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-gray-500 text-xs font-bold uppercase mb-1">Done So Far</div>
+                                    <div class="text-2xl font-bold text-emerald-600">
+                                        {{ tcFinCum }}<span class="text-gray-400 text-base font-normal"> / {{ activeOrder?.qty_required }}</span>
+                                    </div>
+                                    <div v-if="tcFinCum > (activeOrder?.qty_required || 0)"
+                                        class="mt-1 bg-amber-50 border border-amber-300 rounded px-2 py-1 text-amber-700 text-xs font-semibold">
+                                        &#9888; Qty exceeds WO requirement
+                                    </div>
+                                    <div v-if="tcFinCum > 0 && tcPreCum === 0"
+                                        class="mt-1 bg-orange-50 border border-orange-300 rounded px-2 py-1 text-orange-700 text-xs font-semibold">
+                                        &#9888; Prelap Assy has no recorded qty
+                                    </div>
+                                </div>
+                                <div class="mt-auto pt-3 border-t border-gray-200">
+                                    <div v-if="tcFinStage.pending === ''" class="flex flex-wrap gap-2">
+                                        <template v-if="!activeOrder?.tc_final_status || activeOrder?.tc_final_status === 'not_started'">
+                                            <button @click="tcFinStage.pending = 'start'" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Start</button>
+                                            <button @click="tcFinStage.pending = 'cant_start'" class="px-3 py-2 text-xs font-bold bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg active:scale-95 transition-all">&#10007; Can't Start</button>
+                                        </template>
+                                        <template v-else-if="activeOrder?.tc_final_status === 'started'">
+                                            <button @click="tcFinStage.pending = 'pause'" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-white rounded-lg active:scale-95 transition-all">&#9646;&#9646; Pause</button>
+                                            <button @click="tcFinStage.pending = 'complete'" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg active:scale-95 transition-all">&#10003; Done</button>
+                                            <button @click="tcFinStage.pending = 'hold'" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
+                                        </template>
+                                        <template v-else-if="activeOrder?.tc_final_status === 'paused' || activeOrder?.tc_final_status === 'on_hold'">
+                                            <button @click="tcFinStage.pending = 'resume'" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Resume</button>
+                                            <button @click="tcFinStage.pending = 'hold'" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
+                                        </template>
+                                        <div v-else-if="activeOrder?.tc_final_status === 'completed'" class="text-emerald-600 text-xs font-bold py-1.5">&#10003; Stage Complete</div>
+                                    </div>
+                                    <div v-if="tcFinStage.pending !== ''" class="space-y-2">
+                                        <div class="text-gray-700 text-xs font-bold uppercase">{{ tcFinStage.pending === 'start' ? 'Start Final' : tcFinStage.pending === 'resume' ? 'Resume' : tcFinStage.pending === 'pause' ? 'Pause + Qty' : tcFinStage.pending === 'complete' ? 'Complete Stage' : tcFinStage.pending === 'cant_start' ? "Can't Start" : 'Hold Stage' }}</div>
+                                        <input v-if="tcFinStage.pending === 'pause' || tcFinStage.pending === 'complete'"
+                                            type="number" v-model="tcFinStage.sessionQty" placeholder="Session qty (neg=correction)"
+                                            class="w-full p-2 text-sm bg-white rounded border" :class="tcFinStage.qtyError ? 'border-red-500' : 'border-gray-300'">
+                                        <div v-if="tcFinStage.qtyError" class="text-red-500 text-xs">Enter a qty.</div>
+                                        <input v-if="tcFinStage.pending === 'cant_start' || tcFinStage.pending === 'hold'"
+                                            type="text" v-model="tcFinStage.reason" placeholder="Reason..."
+                                            class="w-full p-2 text-sm bg-white rounded border" :class="tcFinStage.reasonError ? 'border-red-500' : 'border-gray-300'">
+                                        <div v-if="tcFinStage.reasonError" class="text-red-500 text-xs">Enter reason.</div>
+                                        <div class="flex gap-2">
+                                            <button @click="tcFinStage.pending = ''; tcFinStage.sessionQty = ''; tcFinStage.reason = ''; tcFinStage.qtyError = false; tcFinStage.reasonError = false"
+                                                class="px-3 py-1.5 text-xs font-bold bg-gray-200 text-gray-700 rounded">Cancel</button>
+                                            <button @click="submitTcUnitStageFromUi('final')"
+                                                class="flex-1 px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded active:scale-95 transition-all">Confirm &#10003;</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Whole WO Complete button -->
+                            <div>
+                                <button v-if="activeOrder?.status !== 'completed'" @click="openTcAssyCompleteModal()"
+                                    class="w-full py-4 bg-violet-600 hover:bg-violet-500 text-white font-bold text-lg rounded-xl active:scale-95 transition-all border border-violet-400/50 flex items-center justify-center gap-2">
+                                    <span>&#9989;</span> Mark Whole WO Complete
+                                </button>
+                                <div v-else class="text-center text-emerald-600 font-bold text-xl py-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                                    &#10003; WO Fully Complete
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: tabs -->
+                    <div class="w-80 shrink-0 bg-white border-l border-gray-200 flex flex-col">
+                        <div class="flex border-b border-gray-200 shrink-0">
+                            <button @click="woActionTab = 'attach'" :class="woActionTab === 'attach' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="flex-1 py-2.5 text-xs font-bold uppercase tracking-wide transition-colors">📎 Attach</button>
+                            <button @click="woActionTab = 'notes'" :class="woActionTab === 'notes' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="flex-1 py-2.5 text-xs font-bold uppercase tracking-wide transition-colors">📝 Problems</button>
+                            <button @click="woActionTab = 'complete'" :class="woActionTab === 'complete' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="flex-1 py-2.5 text-xs font-bold uppercase tracking-wide transition-colors">✓ Done</button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-4">
+                            <!-- Attach tab -->
+                            <div v-if="woActionTab === 'attach'">
+                                <div v-if="woFilesLoading" class="text-gray-400 text-sm text-center py-4">Loading...</div>
+                                <div v-else-if="!woFiles.length" class="text-gray-400 text-sm italic text-center py-4">No files attached yet.</div>
+                                <div v-else class="space-y-2">
+                                    <div v-for="f in woFiles" :key="'tcua-'+f.name" class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                        <a :href="getWoFilePublicUrl(activeOrder?.wo_number, f.name)" target="_blank" class="text-blue-600 text-xs font-medium truncate hover:underline">{{ f.name }}</a>
+                                        <button @click="handleWoFileDelete(f.name)" class="ml-2 text-red-400 hover:text-red-600 text-xs font-bold shrink-0">✕</button>
+                                    </div>
+                                </div>
+                                <label class="mt-3 flex items-center justify-center gap-2 cursor-pointer w-full py-2.5 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg text-gray-500 hover:text-blue-600 text-xs font-bold transition-colors">
+                                    + Upload File
+                                    <input type="file" accept=".pdf,.dxf,.dwg,.png,.jpg" class="hidden" @change="handleWoFileUpload">
+                                </label>
+                            </div>
+                            <!-- Problems tab -->
+                            <div v-if="woActionTab === 'notes'">
+                                <button @click="notesPanelOpen = true" class="w-full py-3 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl active:scale-95 transition-all text-sm mb-1">
+                                    Add Problem with WO
+                                </button>
+                                <div class="text-gray-400 text-xs text-center mb-4">Ex: Die problem, machine problem, etc.</div>
+                                <div class="text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">Stage History</div>
+                                <div v-if="!(activeOrder?.notes || '').match(/TCPRE\||TCFIN\||TCWOC\|/)" class="text-gray-400 text-sm italic">No stage actions yet.</div>
+                                <div class="space-y-1.5">
+                                    <div v-for="entry in (activeOrder?.notes || '').split('\n').filter(l => l.startsWith('TCPRE|') || l.startsWith('TCFIN|') || l.startsWith('TCWOC|')).slice().reverse()" :key="entry"
+                                        class="bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs flex flex-wrap gap-x-2 gap-y-1 items-center">
+                                        <span class="font-bold text-xs px-1.5 py-0.5 rounded"
+                                            :class="entry.startsWith('TCPRE|') ? 'bg-blue-100 text-blue-700' : entry.startsWith('TCFIN|') ? 'bg-emerald-100 text-emerald-700' : 'bg-violet-100 text-violet-700'">
+                                            {{ entry.startsWith('TCPRE|') ? 'PRELAP' : entry.startsWith('TCFIN|') ? 'FINAL' : 'WO' }}
+                                        </span>
+                                        <span class="text-gray-400 text-xs">{{ entry.split('|')[1] }}</span>
+                                        <span class="text-teal-600 font-semibold">{{ entry.split('|')[2] }}</span>
+                                        <span class="font-bold uppercase tracking-wide text-xs px-1.5 py-0.5 rounded"
+                                            :class="entry.split('|')[3] === 'completed' ? 'bg-emerald-100 text-emerald-700' : entry.split('|')[3].includes('started') ? 'bg-blue-100 text-blue-700' : entry.split('|')[3] === 'paused' ? 'bg-amber-100 text-amber-700' : entry.split('|')[3] === 'on_hold' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'">
+                                            {{ entry.split('|')[3] }}
+                                        </span>
+                                        <span v-if="entry.split('|')[4]" class="text-gray-400 text-xs">Sess: <span class="text-amber-600 font-semibold">{{ entry.split('|')[4] }}</span></span>
+                                        <span v-if="entry.split('|')[5]" class="text-gray-400 text-xs">Total: <span class="text-emerald-600 font-semibold">{{ entry.split('|')[5] }}</span></span>
+                                        <span v-if="entry.split('|')[6]" class="text-gray-400 text-xs italic">&#8220;{{ entry.split('|')[6] }}&#8221;</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Done tab -->
+                            <div v-if="woActionTab === 'complete'" class="text-center py-6 text-gray-400 text-sm">
+                                Use <strong class="text-gray-700">"Mark Whole WO Complete"</strong> in the left panel to complete this WO.
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /3-zone body -->
+
+            </div>
+        </div>
+
+        <!-- TC ASSY UNIT COMPLETE PROMPT MODAL -->
+        <div v-if="tcAssyCompleteModalOpen" class="fixed z-50 inset-0 bg-black/80 flex items-center justify-center p-4">
+            <div class="bg-slate-800 rounded-xl w-full max-w-lg border border-violet-500/50 shadow-2xl flex flex-col">
+                <div class="bg-violet-900/30 border-b border-violet-700/40 px-6 py-5 rounded-t-xl shrink-0">
+                    <h2 class="text-2xl font-bold text-violet-300">
+                        &#9989; {{ activeOrder?.tc_job_mode === 'unit' ? 'Complete Unit WO' : 'Complete Subassy WO' }}
+                    </h2>
+                    <p class="text-slate-400 text-sm mt-0.5">
+                        {{ activeOrder?.tc_job_mode === 'unit' ? 'Please check all unit details and add any notes.' : 'Add any notes before completing.' }}
+                    </p>
+                </div>
+                <div class="p-6 space-y-4">
+                    <!-- Notes / Differences field -->
+                    <div>
+                        <label class="block font-bold text-slate-400 text-sm mb-1">Notes / Differences / Modifications</label>
+                        <textarea v-model="tcAssyCompleteForm.notes" rows="3"
+                            class="w-full bg-slate-900 p-3 rounded-lg border border-slate-700 focus:outline-none focus:border-violet-500 transition-colors"
+                            placeholder="Any differences from standard build?"></textarea>
+                    </div>
+
+                    <!-- Unit fields: only shown for unit mode -->
+                    <template v-if="activeOrder?.tc_job_mode === 'unit'">
+                        <div class="text-violet-300 text-xs font-bold uppercase tracking-widest mt-4 mb-2">Required Unit Details</div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <!-- Sales Order -->
+                            <div>
+                                <label class="block font-bold text-slate-400 text-sm mb-1">Sales Order #</label>
+                                <input v-model="tcAssyCompleteForm.salesOrder" type="text"
+                                    class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors"
+                                    :class="tcAssyCompleteErrors.salesOrder ? 'border-red-500' : 'border-slate-700'">
+                                <div v-if="tcAssyCompleteErrors.salesOrder" class="text-red-400 text-xs mt-1">Required</div>
+                            </div>
+                            <!-- Unit Serial # -->
+                            <div>
+                                <label class="block font-bold text-slate-400 text-sm mb-1">Unit Serial #</label>
+                                <input v-model="tcAssyCompleteForm.unitSerial" type="text"
+                                    class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors font-mono"
+                                    :class="tcAssyCompleteErrors.unitSerial ? 'border-red-500' : 'border-slate-700'">
+                                <div v-if="tcAssyCompleteErrors.unitSerial" class="text-red-400 text-xs mt-1">Required</div>
+                            </div>
+                            <!-- Engine -->
+                            <div>
+                                <label class="block font-bold text-slate-400 text-sm mb-1">Engine</label>
+                                <input v-model="tcAssyCompleteForm.engine" type="text"
+                                    class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors"
+                                    :class="tcAssyCompleteErrors.engine ? 'border-red-500' : 'border-slate-700'">
+                                <div v-if="tcAssyCompleteErrors.engine" class="text-red-400 text-xs mt-1">Required</div>
+                            </div>
+                            <!-- Engine Serial # -->
+                            <div>
+                                <label class="block font-bold text-slate-400 text-sm mb-1">Engine Serial #</label>
+                                <input v-model="tcAssyCompleteForm.engineSerial" type="text"
+                                    class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors font-mono"
+                                    :class="tcAssyCompleteErrors.engineSerial ? 'border-red-500' : 'border-slate-700'">
+                                <div v-if="tcAssyCompleteErrors.engineSerial" class="text-red-400 text-xs mt-1">Required</div>
+                            </div>
+                            <!-- # of Blades -->
+                            <div class="col-span-2">
+                                <label class="block font-bold text-slate-400 text-sm mb-1"># of Blades</label>
+                                <input v-model="tcAssyCompleteForm.numBlades" type="text"
+                                    class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors"
+                                    :class="tcAssyCompleteErrors.numBlades ? 'border-red-500' : 'border-slate-700'">
+                                <div v-if="tcAssyCompleteErrors.numBlades" class="text-red-400 text-xs mt-1">Required</div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <div class="px-6 py-5 border-t border-slate-700 flex gap-4 shrink-0">
+                    <button @click="tcAssyCompleteModalOpen = false" class="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition-all">CANCEL</button>
+                    <button @click="confirmTcWoComplete"
+                        class="flex-1 px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-lg font-bold text-white active:scale-95 transition-all">
+                        CONFIRM COMPLETE
+                    </button>
+                </div>
+            </div>
+        </div>

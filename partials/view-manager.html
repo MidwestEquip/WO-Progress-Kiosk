@@ -1,0 +1,273 @@
+            <!-- ── MANAGER HUB ──────────────────────────────── -->
+            <div v-if="currentView === 'manager'" class="h-full w-full bg-slate-900 overflow-y-auto absolute inset-0">
+
+                <!-- Home -->
+                <div v-if="managerSubView === 'home'" class="flex flex-col items-center p-8 pb-12">
+                    <div class="text-center mb-10">
+                        <h2 class="text-5xl font-extrabold text-gray-900 mb-2">Manager's Hub</h2>
+                        <p class="text-slate-400 text-lg">Select a section to dive in</p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-6 w-full max-w-4xl">
+                        <button @click="openManagerSection('kpi')"
+                            class="bg-white hover:bg-gray-50 rounded-2xl p-8 flex flex-col items-center gap-4 border-2 border-gray-300 active:scale-95 transition-transform">
+                            <svg class="w-14 h-14 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                            <span class="text-2xl font-bold uppercase text-gray-900">KPIs</span>
+                            <span class="text-gray-500 text-sm text-center">Production metrics &amp; performance</span>
+                        </button>
+                        <button @click="openManagerSection('priorities')"
+                            class="bg-white hover:bg-gray-50 rounded-2xl p-8 flex flex-col items-center gap-4 border-2 border-gray-300 active:scale-95 transition-transform">
+                            <svg class="w-14 h-14 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                            <span class="text-2xl font-bold uppercase text-gray-900">Priorities</span>
+                            <span class="text-gray-500 text-sm text-center">Pin &amp; rank work orders by dept</span>
+                        </button>
+                        <button @click="openManagerSection('delayed')"
+                            class="bg-white hover:bg-gray-50 rounded-2xl p-8 flex flex-col items-center gap-4 border-2 border-gray-300 active:scale-95 transition-transform">
+                            <svg class="w-14 h-14 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <span class="text-2xl font-bold uppercase text-gray-900">Delayed WOs</span>
+                            <span class="text-gray-500 text-sm text-center">Overdue by department thresholds</span>
+                        </button>
+                    </div>
+
+                    <!-- Alert Buckets: 2x2 grid below nav buttons -->
+                    <div class="w-full max-w-5xl mt-10">
+                        <div class="text-slate-500 font-bold text-xs uppercase tracking-widest mb-4">&#9888; Live Alerts</div>
+                        <div class="grid grid-cols-2 gap-5">
+
+                            <!-- 1. Completed Not Received -->
+                            <div class="rounded-xl border border-gray-300 overflow-hidden">
+                                <div class="bg-white px-4 py-3 border-b border-gray-200">
+                                    <div class="font-bold text-gray-800 text-sm">Completed Not Received</div>
+                                    <div class="text-gray-500 text-xs mt-0.5">Completed &gt; 7 days &amp; not yet received</div>
+                                </div>
+                                <div class="p-3 space-y-2 bg-gray-50 min-h-[4rem]">
+                                    <div v-if="managerAlerts.completedNotReceived.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
+                                    <div v-for="o in managerAlerts.completedNotReceived" :key="o.id"
+                                        class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2">
+                                        <span class="font-bold text-gray-900 text-sm">WO #{{ o.wo_number }}</span>
+                                        <span class="text-gray-500 text-xs">{{ o.part_number }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Paused / On Hold > 5 Days -->
+                            <div class="rounded-xl border border-gray-300 overflow-hidden">
+                                <div class="bg-white px-4 py-3 border-b border-gray-200">
+                                    <div class="font-bold text-gray-800 text-sm">Paused / On Hold &gt; 5 Days</div>
+                                    <div class="text-gray-500 text-xs mt-0.5">Paused or on hold, started &gt; 5 days ago</div>
+                                </div>
+                                <div class="p-3 space-y-2 bg-gray-50 min-h-[4rem]">
+                                    <div v-if="managerAlerts.pausedOnHold.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
+                                    <div v-for="o in managerAlerts.pausedOnHold" :key="o.id"
+                                        class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2">
+                                        <span class="font-bold text-gray-900 text-sm">WO #{{ o.wo_number }}</span>
+                                        <span class="text-gray-500 text-xs">{{ o.part_number }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 3. Started No Progress > 2 Days -->
+                            <div class="rounded-xl border border-gray-300 overflow-hidden">
+                                <div class="bg-white px-4 py-3 border-b border-gray-200">
+                                    <div class="font-bold text-gray-800 text-sm">Started No Progress &gt; 2 Days</div>
+                                    <div class="text-gray-500 text-xs mt-0.5">Started &gt; 2 days ago with 0 qty completed</div>
+                                </div>
+                                <div class="p-3 space-y-2 bg-gray-50 min-h-[4rem]">
+                                    <div v-if="managerAlerts.startedNoProgress.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
+                                    <div v-for="o in managerAlerts.startedNoProgress" :key="o.id"
+                                        class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2">
+                                        <span class="font-bold text-gray-900 text-sm">WO #{{ o.wo_number }}</span>
+                                        <span class="text-gray-500 text-xs">{{ o.part_number }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 4. Qty Mismatch -->
+                            <div class="rounded-xl border border-gray-300 overflow-hidden">
+                                <div class="bg-white px-4 py-3 border-b border-gray-200">
+                                    <div class="font-bold text-gray-800 text-sm">Qty Mismatch</div>
+                                    <div class="text-gray-500 text-xs mt-0.5">Received qty &#8800; completed qty</div>
+                                </div>
+                                <div class="p-3 space-y-2 bg-gray-50 min-h-[4rem]">
+                                    <div v-if="managerAlerts.qtyMismatch.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
+                                    <div v-for="o in managerAlerts.qtyMismatch" :key="o.id"
+                                        class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2">
+                                        <div>
+                                            <span class="font-bold text-gray-900 text-sm">WO #{{ o.wo_number }}</span>
+                                            <span class="text-gray-500 text-xs ml-2">{{ o.part_number }}</span>
+                                        </div>
+                                        <span class="text-gray-600 text-xs font-bold">rcvd {{ o.qty_received }} / done {{ o.qty_completed }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- KPIs -->
+                <div v-if="managerSubView === 'kpi'" class="p-6 max-w-7xl mx-auto">
+                    <div class="flex items-center gap-4 mb-8">
+                        <button @click="managerSubView = 'home'" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-bold">&#8592; Back</button>
+                        <h2 class="text-3xl font-bold text-blue-400">Production KPIs</h2>
+                        <span class="text-slate-500 text-sm ml-2">(Past 30 days of completed WOs)</span>
+                    </div>
+                    <div class="grid grid-cols-4 gap-4 mb-8">
+                        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-center">
+                            <div class="text-4xl font-extrabold text-emerald-400">{{ kpiStats.completedThisWeek }}</div>
+                            <div class="text-slate-400 text-sm mt-1 font-bold uppercase tracking-wide">WOs Completed This Week</div>
+                        </div>
+                        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-center">
+                            <div class="text-4xl font-extrabold text-blue-400">{{ kpiStats.activeJobs }}</div>
+                            <div class="text-slate-400 text-sm mt-1 font-bold uppercase tracking-wide">Active Jobs Right Now</div>
+                        </div>
+                        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-center">
+                            <div class="text-4xl font-extrabold text-amber-400">{{ kpiStats.onHoldCount }}</div>
+                            <div class="text-slate-400 text-sm mt-1 font-bold uppercase tracking-wide">Currently On Hold</div>
+                        </div>
+                        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-center">
+                            <div class="text-4xl font-extrabold text-red-400">{{ kpiStats.delayedCount }}</div>
+                            <div class="text-slate-400 text-sm mt-1 font-bold uppercase tracking-wide">Delayed WOs</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6 mb-6">
+                        <div class="bg-slate-800 rounded-xl border border-slate-700">
+                            <div class="px-5 py-4 border-b border-slate-700 font-bold text-lg text-blue-300">Output by Operator (past 30 days)</div>
+                            <div class="p-4">
+                                <div v-if="kpiByOperator.length === 0" class="text-slate-500 text-center py-6">No completed WO data yet</div>
+                                <div v-for="op in kpiByOperator" :key="op.name" class="flex items-center gap-3 mb-3">
+                                    <div class="w-28 text-sm font-bold text-slate-300 truncate">{{ op.name }}</div>
+                                    <div class="flex-1 bg-slate-700 rounded-full h-5 overflow-hidden">
+                                        <div class="bg-blue-500 h-5 rounded-full transition-all" :style="{width: op.pct + '%'}"></div>
+                                    </div>
+                                    <div class="w-16 text-right text-emerald-400 font-bold text-sm">{{ op.count }} WOs</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800 rounded-xl border border-slate-700">
+                            <div class="px-5 py-4 border-b border-slate-700 font-bold text-lg text-amber-300">Avg Cycle Time by Dept (past 7 days)</div>
+                            <div class="p-4 space-y-4">
+                                <div v-if="kpiCycleTime.length === 0" class="text-slate-500 text-center py-6">No completed WO data yet</div>
+                                <div v-for="ct in kpiCycleTime" :key="ct.dept" class="flex items-center justify-between bg-slate-700/60 rounded-lg p-3">
+                                    <span class="font-bold text-slate-200">{{ ct.dept }}</span>
+                                    <span class="text-2xl font-extrabold text-amber-400">{{ ct.avgDays }}<span class="text-sm text-slate-400 ml-1">days avg</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="bg-slate-800 rounded-xl border border-slate-700">
+                            <div class="px-5 py-4 border-b border-slate-700 font-bold text-lg text-red-300">Top Hold Reasons</div>
+                            <div class="p-4">
+                                <div v-if="kpiHoldReasons.length === 0" class="text-slate-500 text-center py-6">No hold data yet</div>
+                                <div v-for="(reason, idx) in kpiHoldReasons" :key="idx" class="flex items-center gap-3 mb-3">
+                                    <div class="w-6 h-6 rounded-full bg-red-800 text-red-200 flex items-center justify-center text-xs font-bold shrink-0">{{ idx+1 }}</div>
+                                    <div class="flex-1 text-sm text-slate-300">{{ reason.reason }}</div>
+                                    <div class="text-red-400 font-bold text-sm">{{ reason.count }}x</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800 rounded-xl border border-slate-700">
+                            <div class="px-5 py-4 border-b border-slate-700 font-bold text-lg text-orange-300">Top 5 Oldest Open WOs</div>
+                            <div class="p-4 space-y-2">
+                                <div v-if="kpiOldestWos.length === 0" class="text-slate-500 text-center py-6">No data yet</div>
+                                <div v-for="wo in kpiOldestWos" :key="wo.id" class="flex items-center justify-between bg-slate-700/60 rounded-lg p-3">
+                                    <div>
+                                        <span class="font-bold text-white mr-2">WO #{{ wo.wo_number }}</span>
+                                        <span class="text-slate-400 text-sm">Part #{{ wo.part_number }}</span>
+                                        <div class="text-xs text-slate-500">{{ wo.department }}</div>
+                                    </div>
+                                    <span class="text-orange-400 font-extrabold text-lg">{{ wo.daysOpen }}<span class="text-xs text-slate-400 ml-1">days</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Priorities -->
+                <div v-if="managerSubView === 'priorities'" class="p-6 max-w-7xl mx-auto">
+                    <div class="flex items-center gap-4 mb-6">
+                        <button @click="managerSubView = 'home'" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-bold">&#8592; Back</button>
+                        <h2 class="text-3xl font-bold text-yellow-400">Manager Priorities</h2>
+                    </div>
+                    <div class="flex gap-3 mb-6">
+                        <button v-for="d in ['Fab','Weld','Trac Vac Assy','Tru Cut Assy']" :key="d"
+                            @click="priorityDept = d; fetchPriorityOrders(d)"
+                            class="px-5 py-2 rounded-lg font-bold text-sm transition-colors"
+                            :class="priorityDept === d ? 'bg-yellow-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'">{{ d }}</button>
+                    </div>
+                    <div v-if="priorityOrders.length === 0" class="text-slate-500 text-center py-16">Select a department above</div>
+                    <div class="space-y-2">
+                        <div v-for="o in priorityOrders" :key="o.id"
+                            class="bg-slate-800 rounded-xl p-4 flex items-center gap-4 border transition-colors"
+                            :class="o.priority >= 5 ? 'border-red-500/60 bg-red-950/30' : o.priority === 4 ? 'border-orange-500/50 bg-orange-950/20' : o.priority === 3 ? 'border-yellow-500/40' : o.priority > 0 ? 'border-blue-500/30' : 'border-slate-700'">
+                            <div class="flex flex-col items-center gap-1 shrink-0 w-12">
+                                <div v-if="o.priority >= 5" class="text-xs font-bold text-red-400 uppercase animate-pulse">TOP</div>
+                                <div class="text-2xl font-extrabold" :class="o.priority === 5 ? 'text-red-400' : o.priority === 4 ? 'text-orange-400' : o.priority === 3 ? 'text-yellow-400' : o.priority > 0 ? 'text-blue-400' : 'text-slate-600'">{{ o.priority || 0 }}</div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3">
+                                    <span class="font-bold text-xl text-white">WO #{{ o.wo_number }}</span>
+                                    <span class="text-slate-400 text-sm">Part #{{ o.part_number }}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded font-bold"
+                                        :class="o.status === 'started' ? 'bg-blue-600' : o.status === 'paused' ? 'bg-amber-600' : o.status === 'on_hold' ? 'bg-red-700' : 'bg-slate-600'">{{ o.status }}</span>
+                                </div>
+                                <div class="text-slate-400 text-sm truncate">{{ o.description }}</div>
+                                <div class="text-slate-500 text-xs">Qty: {{ o.qty_completed }}/{{ o.qty_required }} {{ o.operator ? '&#183; ' + o.operator : '' }}</div>
+                                <div v-if="o.manager_notes" class="mt-2 bg-yellow-900/40 border border-yellow-600/40 rounded px-2 py-1">
+                                    <div class="text-yellow-300 text-xs font-bold mb-0.5">&#128221; NOTE</div>
+                                    <div class="text-yellow-200 text-xs line-clamp-2">{{ o.manager_notes }}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button @click="openNotesPanel(o)" class="bg-yellow-700 hover:bg-yellow-600 px-3 py-1 rounded text-sm font-bold text-white" title="Add note">📝</button><span class="text-slate-500 text-sm">Priority:</span>
+                                <div class="flex gap-1">
+                                    <button v-for="n in [1,2,3,4,5]" :key="n"
+                                        @click="updatePriority(o.id, o.priority === n ? 0 : n)"
+                                        class="w-10 h-10 rounded-lg font-bold text-sm transition-all active:scale-90"
+                                        :class="o.priority === n ? (n===5?'bg-red-500 text-white ring-2 ring-red-300 shadow-lg':n===4?'bg-orange-500 text-white ring-2 ring-orange-300':n===3?'bg-yellow-500 text-black ring-2 ring-yellow-300':n===2?'bg-blue-500 text-white ring-2 ring-blue-300':'bg-slate-400 text-black ring-2 ring-slate-200') : 'bg-slate-700 hover:bg-slate-500 text-slate-300'">
+                                        {{ n }}
+                                    </button>
+                                </div>
+                                <button v-if="o.priority > 0" @click="updatePriority(o.id, 0)" class="text-slate-500 hover:text-red-400 text-xs px-1 ml-1">&#10005;</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Delayed WOs -->
+                <div v-if="managerSubView === 'delayed'" class="p-6 max-w-7xl mx-auto">
+                    <div class="flex items-center gap-4 mb-6">
+                        <button @click="managerSubView = 'home'" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-bold">&#8592; Back</button>
+                        <h2 class="text-3xl font-bold text-red-400">Delayed Work Orders</h2>
+                        <div class="ml-auto text-slate-500 text-sm">Fab: &gt;5 days &#183; Weld: &gt;10 days &#183; Assy: &gt;5 days</div>
+                    </div>
+                    <div v-if="delayedOrders.length === 0" class="text-center py-20">
+                        <div class="text-6xl mb-4">&#9989;</div>
+                        <div class="text-2xl font-bold text-emerald-400">No Delayed Work Orders</div>
+                        <div class="text-slate-500 mt-2">Everything is within threshold</div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div v-for="o in delayedOrders" :key="o.id" class="bg-slate-800 rounded-xl border border-red-500/40 p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <span class="font-bold text-xl text-white">WO #{{ o.wo_number }}</span>
+                                    <span class="ml-2 text-slate-400 text-sm">Part #{{ o.part_number }}</span>
+                                </div>
+                                <span class="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">{{ o.daysIn }} days in {{ o.department }}</span>
+                            </div>
+                            <div class="text-slate-300 text-sm mb-2 line-clamp-2">{{ o.description }}</div>
+                            <div class="flex justify-between text-xs text-slate-500">
+                                <span>Qty: {{ o.qty_completed }}/{{ o.qty_required }}</span>
+                                <span :class="o.status === 'on_hold' ? 'text-red-400 font-bold' : o.status === 'started' ? 'text-blue-400' : 'text-slate-400'">{{ o.status }}</span>
+                            </div>
+                            <div v-if="o.operator" class="text-xs text-slate-500 mt-1">Operator: {{ o.operator }}</div>
+                            <div v-if="o.manager_notes" class="mt-2 bg-yellow-900/40 border border-yellow-600/40 rounded px-2 py-1">
+                                <div class="text-yellow-300 text-xs font-bold mb-0.5">&#128221; NOTE</div>
+                                <div class="text-yellow-200 text-xs line-clamp-2">{{ o.manager_notes }}</div>
+                            </div>
+                            <button @click="openNotesPanel(o)" class="mt-3 w-full bg-yellow-700 hover:bg-yellow-600 px-3 py-1 rounded text-xs font-bold text-white">📝 Add Note</button>
+                        </div>
+                    </div>
+                </div>
+            </div>

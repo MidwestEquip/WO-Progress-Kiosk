@@ -1,0 +1,208 @@
+        <!-- TC ASSY STOCK MODAL — 3-zone workstation layout -->
+        <div v-if="tcAssyStockOpen" class="fixed z-50 inset-0 flex flex-col bg-gray-100">
+            <div class="flex flex-col h-screen">
+
+                <!-- Top bar -->
+                <div class="shrink-0 bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center gap-4">
+                    <button @click="tcAssyStockOpen = false" class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded font-bold text-sm">&#10005; CLOSE</button>
+                    <img src="assets/tru-cut-logo.png" alt="Tru-Cut" class="h-8 object-contain shrink-0">
+                    <!-- Operator + mode toggle -->
+                    <div class="flex items-center gap-3 shrink-0">
+                        <template v-if="!tcAssyOpEditing">
+                            <span class="text-teal-400 text-sm">Op: <span class="font-semibold">{{ tcAssyEntryName || '—' }}</span></span>
+                            <button @click="tcAssyOpEditing = true" class="text-slate-500 hover:text-teal-400 underline text-xs transition-colors">Change</button>
+                        </template>
+                        <template v-else>
+                            <input v-model="tcAssyEntryName" type="text" placeholder="Operator name"
+                                class="px-2 py-0.5 text-xs bg-slate-900 border border-teal-500 rounded text-white w-32 focus:outline-none">
+                            <button @click="tcAssyOpEditing = false" class="text-teal-400 text-xs font-bold px-2 py-0.5 bg-slate-700 rounded">&#10003;</button>
+                        </template>
+                        <div class="flex rounded-lg overflow-hidden border border-slate-600 shrink-0">
+                            <button @click="tcAssyStockOpen = false; tcAssyUnitOpen = true" class="px-3 py-1.5 text-xs font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">UNIT</button>
+                            <span class="px-3 py-1.5 text-xs font-bold bg-teal-600 text-white">SUBASSY</span>
+                        </div>
+                    </div>
+                    <!-- WO info -->
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <span class="text-xl font-extrabold text-teal-400 shrink-0">WO #{{ activeOrder?.wo_number }}</span>
+                        <span class="text-sm font-bold text-slate-300 border border-slate-600 px-2 py-0.5 rounded shrink-0">{{ activeOrder?.part_number }}</span>
+                        <span v-if="activeOrder?.sales_order" class="text-emerald-400 text-sm shrink-0">SO# {{ activeOrder.sales_order }}</span>
+                        <span class="text-slate-500 text-xs shrink-0">Qty: {{ activeOrder?.qty_required }}</span>
+                    </div>
+                </div>
+
+                <!-- 2-zone body -->
+                <div class="flex flex-1 min-h-0 overflow-hidden">
+
+                    <!-- LEFT: status card + actions + notes -->
+                    <div class="flex-1 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
+                        <div class="p-4 flex flex-col gap-4">
+
+                            <!-- Status / qty summary card -->
+                            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                                <div class="flex gap-8">
+                                    <div>
+                                        <div class="text-gray-500 text-xs font-bold uppercase">Status</div>
+                                        <div class="font-bold text-lg"
+                                            :class="activeOrder?.status === 'completed' ? 'text-emerald-600' : activeOrder?.status === 'started' ? 'text-blue-600' : activeOrder?.status === 'on_hold' ? 'text-red-600' : activeOrder?.status === 'paused' ? 'text-amber-600' : 'text-gray-400'">
+                                            {{ activeOrder?.status || 'Not Started' }}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-500 text-xs font-bold uppercase">Required</div>
+                                        <div class="font-bold text-lg text-gray-700">{{ activeOrder?.qty_required }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-500 text-xs font-bold uppercase">Completed</div>
+                                        <div class="font-bold text-2xl text-emerald-600">{{ activeOrder?.qty_completed || 0 }}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action area -->
+                            <div class="bg-white border border-gray-200 rounded-xl p-4">
+                                <!-- Action buttons (idle state) -->
+                                <div v-if="tcStockPending === ''" class="flex flex-wrap gap-3">
+                                    <template v-if="!activeOrder?.status || activeOrder?.status === 'not_started'">
+                                        <button @click="tcStockPending = 'start'"
+                                            class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 transition-all">
+                                            &#9654; Start
+                                        </button>
+                                        <button @click="tcStockPending = 'cant_start'"
+                                            class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl active:scale-95 transition-all">
+                                            &#10007; Can't Start
+                                        </button>
+                                    </template>
+                                    <template v-else-if="activeOrder?.status === 'started'">
+                                        <button @click="tcStockPending = 'pause'"
+                                            class="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-white font-bold rounded-xl active:scale-95 transition-all">
+                                            &#9646;&#9646; Pause
+                                        </button>
+                                        <button @click="tcStockPending = 'complete'"
+                                            class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl active:scale-95 transition-all">
+                                            &#10003; Complete
+                                        </button>
+                                        <button @click="tcStockPending = 'hold'"
+                                            class="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl active:scale-95 transition-all">
+                                            &#128722; Hold
+                                        </button>
+                                    </template>
+                                    <template v-else-if="activeOrder?.status === 'paused' || activeOrder?.status === 'on_hold'">
+                                        <button @click="tcStockPending = 'resume'"
+                                            class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 transition-all">
+                                            &#9654; Resume
+                                        </button>
+                                        <button @click="tcStockPending = 'hold'"
+                                            class="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl active:scale-95 transition-all">
+                                            &#128722; Hold
+                                        </button>
+                                    </template>
+                                    <div v-else-if="activeOrder?.status === 'completed'"
+                                        class="w-full text-center text-emerald-600 font-bold text-xl py-3">
+                                        &#10003; WO Complete
+                                    </div>
+                                </div>
+                                <!-- Pending action form -->
+                                <div v-if="tcStockPending !== ''" class="space-y-4">
+                                    <div class="text-gray-800 font-bold text-lg">
+                                        {{ tcStockPending === 'start' ? 'Start Job' : tcStockPending === 'resume' ? 'Resume Job' : tcStockPending === 'pause' ? 'Pause &amp; Log Qty' : tcStockPending === 'complete' ? 'Complete WO' : tcStockPending === 'cant_start' ? "Can't Start" : 'Put On Hold' }}
+                                    </div>
+                                    <div v-if="tcStockPending === 'pause' || tcStockPending === 'complete'">
+                                        <label class="block text-gray-500 text-sm font-bold mb-1">Session Qty <span class="text-gray-400 font-normal">(negative = correction)</span></label>
+                                        <input type="number" v-model="tcStockSessionQty" placeholder="e.g. 5 or -2"
+                                            class="w-full p-3 text-xl bg-white rounded-xl border focus:outline-none transition-colors"
+                                            :class="tcStockQtyError ? 'border-red-500' : 'border-gray-300 focus:border-teal-500'">
+                                        <div v-if="tcStockQtyError" class="text-red-500 text-sm mt-1">&#9888; Enter a qty (can be 0 or negative for corrections).</div>
+                                    </div>
+                                    <div v-if="tcStockPending === 'cant_start' || tcStockPending === 'hold'">
+                                        <label class="block text-gray-500 text-sm font-bold mb-1">Reason <span class="text-red-500">*</span></label>
+                                        <input type="text" v-model="tcStockReason" placeholder="Enter reason..."
+                                            class="w-full p-3 bg-white rounded-xl border focus:outline-none transition-colors"
+                                            :class="tcStockReasonError ? 'border-red-500' : 'border-gray-300 focus:border-teal-500'">
+                                        <div v-if="tcStockReasonError" class="text-red-500 text-sm mt-1">&#9888; Please enter a reason.</div>
+                                    </div>
+                                    <div v-if="tcStockPending === 'complete'" class="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-amber-700 text-sm font-semibold">
+                                        &#9888; This will mark the entire WO complete.
+                                    </div>
+                                    <div class="flex gap-3 pt-1">
+                                        <button @click="tcStockPending = ''; tcStockSessionQty = ''; tcStockReason = ''; tcStockQtyError = false; tcStockReasonError = false"
+                                            class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl">
+                                            Cancel
+                                        </button>
+                                        <button @click="submitTcStockActionFromUi()"
+                                            class="flex-1 py-3 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl active:scale-95 transition-all">
+                                            Confirm &#10003;
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notes / Differences / Mods -->
+                            <div class="bg-white border border-gray-200 rounded-xl p-4">
+                                <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">Notes / Differences / Modifications</label>
+                                <textarea v-model="tcStockNotes" rows="3"
+                                    class="w-full p-3 bg-gray-50 rounded-xl border border-gray-300 focus:outline-none focus:border-teal-500 transition-colors text-sm"
+                                    placeholder="Any differences, modifications, or notes about this job..."></textarea>
+                                <button @click="saveTcStockNotes()"
+                                    class="mt-2 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm font-bold rounded-lg active:scale-95 transition-all">
+                                    &#128190; Save Notes
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: tabs -->
+                    <div class="w-80 shrink-0 bg-white border-l border-gray-200 flex flex-col">
+                        <div class="flex border-b border-gray-200 shrink-0">
+                            <button @click="woActionTab = 'attach'" :class="woActionTab === 'attach' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="flex-1 py-2.5 text-xs font-bold uppercase tracking-wide transition-colors">📎 Attach</button>
+                            <button @click="woActionTab = 'notes'" :class="woActionTab === 'notes' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="flex-1 py-2.5 text-xs font-bold uppercase tracking-wide transition-colors">📝 Problems</button>
+                            <button @click="woActionTab = 'complete'" :class="woActionTab === 'complete' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'" class="flex-1 py-2.5 text-xs font-bold uppercase tracking-wide transition-colors">✓ Done</button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-4">
+                            <!-- Attach tab -->
+                            <div v-if="woActionTab === 'attach'">
+                                <div v-if="woFilesLoading" class="text-gray-400 text-sm text-center py-4">Loading...</div>
+                                <div v-else-if="!woFiles.length" class="text-gray-400 text-sm italic text-center py-4">No files attached yet.</div>
+                                <div v-else class="space-y-2">
+                                    <div v-for="f in woFiles" :key="'tcsa-'+f.name" class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                        <a :href="getWoFilePublicUrl(activeOrder?.wo_number, f.name)" target="_blank" class="text-blue-600 text-xs font-medium truncate hover:underline">{{ f.name }}</a>
+                                        <button @click="handleWoFileDelete(f.name)" class="ml-2 text-red-400 hover:text-red-600 text-xs font-bold shrink-0">✕</button>
+                                    </div>
+                                </div>
+                                <label class="mt-3 flex items-center justify-center gap-2 cursor-pointer w-full py-2.5 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg text-gray-500 hover:text-blue-600 text-xs font-bold transition-colors">
+                                    + Upload File
+                                    <input type="file" accept=".pdf,.dxf,.dwg,.png,.jpg" class="hidden" @change="handleWoFileUpload">
+                                </label>
+                            </div>
+                            <!-- Problems tab -->
+                            <div v-if="woActionTab === 'notes'">
+                                <button @click="notesPanelOpen = true" class="w-full py-3 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl active:scale-95 transition-all text-sm mb-1">
+                                    Add Problem with WO
+                                </button>
+                                <div class="text-gray-400 text-xs text-center mb-4">Ex: Die problem, machine problem, etc.</div>
+                                <div class="text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">Action History</div>
+                                <div v-if="!(activeOrder?.notes || '').includes('TCST|')" class="text-gray-400 text-sm italic">No actions recorded yet.</div>
+                                <div class="space-y-1.5">
+                                    <div v-for="entry in (activeOrder?.notes || '').split('\n').filter(l => l.startsWith('TCST|'))" :key="entry"
+                                        class="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs flex flex-wrap gap-x-2 gap-y-1">
+                                        <span class="text-gray-400">{{ entry.split('|')[1] }}</span>
+                                        <span class="text-teal-600 font-semibold">{{ entry.split('|')[2] }}</span>
+                                        <span class="text-gray-800 font-bold uppercase tracking-wide">{{ entry.split('|')[3] }}</span>
+                                        <span v-if="entry.split('|')[4]" class="text-amber-600">session: {{ entry.split('|')[4] }}</span>
+                                        <span class="text-emerald-600">total: {{ entry.split('|')[5] }}</span>
+                                        <span v-if="entry.split('|')[6]" class="text-yellow-600 italic">{{ entry.split('|')[6] }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Done tab -->
+                            <div v-if="woActionTab === 'complete'" class="text-center py-6 text-gray-400 text-sm">
+                                Use <strong class="text-gray-700">"Complete"</strong> in the left panel to complete this WO.
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /3-zone body -->
+
+            </div>
+        </div>

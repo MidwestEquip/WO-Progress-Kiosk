@@ -1,0 +1,281 @@
+        <!-- NEW MANUAL WO MODAL -->
+        <div v-if="newWoModalOpen" class="fixed z-50 inset-0 bg-black/80 flex items-center justify-center p-4">
+
+            <!-- ── TC Assy specific form ───────────────────────────────────────── -->
+            <div v-if="selectedDept === 'Tru Cut Assy'"
+                class="bg-slate-800 rounded-xl w-full max-w-lg border border-teal-500/50 shadow-2xl flex flex-col" style="max-height:92vh">
+                <div class="bg-teal-900/30 border-b border-teal-700/40 px-6 py-5 rounded-t-xl shrink-0">
+                    <h2 class="text-2xl font-bold text-teal-300">&#9881; Add Tru Cut Assy Job</h2>
+                    <p class="text-slate-400 text-sm mt-0.5">Create a new manual TC Assembly work order</p>
+                </div>
+                <div class="flex-1 overflow-y-auto p-6 space-y-5">
+
+                    <!-- Part # -->
+                    <div>
+                        <label class="block font-bold text-slate-400 text-sm mb-1">Part # <span class="text-red-400">*</span></label>
+                        <input v-model="newWoForm.part" type="text"
+                            class="w-full bg-slate-900 p-3 rounded-lg font-bold font-mono uppercase border focus:outline-none focus:border-teal-500 transition-colors"
+                            :class="newWoFormErrors.part ? 'border-red-500' : 'border-slate-700'"
+                            placeholder="e.g. TC-1234-A">
+                        <div v-if="newWoFormErrors.part" class="text-red-400 text-xs mt-1">&#9888; Part # is required.</div>
+                    </div>
+                    <!-- Auto-detected mode + Change control -->
+                    <div class="flex items-center gap-3 px-3 py-2 bg-slate-700/50 rounded-lg border border-slate-600/50 min-h-[2.5rem]">
+                        <span class="text-slate-400 text-sm font-semibold">Mode:</span>
+                        <template v-if="tcNewWoMode === 'unit'">
+                            <span class="text-blue-300 font-bold text-sm">&#128187; UNIT</span>
+                        </template>
+                        <template v-else-if="tcNewWoMode === 'stock'">
+                            <span class="text-emerald-300 font-bold text-sm">&#128230; SUBASSY</span>
+                        </template>
+                        <template v-else>
+                            <span class="text-slate-500 text-sm italic">Not detected &mdash; enter part # above</span>
+                        </template>
+                        <button v-if="tcNewWoMode"
+                            @click="toggleTcNewWoMode()"
+                            class="ml-auto text-xs text-slate-400 hover:text-slate-200 bg-slate-600 hover:bg-slate-500 px-2 py-1 rounded transition-all">
+                            Change
+                        </button>
+                    </div>
+
+                    <!-- WO # (optional) -->
+                    <div>
+                        <label class="block font-bold text-slate-400 text-sm mb-1">WO # <span class="text-slate-500 font-normal text-xs">(optional &mdash; leave blank to auto-generate)</span></label>
+                        <input v-model="newWoForm.woNumber" type="text"
+                            class="w-full bg-slate-900 p-3 rounded-lg font-mono border border-slate-600 focus:outline-none focus:border-teal-500 transition-colors uppercase"
+                            placeholder="e.g. 12345 (optional)">
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label class="block font-bold text-slate-400 text-sm mb-1">Description <span class="text-red-400">*</span></label>
+                        <input v-model="newWoForm.desc" type="text"
+                            class="w-full bg-slate-900 p-3 rounded-lg border focus:outline-none focus:border-teal-500 transition-colors"
+                            :class="newWoFormErrors.desc ? 'border-red-500' : 'border-slate-700'"
+                            placeholder="e.g. TC Unit Assembly">
+                        <div v-if="newWoFormErrors.desc" class="text-red-400 text-xs mt-1">&#9888; Description is required.</div>
+                    </div>
+
+                    <!-- Unit-only fields (shown when mode = UNIT) -->
+                    <div v-if="tcNewWoMode === 'unit'"
+                        class="bg-slate-700/50 border border-blue-500/20 rounded-xl p-4 space-y-4">
+                        <div class="text-blue-300 text-xs font-bold uppercase tracking-widest">
+                            Unit Details
+                            <span class="text-slate-500 font-normal normal-case ml-2">— optional, can be filled in later during assembly</span>
+                        </div>
+
+                        <!-- Sales Order -->
+                        <div>
+                            <label class="block font-bold text-slate-400 text-sm mb-1">Sales Order # <span class="text-slate-500 font-normal text-xs">(if applicable)</span></label>
+                            <input v-model="newWoForm.salesOrder" type="text"
+                                class="w-full bg-slate-900 p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-teal-500 transition-colors"
+                                placeholder="e.g. SO-5001 (leave blank if N/A)">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <!-- Unit Serial # -->
+                            <div>
+                                <label class="block font-bold text-slate-400 text-sm mb-1">Unit Serial #</label>
+                                <input v-model="newWoForm.unitSerial" type="text"
+                                    class="w-full bg-slate-900 p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-teal-500 transition-colors font-mono"
+                                    placeholder="Optional">
+                            </div>
+                            <!-- Engine -->
+                            <div>
+                                <label class="block font-bold text-slate-400 text-sm mb-1">Engine</label>
+                                <input v-model="newWoForm.engine" type="text"
+                                    class="w-full bg-slate-900 p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-teal-500 transition-colors"
+                                    placeholder="Optional">
+                            </div>
+                            <!-- Engine Serial # -->
+                            <div>
+                                <label class="block font-bold text-slate-400 text-sm mb-1">Engine Serial #</label>
+                                <input v-model="newWoForm.engineSerial" type="text"
+                                    class="w-full bg-slate-900 p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-teal-500 transition-colors font-mono"
+                                    placeholder="Optional">
+                            </div>
+                            <!-- # of Blades -->
+                            <div>
+                                <label class="block font-bold text-slate-400 text-sm mb-1"># of Blades</label>
+                                <input v-model="newWoForm.numBlades" type="text"
+                                    class="w-full bg-slate-900 p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-teal-500 transition-colors"
+                                    placeholder="Optional">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="px-6 py-5 border-t border-slate-700 flex gap-4 shrink-0">
+                    <button @click="newWoModalOpen = false; Object.keys(newWoFormErrors).forEach(k => newWoFormErrors[k] = false)"
+                        class="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition-all">CANCEL</button>
+                    <button @click="submitNewWo"
+                        class="flex-1 px-6 py-3 bg-teal-600 hover:bg-teal-500 rounded-lg font-bold text-white active:scale-95 transition-all">
+                        SAVE &amp; ADD TO BOARD
+                    </button>
+                </div>
+            </div>
+
+            <!-- ── TV Assy / fallback generic form (unchanged) ─────────────────── -->
+            <div v-else class="bg-slate-800 rounded-xl w-full max-w-lg p-6 border border-emerald-500/50">
+                <h2 class="text-2xl font-bold mb-4 text-emerald-400">Add New {{ selectedDept }} Job</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block font-bold text-slate-400 text-sm">Part Number</label>
+                        <input v-model="newWoForm.part" type="text" class="w-full bg-slate-900 p-3 rounded font-bold uppercase border border-slate-700 mt-1">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-400 text-sm">Description</label>
+                        <input v-model="newWoForm.desc" type="text" class="w-full bg-slate-900 p-3 rounded border border-slate-700 mt-1">
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="flex-1">
+                            <label class="block font-bold text-slate-400 text-sm">Qty required</label>
+                            <input v-model="newWoForm.qty" type="number" class="w-full bg-slate-900 p-3 rounded font-bold border border-slate-700 mt-1">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block font-bold text-slate-400 text-sm">Job Type</label>
+                            <select v-model="newWoForm.type" class="w-full bg-slate-900 p-3 rounded border border-slate-700 mt-1">
+                                <option value="Unit">Unit (Full)</option>
+                                <option value="Cart">Cart Only</option>
+                                <option value="Engine/Subassy">Engine / Subassy</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-8 flex gap-4">
+                    <button @click="newWoModalOpen = false" class="px-6 py-3 bg-slate-700 rounded font-bold">CANCEL</button>
+                    <button @click="submitNewWo" class="flex-1 px-6 py-3 bg-emerald-600 rounded font-bold text-white hover:bg-emerald-500 active:scale-95 transition-all">SAVE &amp; ADD TO BOARD</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- NOTES MODAL -->
+        <div v-if="notesPanelOpen" class="fixed z-50 inset-0 bg-black/80 flex items-center justify-center p-4">
+            <div class="bg-slate-800 rounded-2xl w-full max-w-lg border border-yellow-600/30 shadow-2xl">
+                <div class="bg-yellow-900/30 border-b border-yellow-600/30 p-5 flex justify-between items-center rounded-t-2xl">
+                    <div>
+                        <div class="font-bold text-yellow-300 text-lg">Add Note</div>
+                        <div class="text-slate-400 text-sm">WO #{{ activeOrder?.wo_number }} &mdash; {{ activeOrder?.part_number }}</div>
+                    </div>
+                    <button @click="notesPanelOpen = false" class="text-slate-400 hover:text-white bg-slate-700 p-2 rounded">&#10005;</button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div v-if="activeOrder?.manager_notes" class="bg-slate-900 rounded-lg p-3 max-h-32 overflow-y-auto">
+                        <div class="text-xs text-slate-500 font-bold uppercase mb-2">Previous Notes</div>
+                        <div class="text-yellow-200 text-sm whitespace-pre-wrap">{{ activeOrder.manager_notes }}</div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-sm font-bold mb-1 uppercase tracking-wide">Your Name <span class="text-red-400">*</span></label>
+                        <input v-model="noteAuthor" type="text" placeholder="Enter your name..."
+                            class="w-full p-3 bg-slate-900 border rounded-lg text-white focus:outline-none focus:border-yellow-500"
+                            :class="noteAuthorError ? 'border-red-500' : 'border-slate-700'">
+                        <div v-if="noteAuthorError" class="text-red-400 text-xs mt-1">Name is required</div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-sm font-bold mb-1 uppercase tracking-wide">Note <span class="text-red-400">*</span></label>
+                        <textarea v-model="noteText" rows="3" placeholder="e.g. Material ordered, waiting on delivery..."
+                            class="w-full p-3 bg-slate-900 border rounded-lg text-white focus:outline-none focus:border-yellow-500 resize-none"
+                            :class="noteTextError ? 'border-red-500' : 'border-slate-700'"></textarea>
+                        <div v-if="noteTextError" class="text-red-400 text-xs mt-1">Note text is required</div>
+                    </div>
+                    <div class="flex gap-3 pt-2">
+                        <button @click="notesPanelOpen = false" class="flex-1 p-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold">CANCEL</button>
+                        <button @click="submitNote" class="flex-1 p-3 bg-yellow-600 hover:bg-yellow-500 rounded-lg font-bold text-white">SAVE NOTE</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RECEIVE MODAL -->
+        <div v-if="receiveModalOpen" class="fixed z-50 inset-0 bg-black/80 flex items-center justify-center p-4">
+            <div class="bg-slate-800 rounded-2xl w-full max-w-2xl border border-blue-500/30 shadow-2xl">
+                <!-- WO details header -->
+                <div class="bg-blue-900/30 border-b border-blue-500/30 p-6 rounded-t-2xl">
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <div class="text-blue-400 text-xs font-bold uppercase tracking-widest mb-1">Receiving</div>
+                            <div class="font-extrabold text-white text-3xl">WO #{{ receiveTarget?.wo_number }}</div>
+                        </div>
+                        <span class="text-sm px-3 py-1 rounded-full font-bold mt-1"
+                            :class="receiveTarget?.department==='Weld'?'bg-red-700/60 text-red-300':receiveTarget?.department==='Fab'?'bg-amber-700/60 text-amber-300':'bg-emerald-700/60 text-emerald-300'">
+                            {{ receiveTarget?.department }}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <div class="text-slate-500 text-xs uppercase tracking-wide mb-0.5">Part #</div>
+                            <div class="text-white font-medium">{{ receiveTarget?.part_number }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-500 text-xs uppercase tracking-wide mb-0.5">Description</div>
+                            <div class="text-white font-medium">{{ receiveTarget?.description || '&#8212;' }}</div>
+                        </div>
+                        <div>
+                            <div class="text-slate-500 text-xs uppercase tracking-wide mb-0.5">Qty Required</div>
+                            <div class="text-white font-bold text-lg">{{ receiveTarget?.qty_required ?? '&#8212;' }}</div>
+                        </div>
+                        <div v-if="receiveTarget?.qty_completed != null">
+                            <div class="text-slate-500 text-xs uppercase tracking-wide mb-0.5">Qty Completed</div>
+                            <div class="text-emerald-400 font-bold text-lg">{{ receiveTarget.qty_completed }}</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Form -->
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-slate-400 text-sm font-bold mb-1 uppercase tracking-wide">Receiver Name <span class="text-red-400">*</span></label>
+                        <input v-model="receiverName" type="text" placeholder="Your name..."
+                            class="w-full p-3 bg-slate-900 border rounded-lg text-white focus:outline-none focus:border-blue-500"
+                            :class="receiverNameError ? 'border-red-500' : 'border-slate-700'">
+                        <div v-if="receiverNameError" class="text-red-400 text-xs mt-1">Name is required</div>
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 text-sm font-bold mb-1 uppercase tracking-wide">QTY Counted <span class="text-slate-600 text-xs normal-case">(optional)</span></label>
+                        <input v-model.number="receiverQty" type="number" min="0"
+                            :placeholder="String(receiveTarget?.qty_completed || receiveTarget?.qty_required || '')"
+                            class="w-full p-3 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div class="flex gap-3 pt-2">
+                        <button @click="receiveModalOpen = false" class="flex-1 p-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold">CANCEL</button>
+                        <button @click="submitReceive" class="flex-1 p-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-extrabold text-white text-lg">Mark as Received &#10003;</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CLOSE-OUT MODAL -->
+        <div v-if="closeoutModalOpen" class="fixed z-50 inset-0 bg-black/80 flex items-center justify-center p-4">
+            <div class="bg-slate-800 rounded-2xl w-full max-w-md border border-violet-500/30 shadow-2xl">
+                <div class="bg-violet-900/30 border-b border-violet-500/30 p-5 rounded-t-2xl">
+                    <div class="font-bold text-violet-300 text-lg">Close Out WO</div>
+                    <div class="text-slate-400 text-sm mt-0.5">WO #{{ closeoutTarget?.wo_number }} &#8212; {{ closeoutTarget?.part_number }}</div>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-slate-400 text-sm font-bold mb-1 uppercase tracking-wide">Your Name <span class="text-red-400">*</span></label>
+                        <input v-model="closeoutName" type="text" placeholder="Your name..."
+                            class="w-full p-3 bg-slate-900 border rounded-lg text-white focus:outline-none focus:border-violet-500"
+                            :class="closeoutNameError ? 'border-red-500' : 'border-slate-700'">
+                        <div v-if="closeoutNameError" class="text-red-400 text-xs mt-1">Name is required</div>
+                    </div>
+                    <div class="flex gap-3 pt-2">
+                        <button @click="closeoutModalOpen = false" class="flex-1 p-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold">CANCEL</button>
+                        <button @click="submitCloseout" class="flex-1 p-3 bg-violet-600 hover:bg-violet-500 rounded-lg font-bold text-white">CLOSE OUT &#10003;</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOAST NOTIFICATION -->
+        <div v-if="toastMessage"
+            class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-6 py-4 rounded-xl shadow-2xl font-bold text-white text-base flex items-center gap-3 transition-all"
+            :class="toastType === 'success' ? 'bg-emerald-700 border border-emerald-500' : toastType === 'info' ? 'bg-blue-700 border border-blue-500' : 'bg-red-700 border border-red-500'">
+            <svg v-if="toastType === 'success'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+            </svg>
+            <svg v-else-if="toastType === 'error'" class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+            {{ toastMessage }}
+        </div>

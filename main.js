@@ -49,6 +49,26 @@ import {
 } from './pages/manager-view.js';
 import { searchCS } from './pages/cs-view.js';
 
+// ── Load HTML partials into #app before Vue mounts ───────────
+// Fetches HTML fragment files from ./partials/ and concatenates them into #app.
+// Vue reads the DOM at mount time, so partials must be injected first.
+async function loadPartials() {
+    const names = [
+        'header', 'main-open',
+        'view-splash', 'view-dashboard', 'view-office', 'view-manager', 'view-cs',
+        'main-close',
+        'modal-pin', 'modal-action-panel',
+        'modal-tc-unit', 'modal-tc-stock',
+        'modal-tv-unit', 'modal-tv-stock',
+        'modal-misc'
+    ];
+    const chunks = await Promise.all(
+        names.map(n => fetch(`./partials/${n}.html`).then(r => r.text()))
+    );
+    document.getElementById('app').innerHTML = chunks.join('\n');
+}
+await loadPartials();
+
 // ── Show loading fallback until Vue mounts ────────────────────
 // The #app-loading div in index.html is visible by default and hidden here.
 // If Vue never mounts (any error), the loading screen stays visible with an error.

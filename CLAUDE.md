@@ -209,6 +209,32 @@ Every change to this codebase follows this process:
 
 ---
 
+## Partials Convention
+
+index.html is a thin shell (~120 lines: head + styles + loading div + empty #app + script tag).
+All template content lives in partials/*.html — plain HTML fragments with no <html>/<body> wrappers.
+
+Load order (defined in main.js loadPartials()):
+  header, main-open,
+  view-splash, view-dashboard, view-office, view-manager, view-cs,
+  main-close,
+  modal-pin, modal-action-panel,
+  modal-tc-unit, modal-tc-stock,
+  modal-tv-unit, modal-tv-stock,
+  modal-misc
+
+How it works: loadPartials() in main.js fetches all fragment files in parallel, concatenates
+their text into document.getElementById('app').innerHTML, then top-level await ensures this
+completes before createApp() runs. Vue reads the populated DOM at mount time — no difference
+from a monolithic index.html.
+
+Rules:
+- New modals/views go in a new partial file or appended to modal-misc.html for small additions.
+- Never add script logic to partial files — Vue directives only.
+- Never break the load order without checking template dependencies.
+
+---
+
 ## Active Patch Series
 
 TC Assy workflow improvements.
@@ -219,8 +245,9 @@ Completed:
 - Patch 3: Auto-detect in entry modal; mode badge + Change control
 - Patch 4: Remove TC entry modal; go directly to workflow screen
 - Patch 5: Unit completion gate; rename Stock → Subassy in TC Assy
-
-Remaining:
 - Patch 6: Notes field on subassy WO screen + warning prompt on completion
 - Patch 7: Undo visible after WO completion
-- Patch 8: Split index.html into components (~500 lines each)
+- Patch 8: Split index.html into 15 partials; index.html reduced to ~120-line shell
+
+Remaining:
+- (none — series complete)

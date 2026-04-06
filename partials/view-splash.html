@@ -1,0 +1,44 @@
+            <!-- ── SPLASH ──────────────────────────────────── -->
+            <div v-if="currentView === 'splash'"
+                class="h-full w-full flex flex-col items-center justify-center p-8 bg-slate-900 absolute inset-0">
+                <div class="text-center mb-12">
+                    <h2 class="text-5xl font-extrabold text-white mb-4">Shop Floor Kiosk</h2>
+                    <p class="text-xl text-slate-400">Select your department to begin</p>
+                </div>
+                <!-- Row 1: Production departments -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-7xl px-4 mb-6">
+                    <button @click="selectDept('Fab')"
+                        class="bg-white hover:bg-gray-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-4 border-2 border-gray-300 active:scale-95 transition-transform">
+                        <span class="text-4xl font-bold uppercase">Fabrication</span>
+                    </button>
+                    <button @click="selectDept('Weld')"
+                        class="bg-white hover:bg-gray-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-4 border-2 border-gray-300 active:scale-95 transition-transform">
+                        <span class="text-4xl font-bold uppercase">Welding</span>
+                    </button>
+                    <button @click="selectDept('Trac Vac Assy')"
+                        class="bg-white hover:bg-gray-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center justify-between gap-2 border-2 border-gray-300 active:scale-95 transition-transform">
+                        <img src="assets/trac-vac-logo.png" alt="Trac Vac" class="h-12 object-contain">
+                        <span class="text-2xl font-bold uppercase tracking-wide">Assembly</span>
+                    </button>
+                    <button @click="selectDept('Tru Cut Assy')"
+                        class="bg-white hover:bg-gray-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center justify-between gap-2 border-2 border-gray-300 active:scale-95 transition-transform">
+                        <img src="assets/tru-cut-logo.png" alt="Tru-Cut" class="h-12 object-contain">
+                        <span class="text-2xl font-bold uppercase tracking-wide">Assembly</span>
+                    </button>
+                </div>
+                <!-- Row 2: Office / CS / Manager -->
+                <div class="grid grid-cols-3 gap-6 w-full max-w-7xl px-4">
+                    <button @click="selectDept('WO Status')"
+                        class="bg-white hover:bg-gray-50 text-gray-800 rounded-2xl shadow-md p-8 flex flex-col items-center justify-center border-2 border-gray-300 active:scale-95 transition-transform">
+                        <span class="text-3xl font-bold uppercase">WO Status / Office</span>
+                    </button>
+                    <button @click="selectDept('CS')"
+                        class="bg-white hover:bg-gray-50 text-gray-800 rounded-2xl shadow-md p-8 flex flex-col items-center justify-center border-2 border-gray-300 active:scale-95 transition-transform">
+                        <span class="text-3xl font-bold uppercase">Customer Service</span>
+                    </button>
+                    <button @click="promptPin('manager')"
+                        class="bg-white hover:bg-gray-50 text-gray-800 rounded-2xl shadow-md p-8 flex flex-col items-center justify-center border-2 border-gray-300 active:scale-95 transition-transform">
+                        <span class="text-3xl font-bold uppercase">Management</span>
+                    </button>
+                </div>
+            </div>
