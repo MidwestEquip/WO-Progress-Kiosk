@@ -35,7 +35,7 @@ import {
     toggleTcEntryMode,
     getFinalOperatorName, getFabWeldOperatorName, holdSince,
     updateOrderStatus, undoLastAction,
-    submitNewWo, submitNote,
+    submitNewWo, submitNote, submitWoProblemFromUi,
     loadWoFiles, handleWoFileUpload, handleWoFileDelete
 } from './pages/dashboard-view.js';
 import { markAlereUpdated, signInAnonymously } from './libs/db.js';
@@ -47,7 +47,8 @@ import {
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
     fetchPriorityOrders, updatePriority, openNotesPanel, loadManagerAlerts,
-    sendAiMessage
+    sendAiMessage,
+    loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem
 } from './pages/manager-view.js';
 import { searchCS } from './pages/cs-view.js';
 
@@ -274,6 +275,23 @@ try {
                 kpiOldestWos:   store.kpiOldestWos,
                 managerAlerts:  store.managerAlerts,
 
+                // WO Problem draft (action panel)
+                woProblemDraftText:      store.woProblemDraftText,
+                woProblemDraftError:     store.woProblemDraftError,
+                woProblemDraftName:      store.woProblemDraftName,
+                woProblemDraftNameError: store.woProblemDraftNameError,
+                submitWoProblemFromUi,
+
+                // WO Problems
+                woProblems:                 store.woProblems,
+                woProblemCount:             store.woProblemCount,
+                woProblemModalOpen:         store.woProblemModalOpen,
+                woProblemTarget:            store.woProblemTarget,
+                woProblemResolution:        store.woProblemResolution,
+                woProblemResolutionError:   store.woProblemResolutionError,
+                woProblemResolverName:      store.woProblemResolverName,
+                woProblemResolverNameError: store.woProblemResolverNameError,
+
                 // CS
                 csSearchTerm:  store.csSearchTerm,
                 csResultInfo:  store.csResultInfo,
@@ -315,6 +333,7 @@ try {
                 openManagerSection, loadKpiData, loadDelayedOrders,
                 fetchPriorityOrders, updatePriority, openNotesPanel, loadManagerAlerts,
                 sendAiMessage,
+                loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
 
                 // CS
                 searchCS,

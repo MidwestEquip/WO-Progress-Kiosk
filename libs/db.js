@@ -582,6 +582,54 @@ export async function setWorkOrderPriority(id, priority) {
     );
 }
 
+// ── WO Problem queries ────────────────────────────────────────
+
+// Fetch all WOs with an open problem (wo_problem_text set + status = 'open').
+// Returns { data, error }
+export async function fetchWoProblems() {
+    return withRetry(() =>
+        supabase.from('work_orders')
+            .select('id,wo_number,part_number,department,operator,wo_problem_text,wo_problem_status,wo_problem_updated_at,wo_problem_updated_by,wo_problem_resolution')
+            .eq('wo_problem_status', 'open')
+            .not('wo_problem_text', 'is', null)
+            .neq('wo_problem_text', '')
+            .order('wo_problem_updated_at', { ascending: false })
+    );
+}
+
+// Save a problem on a WO. Sets status to 'open' and records who/when.
+// Input: work order id, problem text, operator name (may be empty string).
+export async function saveWoProblem(id, problemText, updatedBy) {
+    if (!id)          return { data: null, error: new Error('Missing work order ID') };
+    if (!problemText) return { data: null, error: new Error('Problem text is required') };
+
+    return withRetry(() =>
+        supabase.from('work_orders').update({
+            wo_problem_text:       problemText.trim(),
+            wo_problem_status:     'open',
+            wo_problem_updated_at: new Date().toISOString(),
+            wo_problem_updated_by: (updatedBy || '').trim() || null
+        }).eq('id', id).select()
+    );
+}
+
+// Mark a WO problem resolved. Resolution text is required.
+// Input: work order id, resolution text, manager name.
+export async function resolveWoProblem(id, resolution, resolvedBy) {
+    if (!id)         return { data: null, error: new Error('Missing work order ID') };
+    if (!resolution) return { data: null, error: new Error('Resolution is required') };
+    if (!resolvedBy) return { data: null, error: new Error('Resolver name is required') };
+
+    return withRetry(() =>
+        supabase.from('work_orders').update({
+            wo_problem_status:     'resolved',
+            wo_problem_resolution: resolution.trim(),
+            wo_problem_updated_at: new Date().toISOString(),
+            wo_problem_updated_by: resolvedBy.trim()
+        }).eq('id', id).select()
+    );
+}
+
 // ── AI Assistant context query ────────────────────────────────
 
 // Fetch lightweight snapshots of active + recently-completed WOs for the AI assistant.

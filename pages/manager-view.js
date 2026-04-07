@@ -16,6 +16,7 @@ export async function openManagerSection(section) {
     store.managerSubView.value = section;
     if (section === 'kpi')      await loadKpiData();
     if (section === 'delayed')  await loadDelayedOrders();
+    if (section === 'problems') await loadWoProblems();
 }
 
 // ── loadKpiData ───────────────────────────────────────────────
@@ -32,6 +33,8 @@ export async function loadManagerAlerts() {
     } catch (err) {
         store.showToast('Failed to load manager alerts: ' + err.message);
     }
+    // Refresh WO problems badge count alongside alerts
+    loadWoProblems();
 }
 
 export async function loadKpiData() {
@@ -196,6 +199,65 @@ export function openNotesPanel(order) {
     store.noteAuthorError.value = false;
     store.noteTextError.value = false;
     store.notesPanelOpen.value = true;
+}
+
+// ── loadWoProblems ────────────────────────────────────────────
+// Fetch all open WO problems and store in woProblems ref.
+export async function loadWoProblems() {
+    try {
+        const { data, error } = await db.fetchWoProblems();
+        if (error) throw error;
+        store.woProblems.value = data || [];
+    } catch (err) {
+        store.showToast('Failed to load WO problems: ' + err.message);
+    }
+}
+
+// ── openWoProblemModal ────────────────────────────────────────
+// Open the resolve modal for a specific WO problem.
+export function openWoProblemModal(problem) {
+    store.woProblemTarget.value             = problem;
+    store.woProblemResolution.value         = '';
+    store.woProblemResolutionError.value    = false;
+    store.woProblemResolverName.value       = '';
+    store.woProblemResolverNameError.value  = false;
+    store.woProblemModalOpen.value          = true;
+}
+
+// ── closeWoProblemModal ───────────────────────────────────────
+export function closeWoProblemModal() {
+    store.woProblemModalOpen.value = false;
+    store.woProblemTarget.value    = null;
+}
+
+// ── confirmResolveWoProblem ───────────────────────────────────
+// Validate inputs, write to DB, remove from list, close modal.
+export async function confirmResolveWoProblem() {
+    let valid = true;
+    if (!store.woProblemResolution.value.trim()) {
+        store.woProblemResolutionError.value = true;
+        valid = false;
+    }
+    if (!store.woProblemResolverName.value.trim()) {
+        store.woProblemResolverNameError.value = true;
+        valid = false;
+    }
+    if (!valid) return;
+
+    const target = store.woProblemTarget.value;
+    try {
+        const { error } = await db.resolveWoProblem(
+            target.id,
+            store.woProblemResolution.value,
+            store.woProblemResolverName.value
+        );
+        if (error) throw error;
+        store.woProblems.value = store.woProblems.value.filter(p => p.id !== target.id);
+        closeWoProblemModal();
+        store.showToast('WO problem marked resolved.', 'success');
+    } catch (err) {
+        store.showToast('Failed to resolve problem: ' + err.message);
+    }
 }
 
 // ── sendAiMessage ─────────────────────────────────────────────

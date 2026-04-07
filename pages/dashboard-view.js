@@ -283,6 +283,50 @@ export async function submitNote() {
     }
 }
 
+// ── submitWoProblemFromUi ─────────────────────────────────────
+// Save a WO problem from the action panel. Writes to wo_problem_text,
+// not manager_notes. Operator name is used as updated_by if available.
+export async function submitWoProblemFromUi() {
+    let valid = true;
+    if (!store.woProblemDraftText.value.trim()) {
+        store.woProblemDraftError.value = true;
+        valid = false;
+    }
+    if (!store.woProblemDraftName.value.trim()) {
+        store.woProblemDraftNameError.value = true;
+        valid = false;
+    }
+    if (!valid) return;
+
+    const order = store.activeOrder.value;
+    const name  = store.woProblemDraftName.value.trim();
+    const text  = store.woProblemDraftText.value.trim();
+
+    try {
+        const { error } = await db.saveWoProblem(order.id, text, name);
+        if (error) throw error;
+        store.activeOrder.value = {
+            ...store.activeOrder.value,
+            wo_problem_text:       text,
+            wo_problem_status:     'open',
+            wo_problem_updated_by: name
+        };
+        const idx = store.orders.value.findIndex(o => o.id === order.id);
+        if (idx !== -1) {
+            store.orders.value[idx].wo_problem_text       = text;
+            store.orders.value[idx].wo_problem_status     = 'open';
+            store.orders.value[idx].wo_problem_updated_by = name;
+        }
+        store.woProblemDraftText.value      = '';
+        store.woProblemDraftError.value     = false;
+        store.woProblemDraftName.value      = '';
+        store.woProblemDraftNameError.value = false;
+        store.showToast('Problem logged.', 'success');
+    } catch (err) {
+        store.showToast('Failed to save problem: ' + err.message);
+    }
+}
+
 // ── Internal helpers ──────────────────────────────────────────
 
 // Always skips the entry modal and goes directly to the workflow screen.

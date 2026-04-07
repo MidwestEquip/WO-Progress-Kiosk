@@ -133,6 +133,24 @@ export const managerAlerts  = ref({
     qtyMismatch:          []
 });
 
+// ── WO Problem draft (action panel inline form) ───────────────
+export const woProblemDraftText      = ref('');
+export const woProblemDraftError     = ref(false);
+export const woProblemDraftName      = ref('');
+export const woProblemDraftNameError = ref(false);
+
+// ── WO Problems ───────────────────────────────────────────────
+export const woProblems            = ref([]);   // open WO problems list
+export const woProblemCount        = computed(() => woProblems.value.length);
+
+// Resolve modal state
+export const woProblemModalOpen        = ref(false);
+export const woProblemTarget           = ref(null);   // WO row being resolved
+export const woProblemResolution       = ref('');
+export const woProblemResolutionError  = ref(false);
+export const woProblemResolverName     = ref('');
+export const woProblemResolverNameError = ref(false);
+
 // ── Customer Service ──────────────────────────────────────────
 export const csSearchTerm  = ref('');
 export const csResultInfo  = ref(null);
