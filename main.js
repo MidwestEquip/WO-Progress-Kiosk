@@ -46,7 +46,8 @@ import {
 } from './pages/wo-status-view.js';
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
-    fetchPriorityOrders, updatePriority, openNotesPanel, loadManagerAlerts,
+    fetchPriorityOrders, updatePriority, updateAssignedOperator,
+    openNotesPanel, loadManagerAlerts,
     sendAiMessage,
     loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem
 } from './pages/manager-view.js';
@@ -135,7 +136,8 @@ try {
                 orders:             store.orders,
                 allOrders:          store.allOrders,
                 dashboardCategories: store.dashboardCategories,
-                groupedOrders:      store.groupedOrders,
+                groupedOrders:           store.groupedOrders,
+                assignedOrdersByOperator: store.assignedOrdersByOperator,
                 dashSearch:         store.dashSearch,
                 filteredOrders:     store.filteredOrders,
                 isReel:             store.isReel,
@@ -331,7 +333,8 @@ try {
 
                 // Manager
                 openManagerSection, loadKpiData, loadDelayedOrders,
-                fetchPriorityOrders, updatePriority, openNotesPanel, loadManagerAlerts,
+                fetchPriorityOrders, updatePriority, updateAssignedOperator,
+                openNotesPanel, loadManagerAlerts,
                 sendAiMessage,
                 loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
 

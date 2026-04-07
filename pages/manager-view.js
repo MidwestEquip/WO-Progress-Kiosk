@@ -190,6 +190,23 @@ export async function updatePriority(id, val) {
     }
 }
 
+// ── updateAssignedOperator ────────────────────────────────────
+// Assign (or unassign) an operator to a WO from the Priorities view.
+// Optimistic UI update — rolls back on failure.
+export async function updateAssignedOperator(id, operatorName) {
+    const idx = store.priorityOrders.value.findIndex(o => o.id === id);
+    const prev = idx !== -1 ? store.priorityOrders.value[idx].assigned_operator : null;
+    if (idx !== -1) store.priorityOrders.value[idx].assigned_operator = operatorName || null;
+
+    try {
+        const { error } = await db.setAssignedOperator(id, operatorName);
+        if (error) throw error;
+    } catch (err) {
+        if (idx !== -1) store.priorityOrders.value[idx].assigned_operator = prev;
+        store.showToast('Failed to assign operator: ' + err.message);
+    }
+}
+
 // ── openNotesPanel ────────────────────────────────────────────
 // Open the notes panel for a WO from manager view (priorities or delayed)
 export function openNotesPanel(order) {

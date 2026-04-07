@@ -280,6 +280,20 @@ export const dashboardCategories = [
 ];
 
 // Orders grouped by priority (5-1), then unassigned by status
+// Groups current dept orders by assigned_operator for the right-side panel.
+// Only includes orders where assigned_operator is set. Returns [{operator, wos[]}].
+export const assignedOrdersByOperator = computed(() => {
+    const grouped = {};
+    orders.value.filter(o => o.assigned_operator).forEach(o => {
+        if (!grouped[o.assigned_operator]) grouped[o.assigned_operator] = [];
+        grouped[o.assigned_operator].push(o);
+    });
+    return Object.entries(grouped).map(([operator, wos]) => ({
+        operator,
+        wos: [...wos].sort((a, b) => (b.priority || 0) - (a.priority || 0))
+    }));
+});
+
 export const filteredOrders = computed(() => {
     const q = dashSearch.value.trim().toLowerCase();
     if (!q) return orders.value;
@@ -299,7 +313,8 @@ export const groupedOrders = computed(() => {
         unassigned_started: [], unassigned_paused: [], unassigned_on_hold: [], unassigned_not_started: []
     };
 
-    filteredOrders.value.forEach(o => {
+    // Exclude WOs assigned to an operator — they appear in the right-side assigned panel instead
+    filteredOrders.value.filter(o => !o.assigned_operator).forEach(o => {
         let stat = o.status || 'not_started';
         if (stat === 'resumed') stat = 'started';
 

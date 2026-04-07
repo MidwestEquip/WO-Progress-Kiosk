@@ -572,6 +572,16 @@ export async function fetchPriorityOrdersForDept(dept) {
     );
 }
 
+// Set assigned_operator on a work order (planning field, does not affect logging).
+export async function setAssignedOperator(id, operatorName) {
+    if (id === undefined || id === null) return { data: null, error: new Error('Missing ID') };
+    return withRetry(() =>
+        supabase.from('work_orders')
+            .update({ assigned_operator: operatorName || null })
+            .eq('id', id).select()
+    );
+}
+
 export async function setWorkOrderPriority(id, priority) {
     if (id === undefined || id === null) return { data: null, error: new Error('Missing ID') };
     const p = parseInt(priority, 10);
