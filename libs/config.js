@@ -15,7 +15,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 export const MANAGER_PIN  = "1234";
 export const CS_PIN       = "5678";
 export const CLOSEOUT_PIN = "1234";   // Close-Out view PIN
-export const GEMINI_API_KEY = "AIzaSyDW2eaMMGr4DYsgCWN0f3vrg9PNdVbJJtk";
+export { GEMINI_API_KEY } from './secrets.js';
 
 // ----- Operators per department -----
 export const OPERATORS_BY_DEPT = {
