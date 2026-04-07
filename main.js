@@ -46,7 +46,8 @@ import {
 } from './pages/wo-status-view.js';
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
-    fetchPriorityOrders, updatePriority, openNotesPanel, loadManagerAlerts
+    fetchPriorityOrders, updatePriority, openNotesPanel, loadManagerAlerts,
+    sendAiMessage
 } from './pages/manager-view.js';
 import { searchCS } from './pages/cs-view.js';
 
@@ -255,6 +256,12 @@ try {
                 alereUpdaterName:     store.alereUpdaterName,
                 alereUpdaterNameError: store.alereUpdaterNameError,
 
+                // Manager AI chat
+                aiChatOpen:     store.aiChatOpen,
+                aiChatLoading:  store.aiChatLoading,
+                aiChatInput:    store.aiChatInput,
+                aiChatMessages: store.aiChatMessages,
+
                 // Manager
                 managerSubView: store.managerSubView,
                 priorityDept:   store.priorityDept,
@@ -307,6 +314,7 @@ try {
                 // Manager
                 openManagerSection, loadKpiData, loadDelayedOrders,
                 fetchPriorityOrders, updatePriority, openNotesPanel, loadManagerAlerts,
+                sendAiMessage,
 
                 // CS
                 searchCS,

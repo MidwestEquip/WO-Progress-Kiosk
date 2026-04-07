@@ -235,6 +235,79 @@
                     </div>
                 </div>
 
+                <!-- ── AI Chat Launcher + Panel (Manager Hub only) ───── -->
+
+                <!-- Floating launcher button (hidden when panel is open) -->
+                <button v-if="!aiChatOpen" @click="aiChatOpen = true"
+                    class="fixed bottom-6 right-6 z-40 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-xl flex items-center justify-center transition-all active:scale-95"
+                    title="Manager Assistant">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                    </svg>
+                </button>
+
+                <!-- Chat panel -->
+                <div v-if="aiChatOpen"
+                    class="fixed bottom-6 right-6 z-40 w-96 flex flex-col rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+                    style="height:520px">
+                    <!-- Header -->
+                    <div class="bg-slate-900 px-4 py-3 flex items-center gap-3 shrink-0">
+                        <svg class="w-5 h-5 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                        </svg>
+                        <span class="font-bold text-white text-sm">Manager Assistant</span>
+                        <span class="ml-1 text-xs text-purple-400 font-semibold">Gemma 4</span>
+                        <button @click="aiChatOpen = false" class="ml-auto text-slate-400 hover:text-white transition-colors" title="Close">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Message history -->
+                    <div class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+                        <div v-if="aiChatMessages.length === 0" class="text-center pt-6">
+                            <div class="text-gray-400 text-sm italic mb-3">Ask me about work orders, delays, on-hold jobs, or production summaries.</div>
+                            <div class="space-y-2">
+                                <div v-for="hint in ['Where is WO 1234?', 'What is delayed?', 'What is on hold?', 'What was completed today?']" :key="hint"
+                                    @click="aiChatInput = hint; sendAiMessage()"
+                                    class="text-xs bg-white border border-gray-200 rounded-lg px-3 py-2 text-blue-600 hover:bg-blue-50 cursor-pointer transition-colors text-left">
+                                    {{ hint }}
+                                </div>
+                            </div>
+                        </div>
+                        <div v-for="(msg, i) in aiChatMessages" :key="i"
+                            :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                            <div class="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm"
+                                :class="msg.role === 'user'
+                                    ? 'bg-blue-600 text-white rounded-br-sm'
+                                    : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'">
+                                {{ msg.text }}
+                            </div>
+                        </div>
+                        <div v-if="aiChatLoading" class="flex justify-start">
+                            <div class="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-2.5">
+                                <span class="inline-flex gap-1">
+                                    <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0ms"></span>
+                                    <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:150ms"></span>
+                                    <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:300ms"></span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input bar -->
+                    <div class="p-3 border-t border-gray-200 bg-white flex gap-2 shrink-0">
+                        <input v-model="aiChatInput" @keyup.enter="sendAiMessage()"
+                            type="text" placeholder="Ask something..."
+                            :disabled="aiChatLoading"
+                            class="flex-1 p-2.5 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition-colors">
+                        <button @click="sendAiMessage()" :disabled="aiChatLoading || !aiChatInput.trim()"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-all active:scale-95">
+                            Send
+                        </button>
+                    </div>
+                </div>
+                <!-- ── /AI Chat ────────────────────────────────────────── -->
+
                 <!-- Delayed WOs -->
                 <div v-if="managerSubView === 'delayed'" class="p-6 max-w-7xl mx-auto">
                     <div class="flex items-center gap-4 mb-6">

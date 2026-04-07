@@ -582,6 +582,36 @@ export async function setWorkOrderPriority(id, priority) {
     );
 }
 
+// ── AI Assistant context query ────────────────────────────────
+
+// Fetch lightweight snapshots of active + recently-completed WOs for the AI assistant.
+// Returns { active, completed, todayStart, error }
+export async function fetchAiContextData() {
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const weekStart  = new Date(); weekStart.setDate(weekStart.getDate() - 7);
+
+    const [activeRes, completedRes] = await Promise.all([
+        withRetry(() =>
+            supabase.from('work_orders')
+                .select('id,wo_number,part_number,description,department,status,operator,start_date,created_at,qty_completed,qty_required')
+                .neq('status', 'completed')
+        ),
+        withRetry(() =>
+            supabase.from('work_orders')
+                .select('id,wo_number,part_number,department,operator,comp_date,qty_completed,qty_required')
+                .eq('status', 'completed')
+                .gte('comp_date', weekStart.toISOString())
+        )
+    ]);
+
+    return {
+        active:    activeRes.data    || [],
+        completed: completedRes.data || [],
+        todayStart,
+        error: activeRes.error || completedRes.error
+    };
+}
+
 // ── Customer Service queries ──────────────────────────────────
 
 export async function searchCsOrders(term) {

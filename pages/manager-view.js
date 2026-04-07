@@ -7,7 +7,7 @@
 
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
-import { DELAY_THRESHOLDS } from '../libs/config.js';
+import { DELAY_THRESHOLDS, GEMINI_API_KEY } from '../libs/config.js';
 import { daysAgo, daysBetween, extractHoldReasons, getHistoricalAvgDays } from '../libs/utils.js';
 
 // ── openManagerSection ────────────────────────────────────────
@@ -196,4 +196,107 @@ export function openNotesPanel(order) {
     store.noteAuthorError.value = false;
     store.noteTextError.value = false;
     store.notesPanelOpen.value = true;
+}
+
+// ── sendAiMessage ─────────────────────────────────────────────
+// Fetches live WO data, builds a system prompt, and calls the Gemini API.
+// Full chat history is passed so Gemini can handle follow-up questions.
+export async function sendAiMessage() {
+    const text = store.aiChatInput.value.trim();
+    if (!text || store.aiChatLoading.value) return;
+
+    store.aiChatMessages.value = [...store.aiChatMessages.value, { role: 'user', text }];
+    store.aiChatInput.value    = '';
+    store.aiChatLoading.value  = true;
+
+    try {
+        const { active, completed, todayStart, error } = await db.fetchAiContextData();
+        if (error) throw error;
+
+        // Build Gemini conversation contents from history (exclude just-added user msg at end)
+        const history = store.aiChatMessages.value.slice(0, -1).map(m => ({
+            role:  m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.text }]
+        }));
+        const contents = [...history, { role: 'user', parts: [{ text }] }];
+
+        const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent?key=${GEMINI_API_KEY}`,
+            {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system_instruction: { parts: [{ text: buildSystemPrompt(active, completed, todayStart) }] },
+                    contents,
+                    generationConfig: { maxOutputTokens: 600, temperature: 0.2 }
+                })
+            }
+        );
+
+        if (!res.ok) {
+            const errBody = await res.json().catch(() => ({}));
+            throw new Error(errBody.error?.message || `Gemini API error ${res.status}`);
+        }
+
+        const data  = await res.json();
+        // Filter out thought parts (Gemma 4 thinking model returns internal reasoning separately)
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        const responseText = parts
+            .filter(p => !p.thought)
+            .map(p => p.text || '')
+            .join('')
+            .trim() || 'Sorry, I could not generate a response.';
+
+        store.aiChatMessages.value = [...store.aiChatMessages.value, { role: 'assistant', text: responseText }];
+    } catch (err) {
+        store.aiChatMessages.value = [...store.aiChatMessages.value, { role: 'assistant', text: `Sorry, something went wrong: ${err.message}` }];
+    } finally {
+        store.aiChatLoading.value = false;
+    }
+}
+
+// ── buildSystemPrompt ─────────────────────────────────────────
+// Formats live WO data into a Gemini system prompt.
+// Keeps responses grounded — Gemini only sees real data, no hallucination.
+function buildSystemPrompt(active, completed, todayStart) {
+    const now        = new Date();
+    const todayComp  = completed.filter(o => o.comp_date && new Date(o.comp_date) >= todayStart);
+
+    const fmtActive = active.map(o => {
+        const daysIn = o.start_date
+            ? Math.floor(daysBetween(new Date(o.start_date), now))
+            : null;
+        return [
+            `WO ${o.wo_number}`,
+            `part=${o.part_number}`,
+            `dept=${o.department}`,
+            `status=${o.status}`,
+            `operator=${o.operator || 'unassigned'}`,
+            `qty=${o.qty_completed || 0}/${o.qty_required}`,
+            daysIn !== null ? `days_in_dept=${daysIn}` : null
+        ].filter(Boolean).join(' | ');
+    }).join('\n');
+
+    const fmtCompleted = completed.map(o =>
+        `WO ${o.wo_number} | part=${o.part_number} | dept=${o.department} | operator=${o.operator || 'unknown'} | qty=${o.qty_completed || 0} | comp=${new Date(o.comp_date).toLocaleDateString()}`
+    ).join('\n');
+
+    return `You are a concise shop floor production assistant for a manufacturing company. Answer questions using ONLY the data below — do not guess or make up WO numbers, parts, or operators.
+
+Today: ${now.toLocaleDateString()}
+Active WOs: ${active.length} (${active.filter(o => o.status === 'started').length} started, ${active.filter(o => ['on_hold','paused'].includes(o.status)).length} on hold/paused, ${active.filter(o => o.status === 'not_started').length} not started)
+Completed this week: ${completed.length} | Completed today: ${todayComp.length}
+Delay thresholds: Fab >5 days, Weld >10 days, Trac Vac Assy >5 days, Tru Cut Assy >5 days
+
+ACTIVE WORK ORDERS:
+${fmtActive || 'None'}
+
+COMPLETED THIS WEEK:
+${fmtCompleted || 'None'}
+
+Rules:
+- Be brief and direct — this is a kiosk display
+- Use line breaks to separate list items
+- Only answer production-related questions
+- If asked about something outside this data, say so clearly`;
 }

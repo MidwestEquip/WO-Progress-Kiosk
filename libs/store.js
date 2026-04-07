@@ -110,6 +110,12 @@ export const alereConfirmId        = ref(null);   // tracking row id currently b
 export const alereUpdaterName      = ref('');
 export const alereUpdaterNameError = ref(false);
 
+// ── Manager AI Chat ───────────────────────────────────────────
+export const aiChatOpen     = ref(false);
+export const aiChatLoading  = ref(false);
+export const aiChatInput    = ref('');
+export const aiChatMessages = ref([]);  // [{role:'user'|'assistant', text:'...'}]
+
 // ── Manager ───────────────────────────────────────────────────
 export const managerSubView = ref('home');   // 'home'|'kpi'|'priorities'|'delayed'
 export const priorityDept   = ref('');
