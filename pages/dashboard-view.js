@@ -26,16 +26,17 @@ export function openActionPanel(order) {
         holdReason:   '',
         weldGrind:    ''
     };
-    loadWoFiles(order.wo_number);
+    loadWoFiles(order.part_number);
 }
 
-// ── WO file attachment handlers ───────────────────────────────
+// ── Part print attachment handlers ────────────────────────────
+// Files are stored by Part # so uploads are shared across all WOs for the same part.
 
-// Load the file list for a WO number into store.woFiles
-export async function loadWoFiles(woNumber) {
-    if (!woNumber) { store.woFiles.value = []; return; }
+// Load the file list for a part number into store.woFiles
+export async function loadWoFiles(partNumber) {
+    if (!partNumber) { store.woFiles.value = []; return; }
     store.woFilesLoading.value = true;
-    const { data, error } = await db.listWoFiles(woNumber);
+    const { data, error } = await db.listWoFiles(partNumber);
     store.woFilesLoading.value = false;
     if (error) { store.showToast('Could not load files: ' + error.message); return; }
     store.woFiles.value = data || [];
@@ -44,25 +45,24 @@ export async function loadWoFiles(woNumber) {
 // Handle file picker change event — upload selected file then refresh list
 export async function handleWoFileUpload(event) {
     const file = event.target.files[0];
-    if (!file || !store.activeOrder.value?.wo_number) return;
+    if (!file || !store.activeOrder.value?.part_number) return;
     event.target.value = '';   // reset so the same file can be re-uploaded
     store.woFilesLoading.value = true;
-    const { error } = await db.uploadWoFile(store.activeOrder.value.wo_number, file);
+    const { error } = await db.uploadWoFile(store.activeOrder.value.part_number, file);
     store.woFilesLoading.value = false;
     if (error) { store.showToast('Upload failed: ' + error.message); return; }
     store.showToast('File uploaded.', 'success');
-    await loadWoFiles(store.activeOrder.value.wo_number);
+    await loadWoFiles(store.activeOrder.value.part_number);
 }
 
 // Delete a file from storage then refresh the list
 export async function handleWoFileDelete(filename) {
-    if (!store.activeOrder.value?.wo_number) return;
-    const path = `${store.activeOrder.value.wo_number}/${filename}`;
+    if (!store.activeOrder.value?.part_number) return;
     store.woFilesLoading.value = true;
-    const { error } = await db.deleteWoFile(path);
+    const { error } = await db.deleteWoFile(store.activeOrder.value.part_number, filename);
     store.woFilesLoading.value = false;
     if (error) { store.showToast('Delete failed: ' + error.message); return; }
-    await loadWoFiles(store.activeOrder.value.wo_number);
+    await loadWoFiles(store.activeOrder.value.part_number);
 }
 
 // ── getFinalOperatorName ──────────────────────────────────────

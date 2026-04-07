@@ -59,6 +59,14 @@ export function sanitizeText(str) {
     return str.trim().replace(/<[^>]*>/g, ''); // strip any HTML tags
 }
 
+// Convert a part number to a safe Supabase Storage folder name.
+// Uppercases, trims, and replaces any character that isn't alphanumeric or dash with underscore.
+// e.g. "TC 11490 / A" → "TC_11490___A"  |  "TC11490" → "TC11490"
+export function sanitizePartKey(partNumber) {
+    if (typeof partNumber !== 'string' || !partNumber.trim()) return '_unknown';
+    return partNumber.trim().toUpperCase().replace(/[^A-Z0-9\-]/g, '_');
+}
+
 // Validate that a string is not empty after trimming
 export function isNonEmpty(str) {
     return typeof str === 'string' && str.trim().length > 0;

@@ -9,6 +9,7 @@
 // ============================================================
 
 import { supabase } from './config.js';
+import { sanitizePartKey } from './utils.js';
 
 // ── Retry helper ──────────────────────────────────────────────
 // Retries a Supabase operation up to maxRetries times on network failure.
@@ -618,29 +619,33 @@ export async function fetchCsSupplementalData(woNumber, partNumber) {
     };
 }
 
-// ── WO File Storage (Supabase Storage: bucket "wo-files") ────
-// Files stored at path: {wo_number}/{filename}
+// ── Part Print Storage (Supabase Storage: bucket "wo-files") ─
+// Files are keyed by Part # so the same print is shared across all WOs for that part.
+// Storage path: {sanitized_part_number}/{filename}
+// e.g. part "TC11490" → folder "TC11490"; part "TC 11490/A" → folder "TC_11490_A"
 
-// List all files attached to a WO. Returns [] if folder doesn't exist yet.
-export async function listWoFiles(woNumber) {
-    const { data, error } = await supabase.storage.from('wo-files').list(String(woNumber));
+// List all files for a part number. Returns [] if the folder doesn't exist yet.
+export async function listWoFiles(partNumber) {
+    const folder = sanitizePartKey(partNumber);
+    const { data, error } = await supabase.storage.from('wo-files').list(folder);
     return { data: (data || []).filter(f => f.name !== '.emptyFolderPlaceholder'), error };
 }
 
-// Upload a file to wo-files/{woNumber}/{filename}. upsert:true replaces same name.
-export async function uploadWoFile(woNumber, file) {
-    const path = `${woNumber}/${file.name}`;
+// Upload a file to wo-files/{part_number}/{filename}. upsert:true replaces same name.
+export async function uploadWoFile(partNumber, file) {
+    const path = `${sanitizePartKey(partNumber)}/${file.name}`;
     return supabase.storage.from('wo-files').upload(path, file, { upsert: true });
 }
 
-// Delete a file by full storage path (e.g. "WO-12345/drawing.pdf")
-export async function deleteWoFile(path) {
+// Delete a file by part number + filename.
+export async function deleteWoFile(partNumber, filename) {
+    const path = `${sanitizePartKey(partNumber)}/${filename}`;
     return supabase.storage.from('wo-files').remove([path]);
 }
 
-// Return the public URL for a file (synchronous — no network call)
-export function getWoFilePublicUrl(woNumber, filename) {
-    const { data } = supabase.storage.from('wo-files').getPublicUrl(`${woNumber}/${filename}`);
+// Return the public URL for a part's file (synchronous — no network call).
+export function getWoFilePublicUrl(partNumber, filename) {
+    const { data } = supabase.storage.from('wo-files').getPublicUrl(`${sanitizePartKey(partNumber)}/${filename}`);
     return data.publicUrl;
 }
 
