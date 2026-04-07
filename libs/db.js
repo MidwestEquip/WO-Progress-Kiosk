@@ -366,19 +366,28 @@ export async function fetchReceivingEligible() {
     return { data: eligible, error: null };
 }
 
-export async function receiveWorkOrder(order, qty, receivedBy) {
+// receiveWorkOrder — upserts a wo_status_tracking row as 'received'.
+// If binLocation is non-empty, saves it to `location` and sets alere_bin_update_needed = true.
+export async function receiveWorkOrder(order, qty, receivedBy, binLocation) {
     if (!receivedBy) return { data: null, error: new Error('Receiver name is required') };
     if (!order)      return { data: null, error: new Error('No order selected') };
 
+    const cleanBin = (binLocation || '').trim();
     const payload = {
-        wo_number:   order.wo_number,
-        part_number: order.part_number,
-        description: order.description,
+        wo_number:    order.wo_number,
+        part_number:  order.part_number,
+        description:  order.description,
         qty_required: order.qty_required,
         qty_received: qty || order.qty_completed || order.qty_required || 0,
         received_by:  receivedBy.trim(),
         erp_status:   'received',
-        received_at:  new Date().toISOString()
+        received_at:  new Date().toISOString(),
+        ...(cleanBin ? {
+            location:               cleanBin,
+            alere_bin_update_needed: true
+        } : {
+            alere_bin_update_needed: false
+        })
     };
 
     // Upsert: update if WO already exists in tracking, else insert
@@ -395,6 +404,21 @@ export async function receiveWorkOrder(order, qty, receivedBy) {
             supabase.from('wo_status_tracking').insert([payload]).select()
         );
     }
+}
+
+// markAlereUpdated — clears the Alere bin update alert for a tracking row.
+// Records who cleared it and when. Input: tracking row id, office user name.
+export async function markAlereUpdated(id, updatedBy) {
+    if (!id)        return { data: null, error: new Error('Missing tracking row ID') };
+    if (!updatedBy) return { data: null, error: new Error('User name is required') };
+
+    return withRetry(() =>
+        supabase.from('wo_status_tracking').update({
+            alere_bin_update_needed: false,
+            alere_bin_updated_at:    new Date().toISOString(),
+            alere_bin_updated_by:    updatedBy.trim()
+        }).eq('id', id).select()
+    );
 }
 
 export async function closeOutWorkOrder(id, closedBy) {

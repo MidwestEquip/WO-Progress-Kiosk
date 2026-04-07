@@ -92,17 +92,23 @@ export const receiveEligibleList   = ref([]);   // eligible WOs for receiving (f
 export const closeoutAuthorized    = ref(false); // true once Close-Out PIN verified; reset when leaving wo_status
 
 // Receive modal
-export const receiveModalOpen  = ref(false);
-export const receiveTarget     = ref(null);
-export const receiverName      = ref('');
-export const receiverQty       = ref(null);
-export const receiverNameError = ref(false);
+export const receiveModalOpen      = ref(false);
+export const receiveTarget         = ref(null);
+export const receiverName          = ref('');
+export const receiverQty           = ref(null);
+export const receiverBinLocation   = ref('');   // corrected bin location; triggers Alere alert when non-empty
+export const receiverNameError     = ref(false);
 
 // Closeout modal
 export const closeoutModalOpen  = ref(false);
 export const closeoutTarget     = ref(null);
 export const closeoutName       = ref('');
 export const closeoutNameError  = ref(false);
+
+// Alere bin update confirmation (inline in receive view)
+export const alereConfirmId        = ref(null);   // tracking row id currently being confirmed
+export const alereUpdaterName      = ref('');
+export const alereUpdaterNameError = ref(false);
 
 // ── Manager ───────────────────────────────────────────────────
 export const managerSubView = ref('home');   // 'home'|'kpi'|'priorities'|'delayed'
@@ -318,6 +324,11 @@ export const filteredCloseoutOrders = computed(() => {
         (o.description  || '').toLowerCase().includes(t)
     );
 });
+
+// WOs in wo_status_tracking that need an Alere bin location update
+export const alerePendingOrders = computed(() =>
+    woStatusOrders.value.filter(o => o.alere_bin_update_needed === true)
+);
 
 // Is the active order a reel part? (triggers weld/grind selection)
 export const isReel = computed(() => {

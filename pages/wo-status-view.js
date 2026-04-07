@@ -52,11 +52,12 @@ export function switchToCloseout() {
 }
 
 export function openReceiveModal(order) {
-    store.receiveTarget.value     = order;
-    store.receiverName.value      = '';
-    store.receiverQty.value       = null;
-    store.receiverNameError.value = false;
-    store.receiveModalOpen.value  = true;
+    store.receiveTarget.value        = order;
+    store.receiverName.value         = '';
+    store.receiverQty.value          = null;
+    store.receiverBinLocation.value  = '';
+    store.receiverNameError.value    = false;
+    store.receiveModalOpen.value     = true;
 }
 
 // ── submitReceive ─────────────────────────────────────────────
@@ -75,7 +76,8 @@ export async function submitReceive() {
         const { error } = await db.receiveWorkOrder(
             order,
             qty,
-            sanitizeText(store.receiverName.value)
+            sanitizeText(store.receiverName.value),
+            store.receiverBinLocation.value
         );
         if (error) throw error;
 
@@ -125,6 +127,46 @@ export async function submitCloseout() {
         await _refreshWoStatusData();
     } catch (err) {
         store.showToast('Failed to close out: ' + err.message);
+    } finally {
+        store.loading.value = false;
+    }
+}
+
+// ── Alere bin update resolution ───────────────────────────────
+
+// Opens the inline confirm form for a specific tracking row.
+export function openAlereConfirm(row) {
+    store.alereConfirmId.value        = row.id;
+    store.alereUpdaterName.value      = '';
+    store.alereUpdaterNameError.value = false;
+}
+
+// Cancels without saving.
+export function cancelAlereConfirm() {
+    store.alereConfirmId.value        = null;
+    store.alereUpdaterName.value      = '';
+    store.alereUpdaterNameError.value = false;
+}
+
+// Submits the Alere-updated confirmation for the active row.
+export async function submitAlereUpdated() {
+    store.alereUpdaterNameError.value = !isNonEmpty(store.alereUpdaterName.value);
+    if (store.alereUpdaterNameError.value) return;
+
+    store.loading.value = true;
+    try {
+        const { error } = await db.markAlereUpdated(
+            store.alereConfirmId.value,
+            sanitizeText(store.alereUpdaterName.value)
+        );
+        if (error) throw error;
+
+        store.alereConfirmId.value = null;
+        store.alereUpdaterName.value = '';
+        store.showToast('Alere bin location marked as updated.', 'success');
+        await _refreshWoStatusData();
+    } catch (err) {
+        store.showToast('Failed to mark Alere updated: ' + err.message);
     } finally {
         store.loading.value = false;
     }

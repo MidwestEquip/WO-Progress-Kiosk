@@ -38,10 +38,11 @@ import {
     submitNewWo, submitNote,
     loadWoFiles, handleWoFileUpload, handleWoFileDelete
 } from './pages/dashboard-view.js';
-import { getWoFilePublicUrl } from './libs/db.js';
+import { getWoFilePublicUrl, markAlereUpdated } from './libs/db.js';
 import {
     searchOfficeReceive, openReceiveModal, submitReceive,
-    openCloseoutModal, submitCloseout, loadReceivingEligible
+    openCloseoutModal, submitCloseout, loadReceivingEligible,
+    openAlereConfirm, cancelAlereConfirm, submitAlereUpdated
 } from './pages/wo-status-view.js';
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
@@ -242,11 +243,16 @@ try {
                 receiveTarget:        store.receiveTarget,
                 receiverName:         store.receiverName,
                 receiverQty:          store.receiverQty,
+                receiverBinLocation:  store.receiverBinLocation,
                 receiverNameError:    store.receiverNameError,
                 closeoutModalOpen:    store.closeoutModalOpen,
                 closeoutTarget:       store.closeoutTarget,
                 closeoutName:         store.closeoutName,
                 closeoutNameError:    store.closeoutNameError,
+                alerePendingOrders:   store.alerePendingOrders,
+                alereConfirmId:       store.alereConfirmId,
+                alereUpdaterName:     store.alereUpdaterName,
+                alereUpdaterNameError: store.alereUpdaterNameError,
 
                 // Manager
                 managerSubView: store.managerSubView,
@@ -294,7 +300,8 @@ try {
                 // Office
                 searchOfficeReceive, openReceiveModal, submitReceive,
                 openCloseoutModal, submitCloseout, loadReceivingEligible,
-                goToCloseout,
+                goToCloseout, markAlereUpdated,
+                openAlereConfirm, cancelAlereConfirm, submitAlereUpdated,
 
                 // Manager
                 openManagerSection, loadKpiData, loadDelayedOrders,
