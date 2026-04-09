@@ -117,6 +117,7 @@ export const aiChatInput    = ref('');
 export const aiChatMessages = ref([]);  // [{role:'user'|'assistant', text:'...'}]
 
 // ── Manager ───────────────────────────────────────────────────
+export const assignCustomInput = ref({ id: null, text: '' }); // tracks "Other" inline input for priority assign-to
 export const managerSubView = ref('home');   // 'home'|'kpi'|'priorities'|'delayed'
 export const priorityDept   = ref('');
 export const priorityOrders = ref([]);

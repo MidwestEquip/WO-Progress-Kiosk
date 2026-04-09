@@ -50,6 +50,7 @@ import {
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
     fetchPriorityOrders, updatePriority, updateAssignedOperator,
+    handleAssignChange, submitCustomAssign, cancelCustomAssign,
     openNotesPanel, loadManagerAlerts,
     sendAiMessage,
     loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
@@ -278,6 +279,7 @@ try {
                 aiChatMessages: store.aiChatMessages,
 
                 // Manager
+                assignCustomInput: store.assignCustomInput,
                 managerSubView: store.managerSubView,
                 priorityDept:   store.priorityDept,
                 priorityOrders: store.priorityOrders,
@@ -359,6 +361,7 @@ try {
                 // Manager
                 openManagerSection, loadKpiData, loadDelayedOrders,
                 fetchPriorityOrders, updatePriority, updateAssignedOperator,
+                handleAssignChange, submitCustomAssign, cancelCustomAssign,
                 openNotesPanel, loadManagerAlerts,
                 sendAiMessage,
                 delayedWoDetailOpen: store.delayedWoDetailOpen,

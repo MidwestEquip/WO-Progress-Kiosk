@@ -203,6 +203,33 @@ export async function updatePriority(id, val) {
     }
 }
 
+// ── handleAssignChange ────────────────────────────────────────
+// Called when the "Assign to" select changes. If "other" is chosen,
+// activates inline text input for that WO; otherwise saves immediately.
+export function handleAssignChange(id, value, currentOperator) {
+    if (value === '__other__') {
+        // Pre-populate with existing custom name if the current value isn't in the list
+        store.assignCustomInput.value = { id, text: currentOperator || '' };
+    } else {
+        store.assignCustomInput.value = { id: null, text: '' };
+        updateAssignedOperator(id, value);
+    }
+}
+
+// ── submitCustomAssign ────────────────────────────────────────
+// Saves the typed custom operator name and dismisses the inline input.
+export function submitCustomAssign(id) {
+    const text = store.assignCustomInput.value.text.trim();
+    store.assignCustomInput.value = { id: null, text: '' };
+    if (text) updateAssignedOperator(id, text);
+}
+
+// ── cancelCustomAssign ────────────────────────────────────────
+// Dismisses the inline input without saving.
+export function cancelCustomAssign() {
+    store.assignCustomInput.value = { id: null, text: '' };
+}
+
 // ── updateAssignedOperator ────────────────────────────────────
 // Assign (or unassign) an operator to a WO from the Priorities view.
 // Optimistic UI update — rolls back on failure.
