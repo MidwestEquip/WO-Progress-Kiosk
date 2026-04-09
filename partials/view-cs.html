@@ -12,8 +12,9 @@
                     </div>
                 </div>
                 <div class="flex flex-1 overflow-hidden">
+
                     <!-- LEFT: Timeline -->
-                    <div class="w-1/2 border-r border-slate-700 overflow-y-auto p-6">
+                    <div class="w-1/3 border-r border-slate-700 overflow-y-auto p-6">
                         <div v-if="!csResultInfo" class="flex flex-col items-center justify-center h-full text-slate-600">
                             <svg class="w-16 h-16 mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -91,8 +92,9 @@
                             </div>
                         </div>
                     </div>
-                    <!-- RIGHT: Open WOs -->
-                    <div class="w-1/2 overflow-y-auto flex flex-col">
+
+                    <!-- MIDDLE: Open WOs -->
+                    <div class="w-1/3 border-r border-slate-700 overflow-y-auto flex flex-col">
                         <div class="px-4 pt-4 pb-2 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-slate-900 z-10">
                             <span class="font-bold text-slate-300">Open Work Orders</span>
                             <span class="text-slate-600 text-sm">{{ csOpenOrders.length > 0 ? csOpenOrders.length + ' results' : 'Search to view' }}</span>
@@ -123,5 +125,141 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- RIGHT: Past Assembly WOs -->
+                    <div class="w-1/3 overflow-y-auto flex flex-col">
+                        <!-- Header + search bar -->
+                        <div class="px-4 pt-4 pb-3 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-bold text-slate-300">Past Assembly WOs</span>
+                                <span class="text-slate-600 text-sm">{{ csPastResults.length > 0 ? csPastResults.length + ' results' : '' }}</span>
+                            </div>
+                            <div class="flex gap-2 mb-2">
+                                <input v-model="csPastSearch" @keyup.enter="searchPastOrders" type="text"
+                                    placeholder="WO #, SO #, Part #, or description..."
+                                    class="flex-1 p-2 bg-slate-800 border border-slate-700 rounded-lg text-sm focus:outline-none focus:border-purple-500 text-white">
+                                <button @click="searchPastOrders"
+                                    class="bg-purple-700 hover:bg-purple-600 px-4 font-bold rounded-lg text-sm active:scale-95 transition-transform">GO</button>
+                                <button v-if="csPastResults.length > 0" @click="clearPastOrders"
+                                    class="bg-slate-700 hover:bg-slate-600 px-3 font-bold rounded-lg text-sm active:scale-95 transition-transform text-slate-300">&#x2715;</button>
+                            </div>
+                            <!-- Sort buttons -->
+                            <div v-if="csPastResults.length > 0" class="flex gap-1 flex-wrap">
+                                <span class="text-xs text-slate-600 self-center mr-1">Sort:</span>
+                                <template v-for="opt in [{key:'wo_number',label:'WO #'},{key:'sales_order',label:'SO #'},{key:'part_number',label:'Part #'},{key:'description',label:'Description'},{key:'comp_date',label:'Date'}]" :key="opt.key">
+                                    <button @click="csPastSort === opt.key ? csPastSortDir = (csPastSortDir === 'asc' ? 'desc' : 'asc') : (csPastSort = opt.key, csPastSortDir = 'asc')"
+                                        :class="csPastSort === opt.key ? 'bg-purple-700 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'"
+                                        class="text-xs px-2 py-1 rounded font-bold transition-colors">
+                                        {{ opt.label }}<span v-if="csPastSort === opt.key"> {{ csPastSortDir === 'asc' ? '▲' : '▼' }}</span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Empty state -->
+                        <div v-if="csPastResults.length === 0" class="flex flex-col items-center justify-center flex-1 text-slate-700">
+                            <svg class="w-12 h-12 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                            </svg>
+                            <p class="text-sm">Search completed assembly WOs</p>
+                        </div>
+
+                        <!-- Results list (sorted client-side) -->
+                        <template v-for="o in [...csPastResults].sort((a,b) => {
+                            const av = (a[csPastSort] || '').toString().toLowerCase();
+                            const bv = (b[csPastSort] || '').toString().toLowerCase();
+                            const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+                            return csPastSortDir === 'desc' ? -cmp : cmp;
+                        })" :key="o.id">
+                            <div @click="selectPastWo(o)"
+                                class="flex items-center gap-3 px-4 py-3 border-b border-slate-800 cursor-pointer transition-colors"
+                                :class="csPastSelected && csPastSelected.id === o.id ? 'bg-purple-950/50 border-l-2 border-l-purple-500' : 'hover:bg-slate-800'">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="font-bold text-white text-sm">WO #{{ o.wo_number }}</span>
+                                        <span v-if="o.sales_order" class="text-xs text-emerald-400 border border-emerald-600/40 px-1.5 py-0.5 rounded">SO# {{ o.sales_order }}</span>
+                                    </div>
+                                    <div class="text-purple-400 text-sm font-medium truncate">Part #{{ o.part_number }}</div>
+                                    <div class="text-slate-500 text-xs truncate">{{ o.description }}</div>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <div class="text-xs font-bold px-2 py-0.5 rounded mb-1 bg-purple-700/40 text-purple-300">{{ o.department }}</div>
+                                    <div v-if="o.comp_date" class="text-xs text-slate-500">{{ formatDateLocal(o.comp_date) }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Inline detail card (shown when this row is selected) -->
+                            <div v-if="csPastSelected && csPastSelected.id === o.id"
+                                class="bg-slate-800 border-b border-slate-700 px-4 py-4 text-sm">
+                                <!-- Key identifiers -->
+                                <div class="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
+                                    <div>
+                                        <div class="text-xs text-slate-500 uppercase tracking-wide">WO #</div>
+                                        <div class="font-bold text-white">{{ csPastSelected.wo_number }}</div>
+                                    </div>
+                                    <div v-if="csPastSelected.sales_order">
+                                        <div class="text-xs text-slate-500 uppercase tracking-wide">Sales Order</div>
+                                        <div class="font-bold text-emerald-400">{{ csPastSelected.sales_order }}</div>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <div class="text-xs text-slate-500 uppercase tracking-wide">Part #</div>
+                                        <div class="font-bold text-purple-400">{{ csPastSelected.part_number }}</div>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <div class="text-xs text-slate-500 uppercase tracking-wide">Description</div>
+                                        <div class="text-slate-200">{{ csPastSelected.description || '—' }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-slate-500 uppercase tracking-wide">Dept</div>
+                                        <div class="text-purple-300 font-semibold">{{ csPastSelected.department }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-slate-500 uppercase tracking-wide">Qty</div>
+                                        <div class="text-slate-200">{{ csPastSelected.qty_required }}</div>
+                                    </div>
+                                    <div v-if="csPastSelected.comp_date" class="col-span-2">
+                                        <div class="text-xs text-slate-500 uppercase tracking-wide">Completed</div>
+                                        <div class="text-slate-200">{{ formatDateLocal(csPastSelected.comp_date) }}</div>
+                                    </div>
+                                </div>
+
+                                <!-- TV Assy notes (always shown for TV/Trac Vac depts) -->
+                                <div v-if="csPastSelected.department && (csPastSelected.department.toLowerCase().includes('tv') || csPastSelected.department.toLowerCase().includes('trac vac'))" class="mt-3 pt-3 border-t border-slate-700">
+                                    <div class="text-xs text-slate-500 uppercase tracking-wide mb-1">TV Assy Notes</div>
+                                    <div class="text-sm whitespace-pre-wrap bg-slate-900 rounded-lg p-3 border border-slate-700"
+                                        :class="csPastSelected.tv_assy_notes ? 'text-slate-200' : 'text-slate-600 italic'">{{ csPastSelected.tv_assy_notes || 'No notes recorded' }}</div>
+                                </div>
+
+                                <!-- TC Assy notes / differences / mods (always shown for TC/Tru Cut depts) -->
+                                <div v-if="csPastSelected.department && !(csPastSelected.department.toLowerCase().includes('tv') || csPastSelected.department.toLowerCase().includes('trac vac'))" class="mt-3 pt-3 border-t border-slate-700">
+                                    <div class="text-xs text-slate-500 uppercase tracking-wide mb-1">TC Assy Notes / Differences / Mods</div>
+                                    <div class="text-sm whitespace-pre-wrap bg-slate-900 rounded-lg p-3 border border-slate-700"
+                                        :class="csPastSelected.tc_assy_notes_differences_mods ? 'text-slate-200' : 'text-slate-600 italic'">{{ csPastSelected.tc_assy_notes_differences_mods || 'No notes recorded' }}</div>
+                                </div>
+
+                                <!-- TC unit fields (only if any are present) -->
+                                <div v-if="csPastSelected.unit_serial_number || csPastSelected.engine_serial_number || csPastSelected.num_blades"
+                                    class="mt-3 pt-3 border-t border-slate-700">
+                                    <div class="text-xs text-slate-500 uppercase tracking-wide mb-2">Unit Details</div>
+                                    <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                                        <div v-if="csPastSelected.unit_serial_number">
+                                            <div class="text-xs text-slate-500">Unit Serial #</div>
+                                            <div class="text-slate-200 font-mono text-sm">{{ csPastSelected.unit_serial_number }}</div>
+                                        </div>
+                                        <div v-if="csPastSelected.engine_serial_number">
+                                            <div class="text-xs text-slate-500">Engine Serial #</div>
+                                            <div class="text-slate-200 font-mono text-sm">{{ csPastSelected.engine_serial_number }}</div>
+                                        </div>
+                                        <div v-if="csPastSelected.num_blades">
+                                            <div class="text-xs text-slate-500"># Blades</div>
+                                            <div class="text-slate-200 font-mono text-sm">{{ csPastSelected.num_blades }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </template>
+                    </div>
+
                 </div>
             </div>

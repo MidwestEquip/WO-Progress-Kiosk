@@ -10,6 +10,45 @@ import * as db    from '../libs/db.js';
 import { CS_LEAD_TIME_DEFAULTS } from '../libs/config.js';
 import { getHistoricalAvgDays } from '../libs/utils.js';
 
+// ── searchPastOrders ───────────────────────────────────────────
+// Search completed assembly WOs using the csPastSearch term.
+// Populates csPastResults and clears any selected row.
+export async function searchPastOrders() {
+    const term = store.csPastSearch.value.trim();
+    if (!term) return;
+    store.loading.value = true;
+    store.csPastSelected.value = null;
+    try {
+        const { rows, error } = await db.searchPastAssyOrders(term);
+        if (error) throw error;
+        store.csPastResults.value = rows;
+    } catch (err) {
+        store.showToast('Past WO search failed: ' + err.message);
+        store.csPastResults.value = [];
+    } finally {
+        store.loading.value = false;
+    }
+}
+
+// ── selectPastWo ───────────────────────────────────────────────
+// Toggle-select a past WO row for detail display.
+// Input: wo row object. Output: sets csPastSelected (or clears if same row).
+export function selectPastWo(wo) {
+    if (store.csPastSelected.value && store.csPastSelected.value.id === wo.id) {
+        store.csPastSelected.value = null;
+    } else {
+        store.csPastSelected.value = wo;
+    }
+}
+
+// ── clearPastOrders ────────────────────────────────────────────
+// Clear the past WOs panel search and results.
+export function clearPastOrders() {
+    store.csPastSearch.value   = '';
+    store.csPastResults.value  = [];
+    store.csPastSelected.value = null;
+}
+
 // ── searchCS ──────────────────────────────────────────────────
 export async function searchCS() {
     const term = store.csSearchTerm.value.trim();

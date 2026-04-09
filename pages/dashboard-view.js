@@ -822,6 +822,21 @@ export async function submitTcUnitStageFromUi(stageName) {
     }
 }
 
+// tcStockDirectAction — start or resume TC Subassy immediately without a confirm step.
+// Input: action = 'start'|'resume'
+export async function tcStockDirectAction(action) {
+    store.tcStockPending.value = action;
+    await submitTcStockActionFromUi();
+}
+
+// tcUnitStageDirectAction — start or resume a TC Unit stage immediately without a confirm step.
+// Input: stageName = 'prelap'|'final', action = 'start'|'resume'
+export async function tcUnitStageDirectAction(stageName, action) {
+    const stageRef = stageName === 'prelap' ? store.tcPreStage : store.tcFinStage;
+    stageRef.value.pending = action;
+    await submitTcUnitStageFromUi(stageName);
+}
+
 export function openTcAssyCompleteModal() {
     const order    = store.activeOrder.value;
     const operator = store.tcAssyEntryName.value.trim();

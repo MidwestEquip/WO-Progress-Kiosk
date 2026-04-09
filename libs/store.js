@@ -188,6 +188,11 @@ export const csSearchTerm  = ref('');
 export const csResultInfo  = ref(null);
 export const csTimeline    = ref([]);
 export const csOpenOrders  = ref([]);
+export const csPastSearch   = ref('');       // search term for past assembly WOs panel
+export const csPastResults  = ref([]);        // completed assy WO rows
+export const csPastSort     = ref('wo_number'); // 'wo_number'|'sales_order'|'part_number'|'description'|'comp_date'
+export const csPastSortDir  = ref('asc');        // 'asc'|'desc'
+export const csPastSelected = ref(null);      // selected past WO row or null
 
 // ── WO file attachments ───────────────────────────────────────
 export const woFiles        = ref([]);         // file list for the currently open WO

@@ -33,7 +33,8 @@ import {
     tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold,
     openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
     saveTcStockNotes, saveTcUnitDetails, tcUnitOpenHold, tcUnitConfirmHold,
-    submitTcUnitStageFromUi, openTcAssyCompleteModal, confirmTcWoComplete, toggleTcNewWoMode,
+    submitTcUnitStageFromUi, tcStockDirectAction, tcUnitStageDirectAction,
+    openTcAssyCompleteModal, confirmTcWoComplete, toggleTcNewWoMode,
     toggleTcEntryMode,
     getFinalOperatorName, getFabWeldOperatorName, holdSince,
     updateOrderStatus, undoLastAction,
@@ -54,7 +55,7 @@ import {
     loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
     openDelayedWoDetail, closeDelayedWoDetail
 } from './pages/manager-view.js';
-import { searchCS } from './pages/cs-view.js';
+import { searchCS, searchPastOrders, selectPastWo, clearPastOrders } from './pages/cs-view.js';
 
 // ── Load HTML partials into #app before Vue mounts ───────────
 // Fetches HTML fragment files from ./partials/ and concatenates them into #app.
@@ -310,10 +311,15 @@ try {
                 woProblemResolverNameError: store.woProblemResolverNameError,
 
                 // CS
-                csSearchTerm:  store.csSearchTerm,
-                csResultInfo:  store.csResultInfo,
-                csTimeline:    store.csTimeline,
-                csOpenOrders:  store.csOpenOrders,
+                csSearchTerm:   store.csSearchTerm,
+                csResultInfo:   store.csResultInfo,
+                csTimeline:     store.csTimeline,
+                csOpenOrders:   store.csOpenOrders,
+                csPastSearch:   store.csPastSearch,
+                csPastResults:  store.csPastResults,
+                csPastSort:     store.csPastSort,
+                csPastSortDir:  store.csPastSortDir,
+                csPastSelected: store.csPastSelected,
 
                 // WO file attachments
                 woFiles:        store.woFiles,
@@ -338,7 +344,8 @@ try {
                 tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold,
                 openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
                 saveTcStockNotes, saveTcUnitDetails, tcUnitOpenHold, tcUnitConfirmHold,
-                submitTcUnitStageFromUi, openTcAssyCompleteModal, confirmTcWoComplete,
+                submitTcUnitStageFromUi, tcStockDirectAction, tcUnitStageDirectAction,
+                openTcAssyCompleteModal, confirmTcWoComplete,
                 updateOrderStatus, undoLastAction,
                 submitNewWo, submitNote, toggleTcNewWoMode, toggleTcEntryMode,
                 loadWoFiles, handleWoFileUpload, handleWoFileDelete,
@@ -360,7 +367,7 @@ try {
                 loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
 
                 // CS
-                searchCS,
+                searchCS, searchPastOrders, selectPastWo, clearPastOrders,
 
                 // Utilities available in templates
                 formatDateLocal, detectTcMode, sanitizePartKey

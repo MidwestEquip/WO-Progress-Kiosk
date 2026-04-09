@@ -64,7 +64,7 @@
                                 <!-- Action buttons (idle state) -->
                                 <div v-if="tcStockPending === ''" class="flex flex-wrap gap-3">
                                     <template v-if="!activeOrder?.status || activeOrder?.status === 'not_started'">
-                                        <button @click="tcStockPending = 'start'"
+                                        <button @click="tcStockDirectAction('start')"
                                             class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 transition-all">
                                             &#9654; Start
                                         </button>
@@ -88,7 +88,7 @@
                                         </button>
                                     </template>
                                     <template v-else-if="activeOrder?.status === 'paused' || activeOrder?.status === 'on_hold'">
-                                        <button @click="tcStockPending = 'resume'"
+                                        <button @click="tcStockDirectAction('resume')"
                                             class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 transition-all">
                                             &#9654; Resume
                                         </button>
