@@ -66,3 +66,18 @@ export const CS_LEAD_TIME_DEFAULTS = {
 
 // ----- Valid department names -----
 export const DEPT_NAMES = ["Fab", "Weld", "Trac Vac Assy", "Tru Cut Assy", "WO Status", "CS"];
+
+// ----- Open Orders -----
+export const OPEN_ORDER_STATUSES = [
+    'New/Picking', 'WO Requested', 'PO Requested',
+    'WO Created', 'PO Created', 'Boxed', 'Shipped', 'On Hold'
+];
+
+export const OPEN_ORDER_SORT_FIELDS = [
+    { field: 'part_number',        label: 'Part #'   },
+    { field: 'date_entered',       label: 'Date'     },
+    { field: 'status',             label: 'Status'   },
+    { field: 'sales_order',        label: 'Sales Ord'},
+    { field: 'last_status_update', label: 'Last Upd' },
+    { field: 'deadline',           label: 'Deadline' },
+];

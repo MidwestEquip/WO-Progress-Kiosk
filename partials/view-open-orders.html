@@ -1,0 +1,296 @@
+            <!-- ── OPEN ORDERS ──────────────────────────────── -->
+            <div v-if="currentView === 'open_orders'"
+                 class="flex flex-col h-full bg-slate-100 absolute inset-0"
+                 @click.self="openOrderColorPickerRow = null">
+
+                <!-- ── Top bar ──────────────────────────────── -->
+                <div class="shrink-0 bg-slate-900 px-4 py-2 flex items-center gap-4 border-b border-slate-700">
+                    <button @click="goBack"
+                        class="text-slate-400 hover:text-white flex items-center gap-1 text-sm font-medium transition-colors shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Back
+                    </button>
+                    <h2 class="text-white font-bold text-lg shrink-0">Open Orders</h2>
+
+                    <!-- Color legend -->
+                    <div class="flex items-center gap-3 text-xs ml-4">
+                        <span class="text-slate-400 font-semibold">Row colors:</span>
+                        <span class="flex items-center gap-1 text-slate-300">
+                            <span class="w-3 h-3 rounded-sm bg-orange-400 inline-block"></span> VA
+                        </span>
+                        <span class="flex items-center gap-1 text-slate-300">
+                            <span class="w-3 h-3 rounded-sm bg-yellow-400 inline-block"></span> Shipping
+                        </span>
+                        <span class="flex items-center gap-1 text-slate-300">
+                            <span class="w-3 h-3 rounded-sm bg-pink-400 inline-block"></span> Office / Dan K
+                        </span>
+                        <span class="flex items-center gap-1 text-slate-300">
+                            <span class="w-3 h-3 rounded-sm bg-blue-400 inline-block"></span> Dan H
+                        </span>
+                    </div>
+
+                    <div class="flex-1"></div>
+
+                    <!-- Add Row(s) button -->
+                    <button @click="openOrderAddModalOpen = true"
+                        class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Add Row(s)
+                    </button>
+                </div>
+
+                <!-- ── Scrollable content ────────────────────── -->
+                <div class="flex-1 overflow-y-auto p-3 space-y-4">
+
+                    <!-- Loading -->
+                    <div v-if="openOrdersLoading" class="flex items-center justify-center py-24 text-slate-400">
+                        <svg class="animate-spin w-7 h-7 mr-3 text-slate-500" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                        Loading orders…
+                    </div>
+
+                    <!-- Sections (v-for over openOrderSections computed) -->
+                    <template v-else v-for="section in openOrderSections" :key="section.type">
+                        <div class="rounded-xl overflow-hidden shadow-sm border border-slate-200">
+
+                            <!-- Section header + sort bar -->
+                            <div :class="section.hdr" class="px-3 py-2 flex items-center gap-3 flex-wrap">
+                                <h3 class="text-white font-bold text-sm tracking-wider">{{ section.label }}</h3>
+                                <span class="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                    {{ section.orders.length }}
+                                </span>
+                                <div class="flex-1"></div>
+                                <!-- Sort buttons -->
+                                <div class="flex items-center gap-1 text-xs flex-wrap">
+                                    <span class="text-white/50 mr-0.5">Sort:</span>
+                                    <button v-for="sf in openOrderSortFields" :key="sf.field"
+                                        @click="setSectionSort(section.type, sf.field)"
+                                        :class="openOrdersSort[section.type].field === sf.field
+                                            ? 'bg-white/30 text-white font-bold'
+                                            : 'text-white/60 hover:text-white hover:bg-white/15'"
+                                        class="px-2 py-0.5 rounded transition-colors whitespace-nowrap">
+                                        {{ sf.label }} {{ openOrderSortIcon(section.type, sf.field) }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Column header row (aligns with line 1 grid) -->
+                            <div class="grid items-center gap-x-2 px-2 py-1 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase tracking-wider"
+                                 style="grid-template-columns: 22px 132px 1fr 132px 88px 80px 72px 74px 114px;">
+                                <div></div>
+                                <div>Part # / Qty</div>
+                                <div>Description</div>
+                                <div>Customer</div>
+                                <div>Sales Order</div>
+                                <div>WO / PO #</div>
+                                <div>Date In</div>
+                                <div>Deadline</div>
+                                <div>Status</div>
+                            </div>
+
+                            <!-- Empty state -->
+                            <div v-if="section.orders.length === 0"
+                                 class="bg-white px-4 py-5 text-center text-slate-400 text-sm italic">
+                                No {{ section.label.toLowerCase() }}
+                            </div>
+
+                            <!-- Order rows -->
+                            <div v-else>
+                                <div v-for="order in section.orders" :key="order.id"
+                                     :class="openOrderRowClass(order.row_color)"
+                                     class="flex flex-col border-b border-slate-100 last:border-0">
+
+                                    <!-- Line 1: Identity + Status -->
+                                    <div class="grid items-center gap-x-2 px-2 pt-1.5 pb-0.5 text-sm"
+                                         style="grid-template-columns: 22px 132px 1fr 132px 88px 80px 72px 74px 114px;">
+
+                                        <!-- Color picker trigger -->
+                                        <div class="relative">
+                                            <button
+                                                @click.stop="openOrderColorPickerRow = (openOrderColorPickerRow === order.id ? null : order.id)"
+                                                :class="openOrderColorDotClass(order.row_color)"
+                                                class="w-4 h-4 rounded-sm border border-slate-300 cursor-pointer hover:scale-110 transition-transform"
+                                                title="Set row color">
+                                            </button>
+                                            <!-- Color picker dropdown -->
+                                            <div v-if="openOrderColorPickerRow === order.id"
+                                                 class="absolute left-0 top-5 z-30 bg-white rounded-lg shadow-2xl border border-slate-200 p-2 flex items-center gap-2"
+                                                 @click.stop>
+                                                <button @click="setRowColor(order.id, null)"
+                                                    class="w-5 h-5 rounded-sm bg-slate-200 border-2 border-slate-400 hover:scale-125 transition-transform" title="Clear"></button>
+                                                <button @click="setRowColor(order.id, 'orange')"
+                                                    class="w-5 h-5 rounded-sm bg-orange-400 hover:scale-125 transition-transform" title="VA"></button>
+                                                <button @click="setRowColor(order.id, 'yellow')"
+                                                    class="w-5 h-5 rounded-sm bg-yellow-400 hover:scale-125 transition-transform" title="Shipping"></button>
+                                                <button @click="setRowColor(order.id, 'pink')"
+                                                    class="w-5 h-5 rounded-sm bg-pink-400 hover:scale-125 transition-transform" title="Office / Dan K"></button>
+                                                <button @click="setRowColor(order.id, 'blue')"
+                                                    class="w-5 h-5 rounded-sm bg-blue-400 hover:scale-125 transition-transform" title="Dan H"></button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Part # + To Ship / Qty Pulled -->
+                                        <div class="overflow-hidden">
+                                            <span class="font-mono font-bold text-slate-900 text-sm">{{ order.part_number || '—' }}</span>
+                                            <span v-if="order.to_ship || order.qty_pulled"
+                                                  class="ml-1.5 text-xs text-slate-400 whitespace-nowrap">
+                                                {{ order.qty_pulled || 0 }}/{{ order.to_ship || 0 }}
+                                            </span>
+                                        </div>
+
+                                        <!-- Description -->
+                                        <div class="truncate text-slate-700 text-sm">{{ order.description || '' }}</div>
+
+                                        <!-- Customer -->
+                                        <div class="truncate text-slate-600 text-sm">{{ order.customer || '' }}</div>
+
+                                        <!-- Sales Order -->
+                                        <div class="truncate text-slate-600 text-sm">{{ order.sales_order || '' }}</div>
+
+                                        <!-- WO / PO # -->
+                                        <div class="truncate text-slate-600 text-sm">{{ order.wo_po_number || '' }}</div>
+
+                                        <!-- Date Entered -->
+                                        <div class="text-slate-500 text-xs">{{ order.date_entered || '' }}</div>
+
+                                        <!-- Deadline -->
+                                        <div class="text-xs font-medium"
+                                             :class="order.deadline ? 'text-red-600' : 'text-slate-300'">
+                                            {{ order.deadline || '' }}
+                                        </div>
+
+                                        <!-- Status badge -->
+                                        <div>
+                                            <span :class="openOrderStatusClass(order.status)"
+                                                  class="inline-block px-1.5 py-0.5 rounded text-xs font-semibold whitespace-nowrap">
+                                                {{ order.status || 'New/Picking' }}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Line 2: Operational fields (only if any have values) -->
+                                    <div v-if="order.wo_va_notes || order.store_bin || order.update_store_bin || order.boxer || order.picker || order.info_enterer || order.last_status_update"
+                                         class="flex items-center flex-wrap gap-x-4 gap-y-0 px-2 pb-1 text-xs text-slate-500 ml-6">
+                                        <span v-if="order.wo_va_notes" class="flex-1 min-w-0 truncate max-w-sm">
+                                            <span class="text-slate-400">Notes:</span>
+                                            <span class="text-slate-600 ml-0.5">{{ order.wo_va_notes }}</span>
+                                        </span>
+                                        <span v-if="order.store_bin">
+                                            <span class="text-slate-400">Bin:</span>
+                                            <span class="text-slate-600 ml-0.5">{{ order.store_bin }}</span>
+                                        </span>
+                                        <span v-if="order.update_store_bin">
+                                            <span class="text-slate-400">Updated Bin:</span>
+                                            <span class="font-semibold text-amber-700 ml-0.5">{{ order.update_store_bin }}</span>
+                                        </span>
+                                        <span v-if="order.boxer">
+                                            <span class="text-slate-400">Boxer:</span>
+                                            <span class="text-slate-600 ml-0.5">{{ order.boxer }}</span>
+                                        </span>
+                                        <span v-if="order.picker">
+                                            <span class="text-slate-400">Picker:</span>
+                                            <span class="text-slate-600 ml-0.5">{{ order.picker }}</span>
+                                        </span>
+                                        <span v-if="order.info_enterer">
+                                            <span class="text-slate-400">By:</span>
+                                            <span class="text-slate-600 ml-0.5">{{ order.info_enterer }}</span>
+                                        </span>
+                                        <span v-if="order.last_status_update" class="truncate max-w-xs">
+                                            <span class="text-slate-400">Last:</span>
+                                            <span class="text-slate-600 ml-0.5">{{ order.last_status_update }}</span>
+                                        </span>
+                                    </div>
+
+                                    <!-- Line 3: Boxes, dims, shipping quotes, chute/bracket/holding (only if any data) -->
+                                    <div v-if="openOrderHasLine3(order)"
+                                         class="flex items-center flex-wrap gap-x-4 gap-y-0 px-2 pb-1.5 text-xs ml-6 text-slate-500 bg-black/[0.02]">
+
+                                        <!-- Boxes (progressive — only show filled) -->
+                                        <span v-if="order.box1">
+                                            <span class="text-slate-400">Box 1:</span>
+                                            <span class="text-slate-600 font-medium ml-0.5">{{ order.box1 }}</span>
+                                        </span>
+                                        <span v-if="order.box2">
+                                            <span class="text-slate-400">Box 2:</span>
+                                            <span class="text-slate-600 font-medium ml-0.5">{{ order.box2 }}</span>
+                                        </span>
+                                        <span v-if="order.box3">
+                                            <span class="text-slate-400">Box 3:</span>
+                                            <span class="text-slate-600 font-medium ml-0.5">{{ order.box3 }}</span>
+                                        </span>
+                                        <span v-if="order.box4">
+                                            <span class="text-slate-400">Box 4:</span>
+                                            <span class="text-slate-600 font-medium ml-0.5">{{ order.box4 }}</span>
+                                        </span>
+
+                                        <!-- DIMS + Weight -->
+                                        <span v-if="order.dims">
+                                            <span class="text-slate-400">DIMS:</span>
+                                            <span class="text-slate-600 ml-0.5">{{ order.dims }}</span>
+                                        </span>
+                                        <span v-if="order.weight_lbs">
+                                            <span class="text-slate-400">Wt:</span>
+                                            <span class="text-slate-600 ml-0.5">{{ order.weight_lbs }} lbs</span>
+                                        </span>
+
+                                        <!-- Shipping quotes (progressive) -->
+                                        <span v-if="order.ship_quote_1">
+                                            <span class="text-slate-400">Quote 1:</span>
+                                            <span class="text-slate-600 font-medium ml-0.5">{{ order.ship_quote_1 }}</span>
+                                        </span>
+                                        <span v-if="order.ship_quote_2">
+                                            <span class="text-slate-400">Quote 2:</span>
+                                            <span class="text-slate-600 font-medium ml-0.5">{{ order.ship_quote_2 }}</span>
+                                        </span>
+                                        <span v-if="order.ship_cost_3">
+                                            <span class="text-slate-400">Ship Cost:</span>
+                                            <span class="text-slate-600 font-medium ml-0.5">{{ order.ship_cost_3 }}</span>
+                                        </span>
+                                        <span v-if="order.ship_paid_4">
+                                            <span class="text-slate-400">Paid:</span>
+                                            <span class="text-green-700 font-bold ml-0.5">{{ order.ship_paid_4 }}</span>
+                                        </span>
+
+                                        <!-- Chute status -->
+                                        <span v-if="order.chute_status">
+                                            <span class="text-slate-400">Chute:</span>
+                                            <span class="text-slate-600 ml-0.5">{{ order.chute_status }}</span>
+                                            <span v-if="order.chute_date" class="text-slate-400 ml-0.5">{{ order.chute_date }}</span>
+                                        </span>
+
+                                        <!-- Bracket/Adapter status -->
+                                        <span v-if="order.bracket_adapter_status">
+                                            <span class="text-slate-400">Bracket:</span>
+                                            <span class="text-slate-600 ml-0.5">{{ order.bracket_adapter_status }}</span>
+                                            <span v-if="order.bracket_adapter_date" class="text-slate-400 ml-0.5">{{ order.bracket_adapter_date }}</span>
+                                        </span>
+
+                                        <!-- Holding Bin -->
+                                        <span v-if="order.holding_bin_chute || order.holding_bin_status || order.holding_bin_part">
+                                            <span class="text-slate-400">Holding Bin:</span>
+                                            <span class="text-slate-600 ml-0.5">
+                                                {{ [order.holding_bin_chute, order.holding_bin_status, order.holding_bin_part, order.holding_bin_date].filter(Boolean).join(' · ') }}
+                                            </span>
+                                        </span>
+
+                                        <!-- Override -->
+                                        <span v-if="order.override">
+                                            <span class="text-amber-600 font-semibold">Override:</span>
+                                            <span class="text-amber-700 ml-0.5">{{ order.override }}</span>
+                                        </span>
+                                    </div>
+
+                                </div><!-- end order row -->
+                            </div><!-- end rows container -->
+
+                        </div><!-- end section card -->
+                    </template><!-- end sections v-for -->
+
+                </div><!-- end scrollable content -->
+            </div><!-- end open orders view -->

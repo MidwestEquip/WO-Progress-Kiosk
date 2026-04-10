@@ -144,6 +144,16 @@ export function enterCreateWoView() {
     store.currentView.value    = 'create_wo';
 }
 
+// ── enterOpenOrdersView ───────────────────────────────────────
+// Navigate to the Open Orders shipping view. Preserves shipping sub-menu
+// as the back destination.
+export function enterOpenOrdersView() {
+    store.splashLevel.value       = 2;
+    store.splashCategory.value    = 'production';
+    store.splashSubCategory.value = 'shipping';
+    store.currentView.value       = 'open_orders';
+}
+
 // ── enterInventoryView ────────────────────────────────────────
 // Navigate to the inventory view for a specific tab.
 // splashLevel/Category are preserved so goBack() returns to the inventory sub-menu.

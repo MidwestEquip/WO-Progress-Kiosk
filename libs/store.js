@@ -333,6 +333,63 @@ export const pullHistoryTarget  = ref(null);
 export const pullHistoryItems   = ref([]);
 export const pullHistoryLoading = ref(false);
 
+// ── Open Orders ───────────────────────────────────────────────
+export const openOrders        = ref([]);
+export const openOrdersLoading = ref(false);
+
+// Which row has the color picker open (by id, or null)
+export const openOrderColorPickerRow = ref(null);
+
+// Add-row modal
+export const openOrderAddModalOpen = ref(false);
+export const openOrderAddMode      = ref('manual');   // 'manual' | 'paste'
+export const openOrderAddPasteText = ref('');
+export const openOrderAddPasteRows = ref([]);         // parsed preview rows before confirm
+export const openOrderAddForm      = ref({
+    part_number: '', to_ship: '', qty_pulled: '', description: '',
+    store_bin: '', update_store_bin: '', customer: '', sales_order: '',
+    date_entered: '', status: 'New/Picking', wo_va_notes: '', wo_po_number: '',
+});
+export const openOrderAddFormErrors = ref({});
+
+// Per-section sort state: { field, dir }
+export const openOrdersSort = ref({
+    emergency: { field: 'sort_order', dir: 'asc' },
+    freight:   { field: 'sort_order', dir: 'asc' },
+    trac_vac:  { field: 'sort_order', dir: 'asc' },
+    tru_cut:   { field: 'sort_order', dir: 'asc' },
+});
+
+// Internal helper: sorted rows for one section type
+function _openSectionSorted(type) {
+    return computed(() => {
+        const { field, dir } = openOrdersSort.value[type];
+        const rows = openOrders.value.filter(o => o.order_type === type);
+        return [...rows].sort((a, b) => {
+            let av = a[field] ?? '';
+            let bv = b[field] ?? '';
+            if (typeof av === 'string') av = av.toLowerCase();
+            if (typeof bv === 'string') bv = bv.toLowerCase();
+            if (av < bv) return dir === 'asc' ? -1 : 1;
+            if (av > bv) return dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+    });
+}
+export const emergencyOrders = _openSectionSorted('emergency');
+export const freightOrders   = _openSectionSorted('freight');
+export const tracVacOrders   = _openSectionSorted('trac_vac');
+export const truCutOrders    = _openSectionSorted('tru_cut');
+
+// openOrderSections — reactive array of section configs for v-for in template.
+// Re-evaluates whenever any section's order list changes.
+export const openOrderSections = computed(() => [
+    { type: 'emergency', label: 'EMERGENCY ORDERS', orders: emergencyOrders.value, hdr: 'bg-red-700'     },
+    { type: 'freight',   label: 'FREIGHT ORDERS',   orders: freightOrders.value,   hdr: 'bg-amber-700'   },
+    { type: 'trac_vac',  label: 'TRAC VAC ORDERS',  orders: tracVacOrders.value,   hdr: 'bg-blue-700'    },
+    { type: 'tru_cut',   label: 'TRU CUT ORDERS',   orders: truCutOrders.value,    hdr: 'bg-emerald-700' },
+]);
+
 export const toastMessage  = ref('');
 export const toastType     = ref('error');   // 'error' | 'success' | 'info'
 let toastTimer = null;
@@ -395,6 +452,7 @@ export const appTitle = computed(() => {
         const labels = { chute: 'Chutes', hitch: 'Hitches', engine: 'Engines', hardware: 'Hardware', hoses: 'Hoses' };
         return `Inventory — ${labels[inventoryTab.value] || ''}`;
     }
+    if (currentView.value === 'open_orders') return 'Open Orders — Shipping';
     if (currentView.value === 'manager') {
         if (managerSubView.value === 'kpi')        return 'Manager Hub — KPIs';
         if (managerSubView.value === 'priorities') return 'Manager Hub — Priorities';

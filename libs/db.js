@@ -956,6 +956,34 @@ export async function deleteWoRequest(id) {
     );
 }
 
+// ── Open Orders queries ───────────────────────────────────────
+
+// fetchOpenOrders — all rows ordered by sort_order. Returns { data, error }.
+export async function fetchOpenOrders() {
+    return withRetry(() =>
+        supabase.from('open_orders')
+            .select('*')
+            .order('sort_order', { ascending: true })
+    );
+}
+
+// updateOpenOrder — partial update on a row. Input: id (uuid), updates (object).
+export async function updateOpenOrder(id, updates) {
+    if (!id) return { data: null, error: new Error('Missing order ID') };
+    updates.updated_at = new Date().toISOString();
+    return withRetry(() =>
+        supabase.from('open_orders').update(updates).eq('id', id).select()
+    );
+}
+
+// insertOpenOrders — bulk insert rows. Input: rows (array of objects).
+export async function insertOpenOrders(rows) {
+    if (!rows?.length) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('open_orders').insert(rows).select()
+    );
+}
+
 // ── Customer Service queries ──────────────────────────────────
 
 export async function searchCsOrders(term) {

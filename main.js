@@ -27,7 +27,8 @@ import { formatDateLocal, getStageCum, detectTcMode, sanitizePartKey } from './l
 // ── Page controllers ──────────────────────────────────────────
 import { selectDept, promptPin, submitPin, goBack,
          selectCategory, selectSubCategory, splashBack,
-         enterInventoryView, enterWoRequestView, enterCreateWoView } from './pages/splash-view.js';
+         enterInventoryView, enterWoRequestView, enterCreateWoView,
+         enterOpenOrdersView } from './pages/splash-view.js';
 import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          openWoRequestDetail, closeWoRequestDetail,
          saveWoRequestDetail, approveWoRequest,
@@ -72,6 +73,11 @@ import {
     openDelayedWoDetail, closeDelayedWoDetail
 } from './pages/manager-view.js';
 import { searchCS, searchPastOrders, selectPastWo, clearPastOrders } from './pages/cs-view.js';
+import {
+    loadOpenOrders, setSectionSort, openOrderSortIcon,
+    setRowColor, openOrderRowClass, openOrderColorDotClass,
+    openOrderStatusClass, openOrderHasLine3
+} from './pages/open-orders-view.js';
 
 // ── Load HTML partials into #app before Vue mounts ───────────
 // Fetches HTML fragment files from ./partials/ and concatenates them into #app.
@@ -79,7 +85,7 @@ import { searchCS, searchPastOrders, selectPastWo, clearPastOrders } from './pag
 async function loadPartials() {
     const names = [
         'header', 'main-open',
-        'view-splash', 'view-dashboard', 'view-office', 'view-manager', 'view-cs', 'view-inventory', 'view-wo-request', 'view-create-wo',
+        'view-splash', 'view-dashboard', 'view-office', 'view-manager', 'view-cs', 'view-inventory', 'view-wo-request', 'view-create-wo', 'view-open-orders',
         'main-close',
         'modal-pin', 'modal-action-panel',
         'modal-tc-unit', 'modal-tc-stock',
@@ -125,8 +131,9 @@ try {
                 if (v === 'wo_status')  loadReceivingEligible();
                 if (v === 'manager')    loadManagerAlerts();
                 if (v === 'inventory')  loadInventoryItems();
-                if (v === 'wo_request') loadWoRequests();
-                if (v === 'create_wo')  loadCreateWoItems();
+                if (v === 'wo_request')  loadWoRequests();
+                if (v === 'create_wo')   loadCreateWoItems();
+                if (v === 'open_orders') loadOpenOrders();
             });
             // Reload alerts when navigating back to Manager Hub home from any sub-section
             watch(store.managerSubView, (v) => {
@@ -455,6 +462,31 @@ try {
                 openEditItemForm, closeEditItemForm, submitEditItem,
                 confirmDeleteInventoryItem,
                 openPullHistory, closePullHistory,
+
+                // Open Orders
+                openOrders:              store.openOrders,
+                openOrdersLoading:       store.openOrdersLoading,
+                openOrdersSort:          store.openOrdersSort,
+                openOrderSections:       store.openOrderSections,
+                openOrderColorPickerRow: store.openOrderColorPickerRow,
+                openOrderAddModalOpen:   store.openOrderAddModalOpen,
+                openOrderSortFields: [
+                    { field: 'part_number',        label: 'Part #'   },
+                    { field: 'date_entered',        label: 'Date'     },
+                    { field: 'status',              label: 'Status'   },
+                    { field: 'sales_order',         label: 'Sales Ord'},
+                    { field: 'last_status_update',  label: 'Last Upd' },
+                    { field: 'deadline',            label: 'Deadline' },
+                ],
+                enterOpenOrdersView,
+                loadOpenOrders,
+                setSectionSort,
+                openOrderSortIcon,
+                setRowColor,
+                openOrderRowClass,
+                openOrderColorDotClass,
+                openOrderStatusClass,
+                openOrderHasLine3,
 
                 // Utilities available in templates
                 formatDateLocal, detectTcMode, sanitizePartKey
