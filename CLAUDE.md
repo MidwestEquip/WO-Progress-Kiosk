@@ -237,9 +237,13 @@ Rules:
 
 ## Active Patch Series
 
-TC Assy workflow improvements.
+No active series.
 
-Completed:
+---
+
+## Completed Patch Series
+
+### TC Assy workflow improvements
 - Patch 1: detectTcMode() utility in libs/utils.js
 - Patch 2: Auto-detect mode in manual WO form; optional WO #; remove Job Type picker
 - Patch 3: Auto-detect in entry modal; mode badge + Change control
@@ -249,5 +253,7 @@ Completed:
 - Patch 7: Undo visible after WO completion
 - Patch 8: Split index.html into 15 partials; index.html reduced to ~120-line shell
 
-Remaining:
-- (none — series complete)
+### Per-operator time tracking
+- Patch 1: Schema — `wo_time_sessions` table (id, wo_id, wo_number, department, operator, started_at, ended_at, duration_minutes, qty_this_session, end_status). RLS disabled.
+- Patch 2: DB layer — `updateOrderStatus` opens a session row on started/resumed, closes it on paused/on_hold/completed (fire-and-forget, no work_orders change)
+- Patch 3: Manager KPI section — Time Report panel: By WO tab (per-WO breakdown, expandable to operator sessions) and By Part # tab (avg hrs/WO baseline per part). Date range filter.

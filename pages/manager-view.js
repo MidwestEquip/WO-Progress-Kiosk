@@ -108,6 +108,9 @@ export async function loadKpiData() {
             }))
             .sort((a, b) => b.avgDays - a.avgDays);
 
+        // ── Time report (async, non-blocking) ────────────────
+        loadTimeReport();
+
         // ── Hold reasons from notes ────────────────────────────
         const reasonMap = {};
         active.filter(o => o.status === 'on_hold' && o.notes).forEach(o => {
@@ -325,6 +328,29 @@ export async function confirmResolveWoProblem() {
         store.showToast('WO problem marked resolved.', 'success');
     } catch (err) {
         store.showToast('Failed to resolve problem: ' + err.message);
+    }
+}
+
+// ── loadTimeReport ────────────────────────────────────────────
+// Fetches wo_time_sessions for the selected date range and stores raw rows.
+// Computed groupings (by WO, by Part) are derived in store.js.
+export async function loadTimeReport() {
+    // Initialise date range to last 30 days on first load
+    if (!store.timeReportFrom.value) {
+        const to   = new Date();
+        const from = new Date();
+        from.setDate(from.getDate() - 30);
+        store.timeReportTo.value   = to.toISOString().slice(0, 10);
+        store.timeReportFrom.value = from.toISOString().slice(0, 10);
+    }
+    try {
+        const from = store.timeReportFrom.value + 'T00:00:00.000Z';
+        const to   = store.timeReportTo.value   + 'T23:59:59.999Z';
+        const { data, error } = await db.fetchTimeReportSessions(from, to);
+        if (error) throw error;
+        store.timeReportSessions.value = data || [];
+    } catch (err) {
+        store.showToast('Failed to load time report: ' + err.message);
     }
 }
 

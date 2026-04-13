@@ -68,7 +68,7 @@ import {
     fetchPriorityOrders, updatePriority, updateAssignedOperator,
     handleAssignChange, submitCustomAssign, cancelCustomAssign,
     openNotesPanel, loadManagerAlerts,
-    sendAiMessage,
+    sendAiMessage, loadTimeReport,
     loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
     openDelayedWoDetail, closeDelayedWoDetail
 } from './pages/manager-view.js';
@@ -401,11 +401,21 @@ try {
                 fetchPriorityOrders, updatePriority, updateAssignedOperator,
                 handleAssignChange, submitCustomAssign, cancelCustomAssign,
                 openNotesPanel, loadManagerAlerts,
-                sendAiMessage,
+                sendAiMessage, loadTimeReport,
                 delayedWoDetailOpen: store.delayedWoDetailOpen,
                 delayedWoDetail:     store.delayedWoDetail,
                 openDelayedWoDetail, closeDelayedWoDetail,
                 loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
+
+                // Time Report
+                timeReportSessions:     store.timeReportSessions,
+                timeReportFrom:         store.timeReportFrom,
+                timeReportTo:           store.timeReportTo,
+                timeReportTab:          store.timeReportTab,
+                timeReportExpandedWo:   store.timeReportExpandedWo,
+                timeReportExpandedPart: store.timeReportExpandedPart,
+                timeReportByWo:         store.timeReportByWo,
+                timeReportByPart:       store.timeReportByPart,
 
                 // CS
                 searchCS, searchPastOrders, selectPastWo, clearPastOrders,

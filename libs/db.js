@@ -191,6 +191,48 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
         });
     }
 
+    // ── Time session tracking (fire-and-forget) ───────────────
+    const prevStatus      = currentOrder.status;
+    const activeStatuses  = ['started', 'resumed'];
+    const closingStatuses = ['paused', 'on_hold', 'completed'];
+    const openingStatuses = ['started', 'resumed'];
+
+    if (openingStatuses.includes(overallStatus) && !activeStatuses.includes(prevStatus)) {
+        // Opening a new session
+        supabase.from('wo_time_sessions').insert({
+            wo_id:      id,
+            wo_number:  currentOrder.wo_number || '',
+            department: currentOrder.department,
+            operator:   opName,
+            started_at: now,
+        }).then(({ error }) => {
+            if (error) console.warn('wo_time_sessions open failed:', error.message);
+        });
+    } else if (closingStatuses.includes(overallStatus) && activeStatuses.includes(prevStatus)) {
+        // Closing the open session for this WO
+        supabase.from('wo_time_sessions')
+            .select('id, started_at')
+            .eq('wo_id', id)
+            .is('ended_at', null)
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .single()
+            .then(({ data: session, error }) => {
+                if (error || !session) return;
+                const durationMinutes = Math.round(
+                    (new Date(now) - new Date(session.started_at)) / 60000
+                );
+                supabase.from('wo_time_sessions').update({
+                    ended_at:         now,
+                    duration_minutes: durationMinutes,
+                    end_status:       overallStatus,
+                    qty_this_session: sessionQty,
+                }).eq('id', session.id).then(({ error: e }) => {
+                    if (e) console.warn('wo_time_sessions close failed:', e.message);
+                });
+            });
+    }
+
     return withRetry(() =>
         supabase.from('work_orders').update(updates).eq('id', id).select()
     );
@@ -1060,6 +1102,20 @@ export async function searchPastAssyOrders(term) {
         if (!seen.has(row.id)) { seen.add(row.id); rows.push(row); }
     }
     return { rows, error: null };
+}
+
+// ── fetchTimeReportSessions ───────────────────────────────────
+// Fetch all wo_time_sessions within a date range, joining part_number from work_orders.
+// Input: from/to ISO date strings. Output: { data, error }
+export async function fetchTimeReportSessions(from, to) {
+    return withRetry(() =>
+        supabase.from('wo_time_sessions')
+            .select('id, wo_id, wo_number, department, operator, started_at, ended_at, duration_minutes, qty_this_session, end_status, work_orders(part_number)')
+            .gte('started_at', from)
+            .lte('started_at', to)
+            .not('ended_at', 'is', null)
+            .order('started_at', { ascending: false })
+    );
 }
 
 // ── Part Print Storage (Supabase Storage: bucket "wo-files") ─

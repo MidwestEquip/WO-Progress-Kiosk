@@ -404,6 +404,76 @@ export const openOrderSections = computed(() => [
     { type: 'tru_cut',   label: 'TRU CUT ORDERS',   orders: truCutOrders.value,    hdr: 'bg-red-700'    },
 ]);
 
+// ── Time Report (KPI section) ─────────────────────────────────
+export const timeReportSessions   = ref([]);      // raw rows from wo_time_sessions
+export const timeReportFrom       = ref('');      // ISO date string
+export const timeReportTo         = ref('');      // ISO date string
+export const timeReportTab        = ref('wo');    // 'wo' | 'part'
+export const timeReportExpandedWo = ref(null);    // wo_id currently expanded in By WO tab
+export const timeReportExpandedPart = ref(null);  // part_number currently expanded in By Part tab
+
+// timeReportByWo — sessions grouped by WO, sorted by most recent first
+export const timeReportByWo = computed(() => {
+    const map = {};
+    for (const s of timeReportSessions.value) {
+        const key = s.wo_id;
+        if (!map[key]) {
+            map[key] = {
+                wo_id:       s.wo_id,
+                wo_number:   s.wo_number,
+                part_number: s.work_orders?.part_number || '',
+                department:  s.department,
+                totalMinutes: 0,
+                totalQty:    0,
+                operators:   new Set(),
+                sessions:    [],
+                lastStarted: s.started_at,
+            };
+        }
+        const row = map[key];
+        row.totalMinutes += s.duration_minutes || 0;
+        row.totalQty     += s.qty_this_session || 0;
+        row.operators.add(s.operator);
+        row.sessions.push(s);
+        if (s.started_at > row.lastStarted) row.lastStarted = s.started_at;
+    }
+    return Object.values(map)
+        .map(r => ({ ...r, operators: [...r.operators].join(', ') }))
+        .sort((a, b) => (b.lastStarted > a.lastStarted ? 1 : -1));
+});
+
+// timeReportByPart — sessions grouped by part number, sorted by most WOs run first
+export const timeReportByPart = computed(() => {
+    const map = {};
+    for (const s of timeReportSessions.value) {
+        const key = s.work_orders?.part_number || '(unknown)';
+        if (!map[key]) {
+            map[key] = {
+                part_number:  key,
+                woIds:        new Set(),
+                totalMinutes: 0,
+                totalQty:     0,
+                operators:    new Set(),
+                sessions:     [],
+            };
+        }
+        const row = map[key];
+        row.woIds.add(s.wo_id);
+        row.totalMinutes += s.duration_minutes || 0;
+        row.totalQty     += s.qty_this_session || 0;
+        row.operators.add(s.operator);
+        row.sessions.push(s);
+    }
+    return Object.values(map)
+        .map(r => ({
+            ...r,
+            woCount:    r.woIds.size,
+            avgMinutes: r.woIds.size ? Math.round(r.totalMinutes / r.woIds.size) : 0,
+            operators:  [...r.operators].join(', '),
+        }))
+        .sort((a, b) => b.woCount - a.woCount);
+});
+
 export const toastMessage  = ref('');
 export const toastType     = ref('error');   // 'error' | 'success' | 'info'
 let toastTimer = null;
