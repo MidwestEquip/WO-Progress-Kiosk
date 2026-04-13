@@ -21,7 +21,7 @@ import {
 
 // ── State & computed ──────────────────────────────────────────
 import * as store from './libs/store.js';
-import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS, OPEN_ORDER_STATUSES } from './libs/config.js';
+import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS, OPEN_ORDER_STATUSES, OPEN_ORDER_SORT_FIELDS, INVENTORY_TABS } from './libs/config.js';
 import { formatDateLocal, getStageCum, detectTcMode, sanitizePartKey } from './libs/utils.js';
 
 // ── Page controllers ──────────────────────────────────────────
@@ -43,25 +43,31 @@ import {
     openPullHistory, closePullHistory
 } from './pages/inventory-view.js';
 import {
-    openActionPanel, openTvAssyEntry, tvSelectMode,
+    openActionPanel,
+    getFinalOperatorName, getFabWeldOperatorName, holdSince,
+    updateOrderStatus, undoLastAction,
+    submitNewWo, submitNote, toggleTcNewWoMode,
+    submitWoProblemFromUi,
+    loadWoFiles, handleWoFileUpload, handleWoFileDelete
+} from './pages/dashboard-view.js';
+import {
+    openTvAssyEntry, tvSelectMode,
     submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
     tvStockDirectAction, saveTvStockNotes,
-    tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold,
+    tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold
+} from './pages/dashboard-tv.js';
+import {
     openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
     saveTcStockNotes, saveTcUnitDetails, tcUnitOpenHold, tcUnitConfirmHold,
     submitTcUnitStageFromUi, tcStockDirectAction, tcUnitStageDirectAction,
-    openTcAssyCompleteModal, confirmTcWoComplete, toggleTcNewWoMode,
-    toggleTcEntryMode,
-    getFinalOperatorName, getFabWeldOperatorName, holdSince,
-    updateOrderStatus, undoLastAction,
-    submitNewWo, submitNote, submitWoProblemFromUi,
-    loadWoFiles, handleWoFileUpload, handleWoFileDelete
-} from './pages/dashboard-view.js';
+    openTcAssyCompleteModal, confirmTcWoComplete, toggleTcEntryMode
+} from './pages/dashboard-tc.js';
 import { markAlereUpdated, signInAnonymously } from './libs/db.js';
 import {
     searchOfficeReceive, openReceiveModal, submitReceive,
     openCloseoutModal, submitCloseout, loadReceivingEligible,
-    openAlereConfirm, cancelAlereConfirm, submitAlereUpdated
+    openAlereConfirm, cancelAlereConfirm, submitAlereUpdated,
+    goToCloseout
 } from './pages/wo-status-view.js';
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
@@ -94,7 +100,10 @@ import {
 async function loadPartials() {
     const names = [
         'header', 'main-open',
-        'view-splash', 'view-dashboard', 'view-office', 'view-manager', 'view-cs', 'view-inventory', 'view-wo-request', 'view-create-wo', 'view-open-orders',
+        'view-splash', 'view-dashboard', 'view-office',
+        'view-manager-home', 'view-manager-kpi', 'view-manager-priorities',
+        'view-manager-ai', 'view-manager-problems', 'view-manager-delayed',
+        'view-cs', 'view-inventory', 'view-wo-request', 'view-create-wo', 'view-open-orders',
         'main-close',
         'modal-pin', 'modal-action-panel',
         'modal-tc-unit', 'modal-tc-stock',
@@ -148,22 +157,6 @@ try {
             watch(store.managerSubView, (v) => {
                 if (v === 'home' && store.currentView.value === 'manager') loadManagerAlerts();
             });
-
-            // ── Expose everything the templates need ──────────
-            // Close-Out mode switch: defined here in setup() to avoid cross-module caching issues.
-            // Uses optional chaining so it degrades safely if closeoutAuthorized ref is missing.
-            function goToCloseout() {
-                store.officeSearchTerm.value    = '';
-                store.officeSearchResults.value = [];
-                store.officeSuccessMsg.value    = '';
-                if (store.closeoutAuthorized?.value) {
-                    store.officeMode.value = 'closeout';
-                } else {
-                    store.pinInput.value     = '';
-                    store.pinMode.value      = 'closeout_office';
-                    store.pinModalOpen.value = true;
-                }
-            }
 
             return {
                 // Navigation state
@@ -279,10 +272,6 @@ try {
                 tcAssyCompleteForm:      store.tcAssyCompleteForm,
                 tcAssyCompleteErrors:    store.tcAssyCompleteErrors,
                 tcUnitInfoForm:          store.tcUnitInfoForm,
-                tcPreStage:   store.tcPreStage,
-                tcFinStage:   store.tcFinStage,
-                tcPreCum:     store.tcPreCum,
-                tcFinCum:     store.tcFinCum,
 
                 // Office / WO Status
                 officeMode:           store.officeMode,
@@ -468,13 +457,7 @@ try {
                 pullHistoryTarget:         store.pullHistoryTarget,
                 pullHistoryItems:          store.pullHistoryItems,
                 pullHistoryLoading:        store.pullHistoryLoading,
-                inventoryTabs: [
-                    { key: 'chute',    label: 'Chutes'   },
-                    { key: 'hitch',    label: 'Hitches'  },
-                    { key: 'engine',   label: 'Engines'  },
-                    { key: 'hardware', label: 'Hardware' },
-                    { key: 'hoses',    label: 'Hoses'    },
-                ],
+                inventoryTabs: INVENTORY_TABS,
                 enterInventoryView, switchInventoryTab,
                 openPullForm, closePullForm, submitPull,
                 openAddItemForm, closeAddItemForm, submitAddItem,
@@ -501,14 +484,7 @@ try {
                 openOrderAddPasteText:    store.openOrderAddPasteText,
                 openOrderAddPasteRows:    store.openOrderAddPasteRows,
                 openOrderStatuses:        OPEN_ORDER_STATUSES,
-                openOrderSortFields: [
-                    { field: 'part_number',        label: 'Part #'   },
-                    { field: 'date_entered',        label: 'Date'     },
-                    { field: 'status',              label: 'Status'   },
-                    { field: 'sales_order',         label: 'Sales Ord'},
-                    { field: 'last_status_update',  label: 'Last Upd' },
-                    { field: 'deadline',            label: 'Deadline' },
-                ],
+                openOrderSortFields: OPEN_ORDER_SORT_FIELDS,
                 enterOpenOrdersView,
                 loadOpenOrders,
                 setSectionSort,

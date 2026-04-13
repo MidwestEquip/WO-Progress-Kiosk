@@ -73,6 +73,15 @@ export const OPEN_ORDER_STATUSES = [
     'WO Created', 'PO Created', 'Boxed', 'Shipped', 'On Hold'
 ];
 
+// ----- Inventory tabs -----
+export const INVENTORY_TABS = [
+    { key: 'chute',    label: 'Chutes'   },
+    { key: 'hitch',    label: 'Hitches'  },
+    { key: 'engine',   label: 'Engines'  },
+    { key: 'hardware', label: 'Hardware' },
+    { key: 'hoses',    label: 'Hoses'    },
+];
+
 export const OPEN_ORDER_SORT_FIELDS = [
     { field: 'part_number',        label: 'Part #'   },
     { field: 'date_entered',       label: 'Date'     },

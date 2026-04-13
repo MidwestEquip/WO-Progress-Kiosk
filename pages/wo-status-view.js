@@ -184,3 +184,19 @@ async function _refreshWoStatusData() {
         store.showToast('Failed to refresh WO status data: ' + err.message);
     }
 }
+
+// ── goToCloseout ──────────────────────────────────────────────
+// Switches the Office view to close-out mode.
+// Requires PIN if closeoutAuthorized is not already set.
+export function goToCloseout() {
+    store.officeSearchTerm.value    = '';
+    store.officeSearchResults.value = [];
+    store.officeSuccessMsg.value    = '';
+    if (store.closeoutAuthorized?.value) {
+        store.officeMode.value = 'closeout';
+    } else {
+        store.pinInput.value     = '';
+        store.pinMode.value      = 'closeout_office';
+        store.pinModalOpen.value = true;
+    }
+}

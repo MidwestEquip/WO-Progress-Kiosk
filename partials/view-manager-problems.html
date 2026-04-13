@@ -1,0 +1,98 @@
+            <!-- ── MANAGER HUB: WO Problems sub-view ────────── -->
+            <div v-if="currentView === 'manager' && managerSubView === 'problems'"
+                 class="h-full w-full bg-slate-900 overflow-y-auto absolute inset-0">
+                <div class="p-6 max-w-5xl mx-auto">
+                    <div class="flex items-center gap-4 mb-6">
+                        <button @click="managerSubView = 'home'" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-bold">&#8592; Back</button>
+                        <h2 class="text-3xl font-bold text-red-400">WO Problems</h2>
+                        <span v-if="woProblemCount > 0"
+                            class="bg-red-500 text-white text-sm font-bold rounded-full min-w-[1.75rem] h-7 flex items-center justify-center px-2">
+                            {{ woProblemCount }} open
+                        </span>
+                    </div>
+
+                    <div v-if="woProblems.length === 0" class="text-center py-20">
+                        <div class="text-6xl mb-4">&#9989;</div>
+                        <div class="text-2xl font-bold text-emerald-400">No Open WO Problems</div>
+                        <div class="text-slate-500 mt-2">All issues have been resolved</div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div v-for="p in woProblems" :key="p.id"
+                            class="bg-slate-800 rounded-xl border border-red-500/40 p-5">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-3 mb-2">
+                                        <span class="font-bold text-xl text-white">WO #{{ p.wo_number }}</span>
+                                        <span class="text-slate-400 text-sm">Part #{{ p.part_number }}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded font-bold bg-slate-600 text-slate-300">{{ p.department }}</span>
+                                    </div>
+                                    <div class="bg-red-950/50 border border-red-500/30 rounded-lg px-4 py-3 mb-3">
+                                        <div class="text-xs font-bold text-red-400 uppercase tracking-wide mb-1">Problem / Issue</div>
+                                        <div class="text-red-100 text-sm">{{ p.wo_problem_text }}</div>
+                                    </div>
+                                    <div class="text-xs text-slate-500">
+                                        <span v-if="p.wo_problem_updated_by">Reported by {{ p.wo_problem_updated_by }}</span>
+                                        <span v-if="p.wo_problem_updated_by && p.wo_problem_updated_at"> &middot; </span>
+                                        <span v-if="p.wo_problem_updated_at">{{ formatDateLocal(p.wo_problem_updated_at) }}</span>
+                                    </div>
+                                </div>
+                                <button @click="openWoProblemModal(p)"
+                                    class="shrink-0 bg-emerald-700 hover:bg-emerald-600 text-white font-bold px-5 py-2.5 rounded-xl transition-colors active:scale-95 text-sm">
+                                    Resolve
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WO Problem Resolve Modal (available from manager problems view) -->
+            <div v-if="currentView === 'manager' && woProblemModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+                @click.self="closeWoProblemModal()">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+                    <div class="bg-slate-900 px-6 py-4 flex items-center gap-3">
+                        <span class="font-bold text-white text-lg">Resolve WO Problem</span>
+                        <span class="text-slate-400 text-sm ml-1">WO #{{ woProblemTarget?.wo_number }}</span>
+                        <button @click="closeWoProblemModal()" class="ml-auto text-slate-400 hover:text-white">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                            <div class="text-xs font-bold text-red-500 uppercase tracking-wide mb-1">Problem</div>
+                            <div class="text-red-800 text-sm">{{ woProblemTarget?.wo_problem_text }}</div>
+                            <div class="text-xs text-red-400 mt-1">{{ woProblemTarget?.department }} &middot; Part #{{ woProblemTarget?.part_number }}</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Your Name <span class="text-red-500">*</span></label>
+                            <input v-model="woProblemResolverName"
+                                @input="woProblemResolverNameError = false"
+                                type="text" placeholder="Enter your name"
+                                class="w-full p-3 border rounded-xl text-sm focus:outline-none focus:border-blue-500"
+                                :class="woProblemResolverNameError ? 'border-red-500 bg-red-50' : 'border-gray-300'">
+                            <p v-if="woProblemResolverNameError" class="text-red-500 text-xs mt-1">Name is required</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Resolution <span class="text-red-500">*</span></label>
+                            <textarea v-model="woProblemResolution"
+                                @input="woProblemResolutionError = false"
+                                rows="3" placeholder="Describe how the issue was resolved..."
+                                class="w-full p-3 border rounded-xl text-sm focus:outline-none focus:border-blue-500 resize-none"
+                                :class="woProblemResolutionError ? 'border-red-500 bg-red-50' : 'border-gray-300'"></textarea>
+                            <p v-if="woProblemResolutionError" class="text-red-500 text-xs mt-1">Resolution is required</p>
+                        </div>
+                        <div class="flex gap-3 pt-2">
+                            <button @click="closeWoProblemModal()"
+                                class="flex-1 py-3 rounded-xl font-bold border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
+                                Cancel
+                            </button>
+                            <button @click="confirmResolveWoProblem()"
+                                class="flex-1 py-3 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors active:scale-95">
+                                Mark Resolved
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>

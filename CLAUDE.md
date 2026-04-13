@@ -196,16 +196,45 @@ Every change to this codebase follows this process:
 | Repo         | GitHub             | project873/WO-Progress-Kiosk      |
 ---
 
+## File Length Rule: 500-Line Hard Cap
+
+No file in this project may exceed 500 lines — with one exception: main.js is a pure
+wiring manifest (no logic) and will grow linearly as features are added. Keep it under
+600 lines; if it approaches that, look for inline arrays or functions to move to config.js
+or page files respectively.
+
+Before implementing any patch:
+1. Count the current line length of every file you plan to touch.
+2. Estimate the line count after your changes.
+3. If any file would exceed 500 lines after the patch (or main.js would exceed 600),
+   STOP and propose a split plan first.
+4. The split plan must follow the dependency tree and partials convention.
+5. Never combine a feature patch with a split in the same commit.
+
+Files currently over 500 lines were split on 2026-04-13 into sub-files. The sub-file pattern:
+- `libs/db-*.js` sub-files all import `withRetry` from `libs/db-shared.js`
+- `libs/store-*.js` sub-files are re-exported by `libs/store.js` (no circular deps)
+- `pages/dashboard-tv.js` and `pages/dashboard-tc.js` are split from `dashboard-view.js`
+- Manager partials are split by sub-view: `view-manager-home`, `view-manager-kpi`, etc.
+
+Known exceptions that cannot be split further without introducing components:
+- `main.js` (~540 lines): pure wiring manifest, no logic, cap is 600 lines
+- `partials/view-open-orders.html` (~705 lines): single continuous row template with 19
+  columns; there is no v-if boundary to split at. Keep under 800 lines.
+
+---
+
 ## Checklist Before Any New Feature
 
-- Does new state belong in store.js?
-- Does new DB logic belong in db.js?
+- Does new state belong in store.js (or the appropriate store-*.js sub-file)?
+- Does new DB logic belong in db.js (or the appropriate db-*.js sub-file)?
 - Does new detection or calculation logic belong in utils.js?
 - Does main.js need to expose anything new to the template?
 - Does the new feature break the dependency tree? Redesign if yes.
 - Do existing DB rows need a null fallback for any new columns?
 - Is there a matching undo path for any new status change?
 - Is the feature isolated from unrelated departments?
+- Will any touched file exceed 500 lines? If yes, split first.
 
 ---
 
