@@ -75,21 +75,16 @@ export async function handleWoFileDelete(filename) {
 }
 
 // ── getFinalOperatorName ──────────────────────────────────────
-// Returns the selected operator name (resolves "Other" to free-text field)
+// Returns the typed operator name for the current action panel session.
 export function getFinalOperatorName() {
-    return store.selectedOperator.value === 'Other'
-        ? store.otherOperator.value.trim()
-        : store.selectedOperator.value;
+    return store.selectedOperator.value.trim();
 }
 
 // ── updateOrderStatus ─────────────────────────────────────────
 // Main action: update a WO's status (and optionally a sub-stage).
 // Validates inputs, saves undo snapshot, writes to DB, refreshes list.
 export async function updateOrderStatus(newStatus, stageKey = null) {
-    const dept = store.activeOrder.value?.department;
-    const opName = (dept === 'Fab' || dept === 'Weld')
-        ? getFabWeldOperatorName()
-        : getFinalOperatorName();
+    const opName = getFinalOperatorName();
     if (!opName) {
         store.showToast('Select or enter your operator name first.', 'error');
         return;
@@ -357,19 +352,6 @@ async function _refreshDeptOrders() {
     }
 }
 
-// ── getFabWeldOperatorName ────────────────────────────────────
-// Resolves the Fab/Weld multi-select (with optional "Other" free-text)
-// into a single " & "-joined string for storage in work_orders.operator.
-export function getFabWeldOperatorName() {
-    const base = store.selectedOperators.value.filter(o => o !== 'Other');
-    if (store.selectedOperators.value.includes('Other')) {
-        const typed = store.otherOperator.value.trim();
-        if (typed) {
-            typed.split(',').map(s => s.trim()).filter(Boolean).forEach(n => base.push(n));
-        }
-    }
-    return base.join(' & ');
-}
 
 // ── _getReelOpName ────────────────────────────────────────────
 // Resolves the operator name for a reel operation.

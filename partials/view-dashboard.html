@@ -163,7 +163,7 @@
 
                 <!-- ── Assigned WOs panel (right) — one column per operator ── -->
                 <div v-if="assignedOrdersByOperator.length > 0"
-                    class="shrink-0 bg-slate-800 border-l border-slate-700 flex overflow-x-auto">
+                    class="shrink-0 max-w-[50%] bg-slate-800 border-l border-slate-700 flex overflow-x-auto">
                     <div v-for="group in assignedOrdersByOperator" :key="group.operator"
                         class="w-56 shrink-0 flex flex-col border-r border-slate-700 last:border-r-0">
                         <!-- Column header -->

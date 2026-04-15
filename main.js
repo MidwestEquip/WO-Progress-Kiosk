@@ -44,7 +44,7 @@ import {
 } from './pages/inventory-view.js';
 import {
     openActionPanel,
-    getFinalOperatorName, getFabWeldOperatorName, holdSince,
+    getFinalOperatorName, holdSince,
     updateOrderStatus, undoLastAction,
     submitNewWo, submitNote, toggleTcNewWoMode,
     submitWoProblemFromUi,

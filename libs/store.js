@@ -46,10 +46,7 @@ export const activeOrder       = ref(null);
 export const selectedOperator  = ref('');
 export const otherOperator     = ref('');
 export const selectedOperators = ref([]);
-export const fabWeldOperatorReady = computed(() =>
-    selectedOperators.value.length > 0 &&
-    (!selectedOperators.value.includes('Other') || otherOperator.value.trim().length > 0)
-);
+export const fabWeldOperatorReady = computed(() => selectedOperator.value.trim().length > 0);
 export const actionForm = ref({
     qtyCompleted: 0,
     qtyScrap:     0,
