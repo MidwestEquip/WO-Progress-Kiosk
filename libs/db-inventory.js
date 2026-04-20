@@ -173,6 +173,17 @@ export async function fetchApprovedWoRequests() {
     );
 }
 
+// fetchCreatedWoRequests — all wo_requests with status='in production', newest first.
+export async function fetchCreatedWoRequests() {
+    return withRetry(() =>
+        supabase.from('wo_requests')
+            .select('*')
+            .eq('status', 'in production')
+            .order('created_date', { ascending: false })
+            .order('created_at',   { ascending: false })
+    );
+}
+
 export async function confirmCreateWo(id, woNumber, initials, date) {
     if (!id)       return { data: null, error: new Error('Missing request ID') };
     if (!woNumber) return { data: null, error: new Error('WO number is required') };
@@ -194,8 +205,21 @@ export async function fetchWoRequests() {
     return withRetry(() =>
         supabase.from('wo_requests')
             .select('*')
+            .eq('forecasted', false)
+            .eq('status', 'pending')
             .order('request_date', { ascending: true })
             .order('created_at',   { ascending: true })
+    );
+}
+
+// fetchForecastedRequests — returns all wo_requests rows marked forecasted=true.
+export async function fetchForecastedRequests() {
+    return withRetry(() =>
+        supabase.from('wo_requests')
+            .select('*')
+            .eq('forecasted', true)
+            .order('forecast_date', { ascending: true })
+            .order('created_at',    { ascending: true })
     );
 }
 
@@ -264,6 +288,18 @@ export async function fetchOpenOrders() {
         supabase.from('open_orders')
             .select('*')
             .order('sort_order', { ascending: true })
+    );
+}
+
+// fetchWorkOrdersByWoNumber — active WOs matching a given wo_number (for open order drill-down).
+// Returns key production fields only; excludes completed orders.
+export async function fetchWorkOrdersByWoNumber(woNumber) {
+    if (!woNumber) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('work_orders')
+            .select('id,wo_number,part_number,description,department,status,operator,qty_completed,qty_required,start_date,due_date')
+            .eq('wo_number', woNumber.trim())
+            .neq('status', 'completed')
     );
 }
 

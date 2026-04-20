@@ -28,13 +28,15 @@ import { formatDateLocal, getStageCum, detectTcMode, sanitizePartKey, isChutePar
 import { selectDept, promptPin, submitPin, goBack,
          selectCategory, selectSubCategory, splashBack,
          enterInventoryView, enterWoRequestView, enterCreateWoView,
-         enterOpenOrdersView } from './pages/splash-view.js';
+         enterOpenOrdersView, enterWoForecastingView } from './pages/splash-view.js';
 import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          openWoRequestDetail, closeWoRequestDetail,
          saveWoRequestDetail, approveWoRequest,
          saveWoRequestInlineFields,
-         checkWoRequestPartMatch, acceptSoHint, dismissSoHint } from './pages/wo-request-view.js';
-import { loadCreateWoItems, confirmCreateWoItem } from './pages/create-wo-view.js';
+         checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
+         openSendToForecast, closeSendToForecast, submitSendToForecast } from './pages/wo-request-view.js';
+import { loadForecastedItems, removeForecastItem } from './pages/wo-forecasting-view.js';
+import { loadCreateWoItems, confirmCreateWoItem, switchCreateWoTab, loadCreatedWoItems } from './pages/create-wo-view.js';
 import { enterCompletedOrdersView, loadCompletedOrders, restoreCompletedOrder } from './pages/completed-orders-view.js';
 import {
     loadInventoryItems, switchInventoryTab,
@@ -84,18 +86,20 @@ import {
 import { searchCS, searchPastOrders, selectPastWo, clearPastOrders } from './pages/cs-view.js';
 import {
     loadOpenOrders, setSectionSort, openOrderSortIcon,
-    setRowColor, openOrderRowClass, openOrderColorDotClass,
+    setRowColor, effectiveRowColor, openOrderRowClass, openOrderColorDotClass,
+    loadReminderEmail, saveReminderEmail,
     openOrderStatusClass, chuteStatusClass, openOrderHasLine3,
     cancelAddModal, parsePasteRows, saveOpenOrderRow,
     moveToSection, bulkChangeStatus,
-    onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
-    onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
-    onScrollAreaDragOver,
     startCellEdit, saveCellEdit, cancelCellEdit, deleteOpenOrder,
-    onGripDragStart, onGripDragEnd,
-    onDropZoneDragOver, clearDropZone, reorderDrop,
-    toggleOpenOrderExpand
+    toggleOpenOrderExpand,
+    openWoDetailPanel, closeWoDetailPanel,
+    woDeptBadgeClass, woStatusBadgeClass,
 } from './pages/open-orders-view.js';
+import { onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
+    onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
+    onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
+    onDropZoneDragOver, clearDropZone, reorderDrop } from './pages/open-orders-drag.js';
 
 // ── Load HTML partials into #app before Vue mounts ───────────
 // Fetches HTML fragment files from ./partials/ and concatenates them into #app.
@@ -106,7 +110,7 @@ async function loadPartials() {
         'view-splash', 'view-dashboard', 'view-office',
         'view-manager-home', 'view-manager-kpi', 'view-manager-priorities',
         'view-manager-ai', 'view-manager-problems', 'view-manager-delayed',
-        'view-cs', 'view-inventory', 'view-wo-request', 'view-create-wo', 'view-open-orders', 'view-completed-orders',
+        'view-cs', 'view-inventory', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-completed-orders',
         'main-close',
         'modal-pin', 'modal-action-panel',
         'modal-tc-unit', 'modal-tc-stock',
@@ -168,9 +172,10 @@ try {
                 if (v === 'wo_status')  loadReceivingEligible();
                 if (v === 'manager')    loadManagerAlerts();
                 if (v === 'inventory')  loadInventoryItems();
-                if (v === 'wo_request')  loadWoRequests();
+                if (v === 'wo_request')     loadWoRequests();
+                if (v === 'wo_forecasting') loadForecastedItems();
                 if (v === 'create_wo')   loadCreateWoItems();
-                if (v === 'open_orders')      loadOpenOrders();
+                if (v === 'open_orders')      { loadOpenOrders(); loadReminderEmail(); }
                 if (v === 'completed_orders') loadCompletedOrders();
             });
             // Reload alerts when navigating back to Manager Hub home from any sub-section
@@ -459,14 +464,20 @@ try {
                 approveWoRequest,
                 saveWoRequestInlineFields,
                 checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
+                openSendToForecast, closeSendToForecast, submitSendToForecast,
+                sendToForecastOpen:   store.sendToForecastOpen,
+                sendToForecastTarget: store.sendToForecastTarget,
+                sendToForecastForm:   store.sendToForecastForm,
+                sendToForecastErrors: store.sendToForecastErrors,
+
+                // WO Forecasting
+                forecastingItems: store.forecastingItems, forecastingLoading: store.forecastingLoading,
+                enterWoForecastingView, loadForecastedItems, removeForecastItem,
 
                 // Create WO
-                createWoItems:          store.createWoItems,
-                createWoLoading:        store.createWoLoading,
-                createWoInlineState:    store.createWoInlineState,
-                enterCreateWoView,
-                loadCreateWoItems,
-                confirmCreateWoItem,
+                createWoItems: store.createWoItems, createWoLoading: store.createWoLoading,
+                createWoInlineState: store.createWoInlineState, createWoTab: store.createWoTab, createdWoItems: store.createdWoItems,
+                enterCreateWoView, loadCreateWoItems, confirmCreateWoItem, switchCreateWoTab, loadCreatedWoItems,
 
                 // Inventory
                 inventoryTab:              store.inventoryTab,
@@ -529,7 +540,12 @@ try {
                 setSectionSort,
                 openOrderSortIcon,
                 setRowColor,
+                effectiveRowColor,
                 openOrderRowClass,
+                reminderEmailModalOpen: store.reminderEmailModalOpen,
+                reminderEmail:          store.reminderEmail,
+                reminderEmailSaving:    store.reminderEmailSaving,
+                saveReminderEmail,
                 openOrderColorDotClass,
                 openOrderStatusClass,
                 chuteStatusClass,
@@ -540,11 +556,15 @@ try {
                 moveToSection, bulkChangeStatus,
                 onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
                 onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
-                onScrollAreaDragOver,
-                startCellEdit, saveCellEdit, cancelCellEdit, deleteOpenOrder,
-                onGripDragStart, onGripDragEnd,
+                onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
                 onDropZoneDragOver, clearDropZone, reorderDrop,
+                startCellEdit, saveCellEdit, cancelCellEdit, deleteOpenOrder,
                 toggleOpenOrderExpand,
+                openOrderWoPanel:         store.openOrderWoPanel,
+                openOrderWoPanelOrders:   store.openOrderWoPanelOrders,
+                openOrderWoPanelLoading:  store.openOrderWoPanelLoading,
+                openWoDetailPanel, closeWoDetailPanel,
+                woDeptBadgeClass, woStatusBadgeClass,
 
                 // Utilities available in templates
                 formatDateLocal, detectTcMode, sanitizePartKey, isChutePart

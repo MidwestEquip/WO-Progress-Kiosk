@@ -43,10 +43,9 @@ export const woRequestDetailForm = ref({
     alere_bin: '', estimated_lead_time: '', sent_to_production: false, date_to_start: ''
 });
 export const filteredWoRequests = computed(() => {
-    const pending = woRequests.value.filter(r => r.status === 'pending');
     const q = woRequestSearch.value.trim().toLowerCase();
-    if (!q) return pending;
-    return pending.filter(r =>
+    if (!q) return woRequests.value;
+    return woRequests.value.filter(r =>
         (r.part_number        || '').toLowerCase().includes(q) ||
         (r.description        || '').toLowerCase().includes(q) ||
         (r.sales_order_number || '').toLowerCase().includes(q) ||
@@ -54,10 +53,20 @@ export const filteredWoRequests = computed(() => {
     );
 });
 
+// ── WO Forecasting ────────────────────────────────────────────
+export const forecastingItems     = ref([]);
+export const forecastingLoading   = ref(false);
+export const sendToForecastOpen   = ref(false);
+export const sendToForecastTarget = ref(null);
+export const sendToForecastForm   = ref({ forecast_date: '', forecast_reason: '' });
+export const sendToForecastErrors = ref({ forecast_date: false, forecast_reason: false });
+
 // ── Create WO ─────────────────────────────────────────────────
 export const createWoItems       = ref([]);
 export const createWoLoading     = ref(false);
 export const createWoInlineState = ref({});
+export const createWoTab         = ref('pending'); // 'pending' | 'created'
+export const createdWoItems      = ref([]);
 
 // ── Inventory ─────────────────────────────────────────────────
 export const inventoryTab     = ref('chute');
@@ -121,6 +130,10 @@ export const openOrderBulkStatus   = ref('');
 export const openOrderDragOverSection = ref('');
 export const openOrderDropZoneTarget  = ref('');
 export const openOrderExpandedCols    = ref({});
+
+export const openOrderWoPanel        = ref(null);
+export const openOrderWoPanelOrders  = ref([]);
+export const openOrderWoPanelLoading = ref(false);
 
 export const openOrdersSort = ref({
     emergency: { field: 'sort_order', dir: 'asc' },
