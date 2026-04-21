@@ -475,6 +475,21 @@ export async function insertProgressEvent({ workOrderId, woNumber, department, s
     }
 }
 
+// fetchAppSetting — read a single key from app_settings. Returns value string or null.
+export async function fetchAppSetting(key) {
+    const { data } = await withRetry(() =>
+        supabase.from('app_settings').select('value').eq('key', key).maybeSingle()
+    );
+    return data?.value ?? null;
+}
+
+// upsertAppSetting — insert or update a key/value pair in app_settings.
+export async function upsertAppSetting(key, value) {
+    return withRetry(() =>
+        supabase.from('app_settings').upsert({ key, value }, { onConflict: 'key' })
+    );
+}
+
 // checkConnectivity — lightweight Supabase probe.
 // Returns true if reachable, false on any network or server error.
 export async function checkConnectivity() {

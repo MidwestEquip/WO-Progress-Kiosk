@@ -1,0 +1,23 @@
+name = "wo-stale-order-reminder"
+main = "stale-order-reminder.js"
+compatibility_date = "2025-01-01"
+
+[triggers]
+crons = ["0 14 * * 1-5"]
+# 0 14 * * 1-5 = 9 am CDT (UTC-5) / 8 am CST (UTC-6), Mon–Fri
+# To shift 1 hour later in winter, change to: crons = ["0 15 * * 1-5"]
+
+# Deploy:
+#   wrangler deploy --config wrangler-reminder.toml
+#
+# Set secrets (run each once):
+#   wrangler secret put SUPABASE_URL        --config wrangler-reminder.toml
+#   wrangler secret put SUPABASE_SERVICE_KEY --config wrangler-reminder.toml
+#   wrangler secret put RESEND_API_KEY      --config wrangler-reminder.toml
+#   wrangler secret put RESEND_FROM        --config wrangler-reminder.toml
+#
+# RESEND_FROM example: "WO Kiosk <reminders@yourdomain.com>"
+# SUPABASE_SERVICE_KEY: Supabase dashboard → Settings → API → service_role key
+#
+# Test without waiting for cron (after deploy):
+#   curl https://wo-stale-order-reminder.<your-subdomain>.workers.dev/trigger

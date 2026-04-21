@@ -276,6 +276,11 @@ export const isReel = computed(() =>
     activeOrder.value ? detectReelWeld(activeOrder.value.part_number, REEL_PART_NUMBERS) : false
 );
 
+// ── Reminder email settings ────────────────────────────────────
+export const reminderEmailModalOpen = ref(false);
+export const reminderEmail          = ref('');
+export const reminderEmailSaving    = ref(false);
+
 // managerSubView is re-exported from store-manager.js but appTitle references it.
 // Since store.js does export * from store-manager.js, managerSubView is available
 // in the module namespace — but not as a local binding. Import it directly:

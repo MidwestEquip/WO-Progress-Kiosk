@@ -41,7 +41,8 @@ export const managerAlerts  = ref({
     completedNotReceived: [],
     pausedOnHold:         [],
     startedNoProgress:    [],
-    qtyMismatch:          []
+    qtyMismatch:          [],
+    staleOrders:          []
 });
 
 // ── Delayed WO detail modal ───────────────────────────────────
@@ -67,7 +68,8 @@ export const managerAlertCount = computed(() => {
     return (a.completedNotReceived?.length || 0)
          + (a.pausedOnHold?.length        || 0)
          + (a.startedNoProgress?.length   || 0)
-         + (a.qtyMismatch?.length         || 0);
+         + (a.qtyMismatch?.length         || 0)
+         + (a.staleOrders?.length         || 0);
 });
 export const managerTotalBadge = computed(() =>
     delayedWoCount.value + woProblemCount.value + managerAlertCount.value

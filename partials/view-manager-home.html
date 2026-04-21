@@ -191,6 +191,46 @@
                                 </div>
                             </div>
 
+
+                            <!-- 5. Stale Orders (full-width) -->
+                            <div class="col-span-2 rounded-xl border border-gray-300 overflow-hidden">
+                                <div class="bg-white px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                                    <div>
+                                        <div class="font-bold text-gray-800 text-sm">Stale Orders</div>
+                                        <div class="text-gray-500 text-xs mt-0.5">New/Picking &gt; 1.5 business days without update &bull; WO Created past estimated leadtime</div>
+                                    </div>
+                                    <span v-if="managerAlerts.staleOrders.length > 0"
+                                        class="bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.5rem] h-6 flex items-center justify-center px-1 ml-2">
+                                        {{ managerAlerts.staleOrders.length }}
+                                    </span>
+                                </div>
+                                <div class="p-3 bg-gray-50 min-h-[4rem]">
+                                    <div v-if="managerAlerts.staleOrders.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div v-for="o in managerAlerts.staleOrders" :key="o.id"
+                                            @click="openDelayedWoDetail(o)"
+                                            class="bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <span class="font-bold text-gray-900 text-sm">{{ o.sales_order || o.wo_po_number || '—' }}</span>
+                                                <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                                                    :class="o.status === 'New/Picking' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'">
+                                                    {{ o.status }}
+                                                </span>
+                                            </div>
+                                            <div class="text-gray-700 text-xs font-medium truncate">{{ o.part_number }}</div>
+                                            <div class="flex items-center gap-3 mt-1 text-gray-500 text-xs">
+                                                <span v-if="o.customer" class="truncate">{{ o.customer }}</span>
+                                                <span class="font-semibold"
+                                                    :class="o.staleInfo.owner === 'Shipping' ? 'text-amber-600' : 'text-blue-600'">
+                                                    {{ o.staleInfo.owner }}
+                                                </span>
+                                            </div>
+                                            <div class="text-gray-400 text-xs mt-0.5 truncate">{{ o.staleInfo.reason }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>

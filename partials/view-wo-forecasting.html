@@ -1,0 +1,72 @@
+            <!-- ── WO FORECASTING ─────────────────────────────────────── -->
+            <div v-if="currentView === 'wo_forecasting'"
+                class="h-full w-full bg-gray-50 absolute inset-0 flex flex-col overflow-hidden">
+
+                <!-- Header bar -->
+                <div class="bg-white border-b border-gray-200 shrink-0 px-6 py-4 flex items-center gap-4">
+                    <button @click="goBack"
+                        class="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl p-2 active:scale-95 transition-transform flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                    </button>
+                    <h2 class="text-2xl font-extrabold text-gray-800">WO Forecasting</h2>
+                    <span class="text-sm text-gray-400 ml-2">Work orders planned for a future start date</span>
+                </div>
+
+                <!-- Content -->
+                <div class="flex-1 overflow-y-auto p-4">
+
+                    <div v-if="forecastingLoading" class="flex items-center justify-center h-32 text-gray-400 text-sm">
+                        Loading...
+                    </div>
+
+                    <div v-else-if="forecastingItems.length === 0"
+                        class="flex flex-col items-center justify-center h-32 text-gray-400 text-sm">
+                        No forecasted items. Send requests here from the Request WO screen.
+                    </div>
+
+                    <div v-else class="space-y-2">
+                        <div class="flex items-center px-1 pb-1">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                                {{ forecastingItems.length }} Item{{ forecastingItems.length !== 1 ? 's' : '' }}
+                            </span>
+                        </div>
+
+                        <!-- Table header -->
+                        <div class="hidden md:grid grid-cols-[1fr_1.5fr_1fr_2fr_1fr_auto] gap-4 px-5 pb-1 text-xs font-bold text-gray-400 uppercase tracking-wide">
+                            <span>Part #</span>
+                            <span>Description</span>
+                            <span>Date to Start</span>
+                            <span>Reason</span>
+                            <span>Submitted By</span>
+                            <span></span>
+                        </div>
+
+                        <div v-for="item in forecastingItems" :key="item.id"
+                            class="bg-white border border-gray-200 rounded-xl px-5 py-3 grid grid-cols-[1fr_1.5fr_1fr_2fr_1fr_auto] gap-4 items-center">
+                            <div>
+                                <span class="font-extrabold text-gray-800 text-sm font-mono">{{ item.part_number }}</span>
+                                <span v-if="item.status" :class="{
+                                    'bg-amber-100 text-amber-700': item.status === 'pending',
+                                    'bg-green-100 text-green-700': item.status === 'approved',
+                                    'bg-blue-100  text-blue-700':  item.status === 'in production'
+                                }" class="ml-2 text-xs font-bold px-2 py-0.5 rounded-full uppercase">{{ item.status }}</span>
+                            </div>
+                            <div class="text-sm text-gray-500 truncate">{{ item.description || '—' }}</div>
+                            <div class="text-sm font-semibold text-blue-600">{{ item.forecast_date || '—' }}</div>
+                            <div class="text-sm text-gray-600">{{ item.forecast_reason || '—' }}</div>
+                            <div class="text-xs text-gray-400">
+                                <div class="font-medium text-gray-600">{{ item.submitted_by }}</div>
+                                <div>{{ item.request_date }}</div>
+                            </div>
+                            <div>
+                                <button @click="removeForecastItem(item.id)" :disabled="loading"
+                                    class="text-xs text-red-400 hover:text-red-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40">
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>

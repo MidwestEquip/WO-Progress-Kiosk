@@ -30,7 +30,8 @@ export async function loadManagerAlerts() {
             completedNotReceived: result.completedNotReceived,
             pausedOnHold:         result.pausedOnHold,
             startedNoProgress:    result.startedNoProgress,
-            qtyMismatch:          result.qtyMismatch
+            qtyMismatch:          result.qtyMismatch,
+            staleOrders:          result.staleOrders
         };
         // Populate delayedOrders using the same source as the Delayed WOs tab
         // so the badge count always matches what the tab shows

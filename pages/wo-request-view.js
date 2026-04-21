@@ -277,6 +277,50 @@ export async function approveWoRequest() {
     }
 }
 
+// openSendToForecast — open the send-to-forecast form for a request row.
+export function openSendToForecast(req) {
+    store.sendToForecastTarget.value = req;
+    store.sendToForecastForm.value   = { forecast_date: '', forecast_reason: '' };
+    store.sendToForecastErrors.value = { forecast_date: false, forecast_reason: false };
+    store.sendToForecastOpen.value   = true;
+}
+
+// closeSendToForecast — close the modal without saving.
+export function closeSendToForecast() {
+    store.sendToForecastOpen.value   = false;
+    store.sendToForecastTarget.value = null;
+}
+
+// submitSendToForecast — validate, mark record as forecasted, close modal.
+export async function submitSendToForecast() {
+    const form   = store.sendToForecastForm.value;
+    const target = store.sendToForecastTarget.value;
+    if (!target) return;
+
+    const errors = { forecast_date: !form.forecast_date, forecast_reason: !form.forecast_reason.trim() };
+    store.sendToForecastErrors.value = errors;
+    if (errors.forecast_date || errors.forecast_reason) return;
+
+    store.loading.value = true;
+    try {
+        const { error } = await db.updateWoRequest(target.id, {
+            forecasted:      true,
+            forecast_date:   form.forecast_date,
+            forecast_reason: form.forecast_reason.trim(),
+        });
+        if (error) throw error;
+        store.showToast('Moved to WO Forecasting.', 'success');
+        closeSendToForecast();
+        store.selectedWoRequest.value = null;
+        await loadWoRequests();
+    } catch (err) {
+        store.showToast('Failed to forecast: ' + err.message, 'error');
+        logError('submitSendToForecast', err, { id: target.id });
+    } finally {
+        store.loading.value = false;
+    }
+}
+
 // deleteWoRequestItem — confirm then hard-delete a request.
 export async function deleteWoRequestItem(id) {
     if (!confirm('Delete this request? This cannot be undone.')) return;

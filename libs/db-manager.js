@@ -5,6 +5,7 @@
 // ============================================================
 
 import { supabase, withRetry, normalizeDept } from './db-shared.js';
+import { getStaleInfo } from './utils.js';
 
 export async function fetchManagerAlerts() {
     const now          = new Date();
@@ -12,7 +13,7 @@ export async function fetchManagerAlerts() {
     const fiveDaysAgo  = new Date(now); fiveDaysAgo.setDate(now.getDate() - 5);
     const twoDaysAgo   = new Date(now); twoDaysAgo.setDate(now.getDate() - 2);
 
-    const [completedRes, activeRes, trackingRes] = await Promise.all([
+    const [completedRes, activeRes, trackingRes, staleRes] = await Promise.all([
         withRetry(() =>
             supabase.from('work_orders')
                 .select('*')
@@ -28,12 +29,18 @@ export async function fetchManagerAlerts() {
             supabase.from('wo_status_tracking')
                 .select('id,wo_number,qty_received,erp_status')
                 .in('erp_status', ['received', 'closed'])
+        ),
+        withRetry(() =>
+            supabase.from('open_orders')
+                .select('id,customer,sales_order,part_number,status,last_status_update,deadline,wo_va_notes,wo_po_number')
+                .in('status', ['New/Picking', 'WO Created'])
         )
     ]);
 
     const completedWos = completedRes.data || [];
     const activeWos    = activeRes.data    || [];
     const tracked      = trackingRes.data  || [];
+    const staleWos     = staleRes.data     || [];
 
     const receivedOrClosedNums = new Set(tracked.map(t => t.wo_number));
     const completedNotReceived = completedWos
@@ -75,12 +82,17 @@ export async function fetchManagerAlerts() {
             .slice(0, 5);
     }
 
+    const staleOrders = staleWos
+        .map(o => ({ ...o, staleInfo: getStaleInfo(o) }))
+        .filter(o => o.staleInfo !== null);
+
     return {
         completedNotReceived,
         pausedOnHold,
         startedNoProgress,
         qtyMismatch,
-        error: completedRes.error || activeRes.error || trackingRes.error
+        staleOrders,
+        error: completedRes.error || activeRes.error || trackingRes.error || staleRes.error
     };
 }
 

@@ -152,6 +152,65 @@ export function isChutePart(partNumber) {
     return /^\d{3}-[678]$/.test(partNumber.trim());
 }
 
+// ── businessDaysSince ─────────────────────────────────────────
+// Counts Mon–Fri elapsed days between an ISO timestamp and now.
+// Returns a float; partial days included. Returns 0 for null/invalid input.
+export function businessDaysSince(isoTimestamp) {
+    if (!isoTimestamp) return 0;
+    const start = new Date(isoTimestamp);
+    if (isNaN(start.getTime())) return 0;
+    const now = new Date();
+    if (start >= now) return 0;
+    let elapsed = 0;
+    const cursor = new Date(start);
+    while (cursor < now) {
+        const day = cursor.getDay(); // 0=Sun, 6=Sat
+        if (day !== 0 && day !== 6) {
+            const nextMidnight = new Date(cursor);
+            nextMidnight.setHours(24, 0, 0, 0);
+            elapsed += Math.min(nextMidnight.getTime(), now.getTime()) - cursor.getTime();
+        }
+        cursor.setHours(24, 0, 0, 0);
+    }
+    return elapsed / 86400000;
+}
+
+// ── getStaleHighlightColor ─────────────────────────────────────
+// Returns a row highlight color when an order is overdue, or null if fresh.
+// Staleness overrides manual row_color — call effectiveRowColor() in the page layer.
+//   New/Picking  + >1.5 business days since last update → 'yellow'
+//   WO Created   + deadline set + today > deadline+1 day  → 'blue'
+export function getStaleHighlightColor(order) {
+    const status = order?.status || '';
+    if (status === 'New/Picking' && businessDaysSince(order.last_status_update) > 1.5) {
+        return 'yellow';
+    }
+    if (status === 'WO Created' && order.deadline) {
+        const cutoff = new Date(order.deadline);
+        cutoff.setDate(cutoff.getDate() + 1);
+        if (new Date() > cutoff) return 'blue';
+    }
+    return null;
+}
+
+// ── getStaleInfo ──────────────────────────────────────────────
+// Returns { owner, reason } if an open order is stale, or null if fresh.
+// Mirrors the staleness rules used in the open-orders row highlight.
+export function getStaleInfo(order) {
+    const status = order?.status || '';
+    if (status === 'New/Picking' && businessDaysSince(order.last_status_update) > 1.5) {
+        return { owner: 'Shipping', reason: 'No update in 1.5+ business days' };
+    }
+    if (status === 'WO Created' && order.deadline) {
+        const cutoff = new Date(order.deadline);
+        cutoff.setDate(cutoff.getDate() + 1);
+        if (new Date() > cutoff) {
+            return { owner: 'Dan H', reason: `Past est. leadtime (${order.deadline})` };
+        }
+    }
+    return null;
+}
+
 // ── detectTcMode ──────────────────────────────────────────────
 // Detects TC Assy job mode from a part number.
 // Normalises input (trim + uppercase) before checking.

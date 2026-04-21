@@ -156,6 +156,14 @@ export function enterOpenOrdersView() {
     store.currentView.value       = 'open_orders';
 }
 
+// ── enterWoForecastingView ────────────────────────────────────
+// Navigate to the WO Forecasting view.
+export function enterWoForecastingView() {
+    store.splashLevel.value    = 1;
+    store.splashCategory.value = 'production';
+    store.currentView.value    = 'wo_forecasting';
+}
+
 // ── enterInventoryView ────────────────────────────────────────
 // Navigate to the inventory view for a specific tab.
 // splashLevel/Category are preserved so goBack() returns to the inventory sub-menu.

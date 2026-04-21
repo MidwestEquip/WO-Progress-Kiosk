@@ -14,6 +14,13 @@
                     <input v-model="woRequestSearch" type="text"
                         placeholder="Search requests..."
                         class="ml-4 w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800 focus:outline-none focus:border-blue-400 bg-gray-50">
+                    <button @click="enterWoForecastingView"
+                        class="ml-auto shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        WO Forecasting
+                    </button>
                 </div>
 
                 <!-- 2-column body -->
@@ -143,32 +150,32 @@
                                         </div>
                                     </div>
 
-                                    <!-- MIDDLE: inline editable fields (auto-save on blur) -->
+                                    <!-- MIDDLE: inline editable fields (auto-save on blur) — single row -->
                                     <div v-if="woRequestInlineState[req.id]"
-                                        class="grid grid-cols-2 gap-x-4 gap-y-2 shrink-0 w-80">
-                                        <div @click.stop>
-                                            <label class="block text-xs text-gray-400 mb-0.5">Alere Qty</label>
+                                        class="flex gap-3 shrink-0">
+                                        <div @click.stop class="w-24">
+                                            <label class="block text-xs text-gray-400 mb-0.5 whitespace-nowrap">Alere Qty</label>
                                             <input v-model="woRequestInlineState[req.id].alere_qty"
                                                 @blur="saveWoRequestInlineFields(req.id)"
                                                 type="number" min="0" placeholder="—"
                                                 class="w-full px-2 py-1 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50">
                                         </div>
-                                        <div @click.stop>
-                                            <label class="block text-xs text-gray-400 mb-0.5">Alere Bin</label>
+                                        <div @click.stop class="w-24">
+                                            <label class="block text-xs text-gray-400 mb-0.5 whitespace-nowrap">Alere Bin</label>
                                             <input v-model="woRequestInlineState[req.id].alere_bin"
                                                 @blur="saveWoRequestInlineFields(req.id)"
                                                 type="text" placeholder="—" maxlength="30"
                                                 class="w-full px-2 py-1 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50">
                                         </div>
-                                        <div @click.stop>
-                                            <label class="block text-xs text-gray-400 mb-0.5">Qty Sold/Used (12 mo)</label>
+                                        <div @click.stop class="w-32">
+                                            <label class="block text-xs text-gray-400 mb-0.5 whitespace-nowrap">Qty Sold (12 mo)</label>
                                             <input v-model="woRequestInlineState[req.id].qty_sold_used_12mo"
                                                 @blur="saveWoRequestInlineFields(req.id)"
                                                 type="number" min="0" placeholder="—"
                                                 class="w-full px-2 py-1 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-400 bg-gray-50">
                                         </div>
-                                        <div @click.stop>
-                                            <label class="block text-xs text-gray-400 mb-0.5">Where Used</label>
+                                        <div @click.stop class="w-32">
+                                            <label class="block text-xs text-gray-400 mb-0.5 whitespace-nowrap">Where Used</label>
                                             <input v-model="woRequestInlineState[req.id].where_used"
                                                 @blur="saveWoRequestInlineFields(req.id)"
                                                 type="text" placeholder="—" maxlength="100"
@@ -384,19 +391,68 @@
 
                             </div>
 
-                            <!-- Save / Approve row -->
-                            <div class="flex items-center justify-end gap-3 mt-6 pt-5 border-t border-gray-100">
-                                <button @click="saveWoRequestDetail" :disabled="loading"
-                                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                                    Save
+                            <!-- Save / Approve / Forecast row -->
+                            <div class="flex items-center justify-between mt-6 pt-5 border-t border-gray-100">
+                                <button @click="openSendToForecast(selectedWoRequest)" :disabled="loading"
+                                    class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-5 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    </svg>
+                                    Send to WO Forecasting
                                 </button>
-                                <button @click="approveWoRequest" :disabled="loading"
-                                    class="bg-green-600 hover:bg-green-500 text-white px-8 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                                    Approve
-                                </button>
+                                <div class="flex items-center gap-3">
+                                    <button @click="saveWoRequestDetail" :disabled="loading"
+                                        class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                        Save
+                                    </button>
+                                    <button @click="approveWoRequest" :disabled="loading"
+                                        class="bg-green-600 hover:bg-green-500 text-white px-8 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                        Approve
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
+                    </div>
+                </div>
+
+                <!-- ── MODAL: Send to WO Forecasting ──────────────────── -->
+                <div v-if="sendToForecastOpen"
+                    class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+                    @click.self="closeSendToForecast">
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-7">
+                        <h3 class="text-lg font-extrabold text-gray-800 mb-1">Send to WO Forecasting</h3>
+                        <p class="text-sm text-gray-500 mb-5">
+                            <span class="font-mono font-bold text-gray-700">{{ sendToForecastTarget?.part_number }}</span>
+                            will be moved out of the request list and into the WO Forecasting screen.
+                        </p>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Date to Start <span class="text-red-500">*</span></label>
+                                <input v-model="sendToForecastForm.forecast_date" type="date"
+                                    :class="sendToForecastErrors.forecast_date ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                                    class="w-full px-3 py-2 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm">
+                                <p v-if="sendToForecastErrors.forecast_date" class="text-red-500 text-xs mt-0.5">Required</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Reason <span class="text-red-500">*</span></label>
+                                <input v-model="sendToForecastForm.forecast_reason" type="text" maxlength="200"
+                                    placeholder="e.g. Waiting on material, low demand..."
+                                    :class="sendToForecastErrors.forecast_reason ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                                    class="w-full px-3 py-2 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm">
+                                <p v-if="sendToForecastErrors.forecast_reason" class="text-red-500 text-xs mt-0.5">Required</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end gap-3 mt-6">
+                            <button @click="closeSendToForecast"
+                                class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all">
+                                Cancel
+                            </button>
+                            <button @click="submitSendToForecast" :disabled="loading"
+                                class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                Confirm
+                            </button>
+                        </div>
                     </div>
                 </div>
 

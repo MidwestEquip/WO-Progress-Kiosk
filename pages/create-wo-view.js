@@ -10,8 +10,32 @@ import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
 
+// switchCreateWoTab — change active tab and load data for the selected tab.
+export async function switchCreateWoTab(tab) {
+    store.createWoTab.value = tab;
+    if (tab === 'created') await loadCreatedWoItems();
+}
+
+// loadCreatedWoItems — fetch all 'in production' requests for the Created tab.
+export async function loadCreatedWoItems() {
+    store.createWoLoading.value = true;
+    try {
+        const { data, error } = await db.fetchCreatedWoRequests();
+        if (error) throw error;
+        store.createdWoItems.value = data || [];
+    } catch (err) {
+        store.showToast('Failed to load created WOs: ' + err.message);
+        logError('loadCreatedWoItems', err);
+        store.createdWoItems.value = [];
+    } finally {
+        store.createWoLoading.value = false;
+    }
+}
+
 // loadCreateWoItems — fetch all 'approved' requests and populate store + inline state.
+// Also resets the active tab to 'pending' on view entry.
 export async function loadCreateWoItems() {
+    store.createWoTab.value     = 'pending';
     store.createWoLoading.value = true;
     try {
         const { data, error } = await db.fetchApprovedWoRequests();
