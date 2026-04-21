@@ -56,6 +56,8 @@ export const filteredWoRequests = computed(() => {
 // ── WO Forecasting ────────────────────────────────────────────
 export const forecastingItems     = ref([]);
 export const forecastingLoading   = ref(false);
+export const forecastDeleteId     = ref(null); // ID pending hard-delete confirmation
+export const forecastMoveBackId   = ref(null); // ID pending move-back-to-request confirmation
 export const sendToForecastOpen   = ref(false);
 export const sendToForecastTarget = ref(null);
 export const sendToForecastForm   = ref({ forecast_date: '', forecast_reason: '' });

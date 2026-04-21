@@ -35,7 +35,9 @@ import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          saveWoRequestInlineFields,
          checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
          openSendToForecast, closeSendToForecast, submitSendToForecast } from './pages/wo-request-view.js';
-import { loadForecastedItems, removeForecastItem } from './pages/wo-forecasting-view.js';
+import { loadForecastedItems,
+         openDeleteConfirm, cancelDeleteForecast, confirmDeleteForecast,
+         openMoveBackConfirm, cancelMoveBack, confirmMoveBack } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems, confirmCreateWoItem, switchCreateWoTab, loadCreatedWoItems } from './pages/create-wo-view.js';
 import { enterCompletedOrdersView, loadCompletedOrders, restoreCompletedOrder } from './pages/completed-orders-view.js';
 import {
@@ -472,7 +474,10 @@ try {
 
                 // WO Forecasting
                 forecastingItems: store.forecastingItems, forecastingLoading: store.forecastingLoading,
-                enterWoForecastingView, loadForecastedItems, removeForecastItem,
+                forecastDeleteId: store.forecastDeleteId, forecastMoveBackId: store.forecastMoveBackId,
+                enterWoForecastingView, loadForecastedItems,
+                openDeleteConfirm, cancelDeleteForecast, confirmDeleteForecast,
+                openMoveBackConfirm, cancelMoveBack, confirmMoveBack,
 
                 // Create WO
                 createWoItems: store.createWoItems, createWoLoading: store.createWoLoading,
