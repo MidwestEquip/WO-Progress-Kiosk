@@ -129,8 +129,16 @@
                             </div>
                             <div v-for="item in createdWoItems" :key="item.id"
                                 class="bg-white border border-gray-200 rounded-xl px-5 py-3 grid grid-cols-[1fr_1fr_auto_auto_1fr] gap-4 items-center">
-                                <div>
+                                <div class="flex items-center gap-2 flex-wrap">
                                     <span class="font-extrabold text-gray-800 text-sm font-mono">{{ item.part_number }}</span>
+                                    <span v-if="item.status === 'in production'"
+                                        class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full uppercase shrink-0">
+                                        In Production
+                                    </span>
+                                    <span v-else-if="item.status === 'completed'"
+                                        class="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full uppercase shrink-0">
+                                        Completed
+                                    </span>
                                 </div>
                                 <div class="text-sm text-gray-500 truncate">{{ item.description || '—' }}</div>
                                 <div class="font-mono font-bold text-gray-800 text-sm">{{ item.alere_wo_number || '—' }}</div>

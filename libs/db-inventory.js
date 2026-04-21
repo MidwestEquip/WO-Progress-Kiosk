@@ -173,12 +173,12 @@ export async function fetchApprovedWoRequests() {
     );
 }
 
-// fetchCreatedWoRequests — all wo_requests with status='in production', newest first.
+// fetchCreatedWoRequests — all wo_requests with status 'in production' or 'completed', newest first.
 export async function fetchCreatedWoRequests() {
     return withRetry(() =>
         supabase.from('wo_requests')
             .select('*')
-            .eq('status', 'in production')
+            .in('status', ['in production', 'completed'])
             .order('created_date', { ascending: false })
             .order('created_at',   { ascending: false })
     );
