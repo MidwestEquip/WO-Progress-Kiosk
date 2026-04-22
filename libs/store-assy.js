@@ -61,3 +61,9 @@ export const tcAssyCompleteErrors = ref({ salesOrder: false, unitSerial: false, 
 
 // Inline-editable unit detail fields on the TC Unit workflow screen
 export const tcUnitInfoForm = ref({ salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '', notes: '' });
+
+// Step-through unit completion for multi-unit TC/TV Assy WOs
+export const tcUnitStep      = ref(1);    // current unit being entered (1-indexed)
+export const tcUnitForms     = ref([]);   // array of { unitSerial, engineModel, engineSerial, numBlades }
+export const tcUnitTotal     = ref(0);    // total units in this WO
+export const tcUnitStepError = ref(false); // true if current step has a missing required field

@@ -103,8 +103,7 @@ export async function fetchKpiData() {
 
     const [completedRes, activeRes] = await Promise.all([
         withRetry(() =>
-            supabase.from('work_orders').select('*')
-                .eq('status', 'completed')
+            supabase.from('completed_work_orders').select('*')
                 .gte('comp_date', thirtyDaysAgo.toISOString())
         ),
         withRetry(() =>
@@ -219,9 +218,8 @@ export async function fetchAiContextData() {
                 .neq('status', 'completed')
         ),
         withRetry(() =>
-            supabase.from('work_orders')
+            supabase.from('completed_work_orders')
                 .select('id,wo_number,part_number,department,operator,comp_date,qty_completed,qty_required')
-                .eq('status', 'completed')
                 .gte('comp_date', weekStart.toISOString())
         )
     ]);

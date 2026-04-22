@@ -91,6 +91,20 @@ export const INVENTORY_TABS = [
     { key: 'hoses',    label: 'Hoses'    },
 ];
 
+export const PARTIAL_NAMES = [
+    'header', 'main-open',
+    'view-splash', 'view-dashboard', 'view-office',
+    'view-manager-home', 'view-manager-kpi', 'view-manager-priorities',
+    'view-manager-ai', 'view-manager-problems', 'view-manager-delayed',
+    'view-cs', 'view-inventory', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-completed-orders',
+    'main-close',
+    'modal-pin', 'modal-action-panel',
+    'modal-tc-unit', 'modal-tc-stock',
+    'modal-tv-unit', 'modal-tv-stock',
+    'modal-misc', 'modal-open-orders-add',
+    'modal-action-panel-print'
+];
+
 export const OPEN_ORDER_SORT_FIELDS = [
     { field: 'part_number',        label: 'Part #'   },
     { field: 'date_entered',       label: 'Date'     },

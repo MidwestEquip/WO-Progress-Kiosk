@@ -308,7 +308,7 @@ export async function tcUnitStageDirectAction(stageName, action) {
 }
 
 // ── openTcAssyCompleteModal ───────────────────────────────────
-// Opens the TC WO completion gate modal; pre-fills unit fields.
+// Opens the TC WO completion gate modal. For qty>1 initialises step-through state.
 export function openTcAssyCompleteModal() {
     const order    = store.activeOrder.value;
     const operator = store.tcAssyEntryName.value.trim();
@@ -316,54 +316,76 @@ export function openTcAssyCompleteModal() {
         store.showToast('Enter your name before completing the WO.', 'error');
         return;
     }
+    const qty = parseInt(order.qty_required) || 1;
+    store.tcUnitTotal.value     = qty;
+    store.tcUnitStep.value      = 1;
+    store.tcUnitStepError.value = false;
+    store.tcUnitForms.value = Array.from({ length: qty }, (_, i) => ({
+        unitSerial:   i === 0 ? (order.unit_serial_number   || '') : '',
+        engineModel:  i === 0 ? (order.engine               || '') : '',
+        engineSerial: i === 0 ? (order.engine_serial_number || '') : '',
+        numBlades:    i === 0 ? (String(order.num_blades    || '')) : '',
+    }));
     store.tcAssyCompleteForm.value = {
-        salesOrder:   order.sales_order || '',
-        unitSerial:   order.unit_serial_number || '',
-        engine:       order.engine || '',
-        engineSerial: order.engine_serial_number || '',
-        numBlades:    order.num_blades || '',
-        notes:        ''
+        salesOrder: order.sales_order || '',
+        notes:      ''
     };
-    store.tcAssyCompleteErrors.value = {
-        salesOrder: false, unitSerial: false, engine: false, engineSerial: false, numBlades: false
-    };
+    store.tcAssyCompleteErrors.value = { salesOrder: false };
     store.tcAssyCompleteModalOpen.value = true;
 }
 
+// tcUnitNextStep — validates current unit form then advances to the next step.
+export function tcUnitNextStep() {
+    const form = store.tcUnitForms.value[store.tcUnitStep.value - 1];
+    if (!isNonEmpty(form.unitSerial) || !isNonEmpty(form.engineModel) ||
+        !isNonEmpty(form.engineSerial) || !isNonEmpty(form.numBlades)) {
+        store.tcUnitStepError.value = true;
+        return;
+    }
+    store.tcUnitStepError.value = false;
+    store.tcUnitStep.value++;
+}
+
 // ── confirmTcWoComplete ───────────────────────────────────────
-// Validates unit fields (unit mode only) then marks TC WO complete.
+// Validates and marks TC WO complete. Records per-unit completions to wo_unit_completions.
 export async function confirmTcWoComplete() {
     const order    = store.activeOrder.value;
     const operator = store.tcAssyEntryName.value.trim();
     const form     = store.tcAssyCompleteForm.value;
     const errors   = store.tcAssyCompleteErrors.value;
+    const isUnit   = order.tc_job_mode === 'unit';
+    const isMulti  = store.tcUnitTotal.value > 1;
 
-    // Unit fields are only required for unit mode
-    if (order.tc_job_mode === 'unit') {
-        errors.salesOrder   = !isNonEmpty(form.salesOrder);
-        errors.unitSerial   = !isNonEmpty(form.unitSerial);
-        errors.engine       = !isNonEmpty(form.engine);
-        errors.engineSerial = !isNonEmpty(form.engineSerial);
-        errors.numBlades    = !isNonEmpty(form.numBlades);
-        if (errors.salesOrder || errors.unitSerial || errors.engine || errors.engineSerial || errors.numBlades) {
-            return;
-        }
+    if (isUnit) {
+        errors.salesOrder = !isNonEmpty(form.salesOrder);
+        // Validate the current (last) step's per-unit fields
+        const cur = store.tcUnitForms.value[store.tcUnitStep.value - 1];
+        store.tcUnitStepError.value = !isNonEmpty(cur.unitSerial) || !isNonEmpty(cur.engineModel) ||
+            !isNonEmpty(cur.engineSerial) || !isNonEmpty(cur.numBlades);
+        if (errors.salesOrder || store.tcUnitStepError.value) return;
     }
 
     store.loading.value = true;
     try {
+        // For single-unit: write fields into work_orders for backward compat.
+        // For multi-unit: only write sales_order; per-unit data lives in wo_unit_completions.
+        const uf0 = store.tcUnitForms.value[0];
+        const unitFields = isUnit ? {
+            sales_order: form.salesOrder,
+            ...(!isMulti && {
+                unit_serial_number:   uf0.unitSerial,
+                engine:               uf0.engineModel,
+                engine_serial_number: uf0.engineSerial,
+                num_blades:           uf0.numBlades,
+            })
+        } : null;
+
         const result = await dbAssy.completeTcWo({
             id:           order.id,
             currentOrder: order,
             opName:       operator,
-            unitFields: {
-                sales_order:          form.salesOrder,
-                unit_serial_number:   form.unitSerial,
-                engine:               form.engine,
-                engine_serial_number: form.engineSerial,
-                num_blades:           form.numBlades
-            },
-            notes: form.notes
+            unitFields,
+            notes:        form.notes
         });
         if (result.error) throw result.error;
         const updated = result.data[0];
@@ -371,6 +393,20 @@ export async function confirmTcWoComplete() {
         store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
         store.showToast('WO marked complete', 'success');
         store.tcAssyCompleteModalOpen.value = false;
+
+        // Record each unit in wo_unit_completions (fire-and-forget)
+        if (isUnit) {
+            store.tcUnitForms.value.forEach((uf, idx) => {
+                dbAssy.recordUnitCompletion(updated.id, updated.wo_number, 'Tru Cut Assy', idx + 1, {
+                    unitSerial:   uf.unitSerial,
+                    engineModel:  uf.engineModel,
+                    engineSerial: uf.engineSerial,
+                    numBlades:    uf.numBlades,
+                    operator,
+                });
+            });
+        }
+
         await db.autoReceiveAssyWo(updated, operator);
     } catch (err) {
         store.showToast('Failed: ' + err.message);

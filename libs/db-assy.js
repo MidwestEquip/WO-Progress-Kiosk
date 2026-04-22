@@ -334,6 +334,52 @@ export async function saveTcAssyNotes(id, notes) {
     );
 }
 
+// ── Unit Completions ──────────────────────────────────────────
+
+// recordUnitCompletion — inserts one row into wo_unit_completions for a single unit.
+// unitData: { unitSerial, engineModel, engineSerial, numBlades, operator }
+export async function recordUnitCompletion(woId, woNumber, dept, unitNumber, unitData) {
+    if (!woNumber) return { data: null, error: new Error('Missing WO number') };
+    return withRetry(() =>
+        supabase.from('wo_unit_completions').insert([{
+            wo_id:                woId   || null,
+            wo_number:            woNumber.trim().toUpperCase(),
+            department:           dept,
+            unit_number:          unitNumber,
+            unit_serial_number:   (unitData.unitSerial   || '').trim() || null,
+            engine_model:         (unitData.engineModel  || '').trim() || null,
+            engine_serial_number: (unitData.engineSerial || '').trim() || null,
+            num_blades:           unitData.numBlades ? parseInt(unitData.numBlades) : null,
+            operator:             (unitData.operator     || '').trim() || null,
+            completed_at:         new Date().toISOString(),
+        }]).select()
+    );
+}
+
+// fetchUnitCompletions — all wo_unit_completions rows for a given WO number, ordered by unit_number.
+export async function fetchUnitCompletions(woNumber) {
+    if (!woNumber) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('wo_unit_completions')
+            .select('*')
+            .eq('wo_number', woNumber.trim().toUpperCase())
+            .order('unit_number', { ascending: true })
+    );
+}
+
+// searchUnitsBySerial — finds wo_unit_completions rows matching a serial number (exact or partial).
+// Used by CS view for serial # lookup.
+export async function searchUnitsBySerial(serial) {
+    if (!serial) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('wo_unit_completions')
+            .select('*')
+            .ilike('unit_serial_number', '%' + serial.trim() + '%')
+            .order('completed_at', { ascending: false })
+            .limit(50)
+    );
+}
+
 // TC Assy Stock: write one action entry, additive qty, structured history
 export async function submitTcStockAction({ id, currentOrder, newStatus, opName, sessionQty, reason, keepStatus, notes = '' }) {
     if (!id)     return { data: null, error: new Error('Missing WO ID') };

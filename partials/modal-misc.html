@@ -89,20 +89,20 @@
                         <div v-if="newWoFormErrors.desc" class="text-red-400 text-xs mt-1">&#9888; Description is required.</div>
                     </div>
 
+                    <!-- Sales Order (always visible, optional) -->
+                    <div>
+                        <label class="block font-bold text-slate-400 text-sm mb-1">SO # <span class="text-slate-500 font-normal text-xs">(optional)</span></label>
+                        <input v-model="newWoForm.salesOrder" type="text" maxlength="30"
+                            class="w-full bg-slate-900 p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-teal-500 transition-colors"
+                            placeholder="e.g. SO-5001">
+                    </div>
+
                     <!-- Unit-only fields (shown when mode = UNIT) -->
                     <div v-if="tcNewWoMode === 'unit'"
                         class="bg-slate-700/50 border border-blue-500/20 rounded-xl p-4 space-y-4">
                         <div class="text-blue-300 text-xs font-bold uppercase tracking-widest">
                             Unit Details
                             <span class="text-slate-500 font-normal normal-case ml-2">— optional, can be filled in later during assembly</span>
-                        </div>
-
-                        <!-- Sales Order -->
-                        <div>
-                            <label class="block font-bold text-slate-400 text-sm mb-1">Sales Order # <span class="text-slate-500 font-normal text-xs">(if applicable)</span></label>
-                            <input v-model="newWoForm.salesOrder" type="text" maxlength="30"
-                                class="w-full bg-slate-900 p-3 rounded-lg border border-slate-600 focus:outline-none focus:border-teal-500 transition-colors"
-                                placeholder="e.g. SO-5001 (leave blank if N/A)">
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
@@ -159,6 +159,16 @@
                     <div>
                         <label class="block font-bold text-slate-400 text-sm">Description</label>
                         <input v-model="newWoForm.desc" type="text" maxlength="150" class="w-full bg-slate-900 p-3 rounded border border-slate-700 mt-1 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-400 text-sm">WO # <span class="text-slate-500 font-normal text-xs">(optional)</span></label>
+                            <input v-model="newWoForm.woNumber" type="text" maxlength="30" class="w-full bg-slate-900 p-3 rounded font-mono border border-slate-700 mt-1 focus:outline-none focus:border-emerald-500 uppercase" placeholder="Auto-generated">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-400 text-sm">SO # <span class="text-slate-500 font-normal text-xs">(optional)</span></label>
+                            <input v-model="newWoForm.salesOrder" type="text" maxlength="30" class="w-full bg-slate-900 p-3 rounded border border-slate-700 mt-1 focus:outline-none focus:border-emerald-500" placeholder="e.g. SO-5001">
+                        </div>
                     </div>
                     <p class="text-slate-500 text-xs">Unit/Subassy type and qty will be set when the WO is opened.</p>
                 </div>

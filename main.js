@@ -21,7 +21,7 @@ import {
 
 // ── State & computed ──────────────────────────────────────────
 import * as store from './libs/store.js';
-import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS, OPEN_ORDER_STATUSES, CHUTE_PART_STATUSES, OPEN_ORDER_SORT_FIELDS, INVENTORY_TABS } from './libs/config.js';
+import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS, OPEN_ORDER_STATUSES, CHUTE_PART_STATUSES, OPEN_ORDER_SORT_FIELDS, INVENTORY_TABS, PARTIAL_NAMES } from './libs/config.js';
 import { formatDateLocal, getStageCum, detectTcMode, sanitizePartKey, isChutePart } from './libs/utils.js';
 
 // ── Page controllers ──────────────────────────────────────────
@@ -67,7 +67,7 @@ import {
     openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
     saveTcStockNotes, saveTcUnitDetails, tcUnitOpenHold, tcUnitConfirmHold,
     submitTcUnitStageFromUi, tcStockDirectAction, tcUnitStageDirectAction,
-    openTcAssyCompleteModal, confirmTcWoComplete, toggleTcEntryMode
+    openTcAssyCompleteModal, confirmTcWoComplete, tcUnitNextStep, toggleTcEntryMode
 } from './pages/dashboard-tc.js';
 import { markAlereUpdated, signInAnonymously, checkConnectivity } from './libs/db.js';
 import {
@@ -107,21 +107,8 @@ import { onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
 // Fetches HTML fragment files from ./partials/ and concatenates them into #app.
 // Vue reads the DOM at mount time, so partials must be injected first.
 async function loadPartials() {
-    const names = [
-        'header', 'main-open',
-        'view-splash', 'view-dashboard', 'view-office',
-        'view-manager-home', 'view-manager-kpi', 'view-manager-priorities',
-        'view-manager-ai', 'view-manager-problems', 'view-manager-delayed',
-        'view-cs', 'view-inventory', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-completed-orders',
-        'main-close',
-        'modal-pin', 'modal-action-panel',
-        'modal-tc-unit', 'modal-tc-stock',
-        'modal-tv-unit', 'modal-tv-stock',
-        'modal-misc', 'modal-open-orders-add',
-        'modal-action-panel-print'
-    ];
     const chunks = await Promise.all(
-        names.map(n => fetch(`./partials/${n}.html`).then(r => r.text()))
+        PARTIAL_NAMES.map(n => fetch(`./partials/${n}.html`).then(r => r.text()))
     );
     document.getElementById('app').innerHTML = chunks.join('\n');
 }
@@ -307,6 +294,10 @@ try {
                 tcAssyCompleteForm:      store.tcAssyCompleteForm,
                 tcAssyCompleteErrors:    store.tcAssyCompleteErrors,
                 tcUnitInfoForm:          store.tcUnitInfoForm,
+                tcUnitStep:              store.tcUnitStep,
+                tcUnitForms:             store.tcUnitForms,
+                tcUnitTotal:             store.tcUnitTotal,
+                tcUnitStepError:         store.tcUnitStepError,
 
                 // Office / WO Status
                 officeMode:           store.officeMode,
@@ -410,7 +401,7 @@ try {
                 openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
                 saveTcStockNotes, saveTcUnitDetails, tcUnitOpenHold, tcUnitConfirmHold,
                 submitTcUnitStageFromUi, tcStockDirectAction, tcUnitStageDirectAction,
-                openTcAssyCompleteModal, confirmTcWoComplete,
+                openTcAssyCompleteModal, confirmTcWoComplete, tcUnitNextStep,
                 updateOrderStatus, undoLastAction,
                 submitNewWo, submitNote, toggleTcNewWoMode, toggleTcEntryMode,
                 loadWoFiles, handleWoFileUpload, handleWoFileDelete,

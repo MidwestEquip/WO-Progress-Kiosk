@@ -184,32 +184,32 @@ export async function submitNewWo() {
     // ── TC Assy: specific validation + save ───────────────────
     if (dept === 'Tru Cut Assy') {
         const errors = store.newWoFormErrors.value;
-        errors.part    = !isNonEmpty(form.part);
-        errors.desc    = !isNonEmpty(form.desc);
-        errors.qty     = !isValidQty(form.qty) || parseInt(form.qty, 10) < 1;
+        errors.part = !isNonEmpty(form.part);
+        errors.desc = !isNonEmpty(form.desc);
 
-        if (errors.part || errors.desc || errors.qty) return;
+        if (errors.part || errors.desc) return;
 
         store.loading.value = true;
         try {
             const { error } = await db.insertManualWorkOrder({
-                partNumber:   sanitizeText(form.part),
-                description:  sanitizeText(form.desc),
-                qty:          parseInt(form.qty, 10),
+                partNumber:     sanitizeText(form.part),
+                description:    sanitizeText(form.desc),
+                qty:            parseInt(form.qty, 10) || 1,
                 dept,
-                woType:       store.tcNewWoMode.value === 'unit' ? 'Unit' : 'Subassy',
-                tcJobMode:    store.tcNewWoMode.value || 'stock',
+                woType:         store.tcNewWoMode.value === 'unit' ? 'Unit' : 'Subassy',
+                tcJobMode:      store.tcNewWoMode.value || 'stock',
+                salesOrder:     sanitizeText(form.salesOrder),
                 customWoNumber: sanitizeText(form.woNumber),
-                unitSerial:   sanitizeText(form.unitSerial),
-                engine:       sanitizeText(form.engine),
-                engineSerial: sanitizeText(form.engineSerial),
-                numBlades:    sanitizeText(form.numBlades)
+                unitSerial:     sanitizeText(form.unitSerial),
+                engine:         sanitizeText(form.engine),
+                engineSerial:   sanitizeText(form.engineSerial),
+                numBlades:      sanitizeText(form.numBlades)
             });
             if (error) throw error;
 
             store.newWoModalOpen.value  = false;
             store.newWoFormErrors.value = { part: false, desc: false, qty: false };
-            store.newWoForm.value = { part: '', desc: '', qty: 1, type: 'Unit', woNumber: '', salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '' };
+            store.newWoForm.value = { part: '', desc: '', qty: 1, woType: 'Unit', woNumber: '', salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '' };
             store.tcNewWoModeOverride.value = null;
             await _refreshDeptOrders();
             store.showToast('Work order added to board.', 'success');
@@ -231,15 +231,17 @@ export async function submitNewWo() {
     store.loading.value = true;
     try {
         const { error } = await db.insertManualWorkOrder({
-            partNumber:  sanitizeText(form.part),
-            description: sanitizeText(form.desc),
-            qty:         1,
-            dept
+            partNumber:     sanitizeText(form.part),
+            description:    sanitizeText(form.desc),
+            qty:            1,
+            dept,
+            salesOrder:     sanitizeText(form.salesOrder),
+            customWoNumber: sanitizeText(form.woNumber)
         });
         if (error) throw error;
 
         store.newWoModalOpen.value = false;
-        store.newWoForm.value = { part: '', desc: '', qty: 1, type: 'Unit', woNumber: '', salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '' };
+        store.newWoForm.value = { part: '', desc: '', qty: 1, woType: 'Unit', woNumber: '', salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '' };
         await _refreshDeptOrders();
         store.showToast('Work order added to board.', 'success');
     } catch (err) {

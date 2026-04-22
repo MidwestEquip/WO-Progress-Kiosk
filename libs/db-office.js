@@ -160,15 +160,38 @@ export async function markAlereUpdated(id, updatedBy) {
     );
 }
 
+// archiveWorkOrder — copies all work_orders rows for a WO# into completed_work_orders, then deletes them.
+// Fire-and-forget: called from closeOutWorkOrder without awaiting.
+async function archiveWorkOrder(woNumber) {
+    if (!woNumber) return;
+    const { data: rows } = await withRetry(() =>
+        supabase.from('work_orders').select('*').eq('wo_number', woNumber)
+    );
+    if (!rows?.length) return;
+    const now = new Date().toISOString();
+    const inserts = rows.map(({ id, ...rest }) => ({ ...rest, archived_at: now }));
+    const { error: insertErr } = await withRetry(() =>
+        supabase.from('completed_work_orders').insert(inserts)
+    );
+    if (insertErr) return;
+    await withRetry(() =>
+        supabase.from('work_orders').delete().eq('wo_number', woNumber)
+    );
+}
+
 export async function closeOutWorkOrder(id, closedBy) {
     if (!id)       return { data: null, error: new Error('Missing tracking row ID') };
     if (!closedBy) return { data: null, error: new Error('Closer name is required') };
 
-    return withRetry(() =>
+    const { data, error } = await withRetry(() =>
         supabase.from('wo_status_tracking').update({
             erp_status: 'closed',
             closed_by:  closedBy.trim(),
             closed_at:  new Date().toISOString()
         }).eq('id', id).select()
     );
+    if (!error && data?.[0]?.wo_number) {
+        archiveWorkOrder(data[0].wo_number); // fire-and-forget
+    }
+    return { data, error };
 }

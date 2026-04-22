@@ -66,9 +66,8 @@ export const reelGrindQty      = ref(0);
 // ── New manual WO modal ───────────────────────────────────────
 export const newWoModalOpen = ref(false);
 export const newWoForm      = ref({
-    part: '', desc: '', qty: '', dept: '', woType: 'Unit',
-    salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '',
-    customWoNumber: ''
+    part: '', desc: '', qty: 1, dept: '', woType: 'Unit',
+    salesOrder: '', woNumber: '', unitSerial: '', engine: '', engineSerial: '', numBlades: ''
 });
 export const newWoFormErrors     = ref({ part: false, desc: false, qty: false });
 export const tcNewWoModeOverride = ref(null);

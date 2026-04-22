@@ -28,10 +28,9 @@ export async function fetchCsSupplementalData(woNumber, partNumber) {
             supabase.from('wo_status_tracking').select('*').eq('wo_number', woNumber)
         ),
         withRetry(() =>
-            supabase.from('work_orders')
+            supabase.from('completed_work_orders')
                 .select('department,start_date,comp_date')
                 .eq('part_number', partNumber)
-                .eq('status', 'completed')
         )
     ]);
     return {
@@ -48,9 +47,8 @@ export async function searchPastAssyOrders(term) {
     if (!term) return { rows: [], error: null };
     const t = term.trim();
     const cols = 'id,wo_number,sales_order,part_number,description,department,comp_date,qty_required,tv_assy_notes,tc_assy_notes_differences_mods,unit_serial_number,engine_serial_number,num_blades';
-    const base = () => supabase.from('work_orders')
+    const base = () => supabase.from('completed_work_orders')
         .select(cols)
-        .eq('status', 'completed')
         .in('department', ASSY_DEPTS)
         .limit(50);
 

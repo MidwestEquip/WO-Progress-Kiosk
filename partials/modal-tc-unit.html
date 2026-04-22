@@ -344,27 +344,33 @@
             <div class="bg-slate-800 rounded-xl w-full max-w-lg border border-violet-500/50 shadow-2xl flex flex-col">
                 <div class="bg-violet-900/30 border-b border-violet-700/40 px-6 py-5 rounded-t-xl shrink-0">
                     <h2 class="text-2xl font-bold text-violet-300">
-                        &#9989; {{ activeOrder?.tc_job_mode === 'unit' ? 'Complete Unit WO' : 'Complete Subassy WO' }}
+                        &#9989;
+                        <template v-if="activeOrder?.tc_job_mode === 'unit' && tcUnitTotal > 1">
+                            Unit {{ tcUnitStep }} of {{ tcUnitTotal }}
+                        </template>
+                        <template v-else>
+                            {{ activeOrder?.tc_job_mode === 'unit' ? 'Complete Unit WO' : 'Complete Subassy WO' }}
+                        </template>
                     </h2>
                     <p class="text-slate-400 text-sm mt-0.5">
-                        {{ activeOrder?.tc_job_mode === 'unit' ? 'Please check all unit details and add any notes.' : 'Add any notes before completing.' }}
+                        {{ activeOrder?.tc_job_mode === 'unit' ? 'Enter unit details and any build notes.' : 'Add any notes before completing.' }}
                     </p>
                 </div>
                 <div class="p-6 space-y-4">
-                    <!-- Notes / Differences field -->
+                    <!-- Notes / Differences field (WO-level, always shown) -->
                     <div>
                         <label class="block font-bold text-slate-400 text-sm mb-1">Notes / Differences / Modifications</label>
-                        <textarea v-model="tcAssyCompleteForm.notes" rows="3" maxlength="2000"
+                        <textarea v-model="tcAssyCompleteForm.notes" rows="2" maxlength="2000"
                             class="w-full bg-slate-900 p-3 rounded-lg border border-slate-700 focus:outline-none focus:border-violet-500 transition-colors"
                             placeholder="Any differences from standard build?"></textarea>
                     </div>
 
                     <!-- Unit fields: only shown for unit mode -->
                     <template v-if="activeOrder?.tc_job_mode === 'unit'">
-                        <div class="text-violet-300 text-xs font-bold uppercase tracking-widest mt-4 mb-2">Required Unit Details</div>
+                        <div class="text-violet-300 text-xs font-bold uppercase tracking-widest mb-2">Required Unit Details</div>
                         <div class="grid grid-cols-2 gap-3">
-                            <!-- Sales Order -->
-                            <div>
+                            <!-- Sales Order (WO-level, always shown) -->
+                            <div class="col-span-2">
                                 <label class="block font-bold text-slate-400 text-sm mb-1">Sales Order #</label>
                                 <input v-model="tcAssyCompleteForm.salesOrder" type="text" maxlength="30"
                                     class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors"
@@ -374,41 +380,39 @@
                             <!-- Unit Serial # -->
                             <div>
                                 <label class="block font-bold text-slate-400 text-sm mb-1">Unit Serial #</label>
-                                <input v-model="tcAssyCompleteForm.unitSerial" type="text" maxlength="40"
-                                    class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors font-mono"
-                                    :class="tcAssyCompleteErrors.unitSerial ? 'border-red-500' : 'border-slate-700'">
-                                <div v-if="tcAssyCompleteErrors.unitSerial" class="text-red-400 text-xs mt-1">Required</div>
+                                <input v-model="tcUnitForms[tcUnitStep - 1].unitSerial" type="text" maxlength="40"
+                                    class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 focus:outline-none focus:border-violet-500 transition-colors font-mono">
                             </div>
-                            <!-- Engine -->
+                            <!-- Engine Model -->
                             <div>
-                                <label class="block font-bold text-slate-400 text-sm mb-1">Engine</label>
-                                <input v-model="tcAssyCompleteForm.engine" type="text" maxlength="40"
-                                    class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors"
-                                    :class="tcAssyCompleteErrors.engine ? 'border-red-500' : 'border-slate-700'">
-                                <div v-if="tcAssyCompleteErrors.engine" class="text-red-400 text-xs mt-1">Required</div>
+                                <label class="block font-bold text-slate-400 text-sm mb-1">Engine Model</label>
+                                <input v-model="tcUnitForms[tcUnitStep - 1].engineModel" type="text" maxlength="40"
+                                    class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 focus:outline-none focus:border-violet-500 transition-colors">
                             </div>
                             <!-- Engine Serial # -->
                             <div>
                                 <label class="block font-bold text-slate-400 text-sm mb-1">Engine Serial #</label>
-                                <input v-model="tcAssyCompleteForm.engineSerial" type="text" maxlength="40"
-                                    class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors font-mono"
-                                    :class="tcAssyCompleteErrors.engineSerial ? 'border-red-500' : 'border-slate-700'">
-                                <div v-if="tcAssyCompleteErrors.engineSerial" class="text-red-400 text-xs mt-1">Required</div>
+                                <input v-model="tcUnitForms[tcUnitStep - 1].engineSerial" type="text" maxlength="40"
+                                    class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 focus:outline-none focus:border-violet-500 transition-colors font-mono">
                             </div>
                             <!-- # of Blades -->
-                            <div class="col-span-2">
+                            <div>
                                 <label class="block font-bold text-slate-400 text-sm mb-1"># of Blades</label>
-                                <input v-model="tcAssyCompleteForm.numBlades" type="text" maxlength="5"
-                                    class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-violet-500 transition-colors"
-                                    :class="tcAssyCompleteErrors.numBlades ? 'border-red-500' : 'border-slate-700'">
-                                <div v-if="tcAssyCompleteErrors.numBlades" class="text-red-400 text-xs mt-1">Required</div>
+                                <input v-model="tcUnitForms[tcUnitStep - 1].numBlades" type="text" maxlength="5"
+                                    class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 focus:outline-none focus:border-violet-500 transition-colors">
                             </div>
                         </div>
+                        <div v-if="tcUnitStepError" class="text-red-400 text-sm">All unit fields are required.</div>
                     </template>
                 </div>
                 <div class="px-6 py-5 border-t border-slate-700 flex gap-4 shrink-0">
                     <button @click="tcAssyCompleteModalOpen = false" class="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition-all">CANCEL</button>
-                    <button @click="confirmTcWoComplete"
+                    <button v-if="tcUnitTotal > 1 && tcUnitStep < tcUnitTotal"
+                        @click="tcUnitNextStep()"
+                        class="flex-1 px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-lg font-bold text-white active:scale-95 transition-all">
+                        Next &#8594; Unit {{ tcUnitStep + 1 }}
+                    </button>
+                    <button v-else @click="confirmTcWoComplete()"
                         class="flex-1 px-6 py-3 bg-violet-600 hover:bg-violet-500 rounded-lg font-bold text-white active:scale-95 transition-all">
                         CONFIRM COMPLETE
                     </button>
