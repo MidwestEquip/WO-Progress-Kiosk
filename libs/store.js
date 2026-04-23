@@ -22,6 +22,7 @@ import { inventoryTab } from './store-inventory.js';
 export * from './store-manager.js';
 export * from './store-assy.js';
 export * from './store-inventory.js';
+export * from './store-engineering.js';
 
 // ── Navigation ────────────────────────────────────────────────
 export const currentView   = ref('login');

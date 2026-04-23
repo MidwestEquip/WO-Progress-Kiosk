@@ -21,7 +21,7 @@ import {
 
 // ── State & computed ──────────────────────────────────────────
 import * as store from './libs/store.js';
-import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS, OPEN_ORDER_STATUSES, CHUTE_PART_STATUSES, OPEN_ORDER_SORT_FIELDS, INVENTORY_TABS, PARTIAL_NAMES } from './libs/config.js';
+import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS, OPEN_ORDER_STATUSES, CHUTE_PART_STATUSES, OPEN_ORDER_SORT_FIELDS, INVENTORY_TABS, PARTIAL_NAMES, ENG_STATUSES, ENG_PRIORITIES, ENG_ASSIGNEES } from './libs/config.js';
 import { formatDateLocal, getStageCum, detectTcMode, sanitizePartKey, isChutePart } from './libs/utils.js';
 import { fetchAppPins } from './libs/db-shared.js';
 import { setPins } from './libs/pins.js';
@@ -109,6 +109,11 @@ import { onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
     onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
     onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
     onDropZoneDragOver, clearDropZone, reorderDrop } from './pages/open-orders-drag.js';
+import { enterEngineeringInquiriesView, enterEngineeringFollowupView,
+         openEngInquiryForm, closeEngInquiryForm, submitEngInquiry,
+         handleEngNewInquiryFileSelect, removeEngNewInquiryFile,
+         openEngInquiryDetail, closeEngInquiryDetail,
+         saveEngInquiry, handleEngImageUpload } from './pages/engineering-view.js';
 
 // ── Load HTML partials into #app before Vue mounts ───────────
 // Fetches HTML fragment files from ./partials/ and concatenates them into #app.
@@ -197,6 +202,25 @@ try {
                 splashLevel:      store.splashLevel,
                 splashCategory:   store.splashCategory,
                 splashSubCategory: store.splashSubCategory,
+
+                // Engineering
+                engView:                store.engView,
+                engInquiries:           store.engInquiries,
+                engInquiriesLoading:    store.engInquiriesLoading,
+                engStatusFilter:        store.engStatusFilter,
+                engPriorityFilter:      store.engPriorityFilter,
+                engInquiryFormOpen:     store.engInquiryFormOpen,
+                engInquiryForm:         store.engInquiryForm,
+                engInquiryFormErrors:   store.engInquiryFormErrors,
+                engNewInquiryFiles:     store.engNewInquiryFiles,
+                engSelectedInquiry:     store.engSelectedInquiry,
+                engInquiryDetailOpen:   store.engInquiryDetailOpen,
+                engInquiryImages:       store.engInquiryImages,
+                engImagesLoading:       store.engImagesLoading,
+                filteredEngInquiries:   store.filteredEngInquiries,
+                engStatuses:            ENG_STATUSES,
+                engPriorities:          ENG_PRIORITIES,
+                engAssignees:           ENG_ASSIGNEES,
 
                 // Dashboard
                 orders:             store.orders,
@@ -420,6 +444,11 @@ try {
                 selectDept, promptPin, submitPin, goBack,
                 selectCategory, selectSubCategory, splashBack,
                 submitLogin, logout, enterManagerView,
+                enterEngineeringInquiriesView, enterEngineeringFollowupView,
+                openEngInquiryForm, closeEngInquiryForm, submitEngInquiry,
+                handleEngNewInquiryFileSelect, removeEngNewInquiryFile,
+                openEngInquiryDetail, closeEngInquiryDetail,
+                saveEngInquiry, handleEngImageUpload,
 
                 // Dashboard
                 openActionPanel, openTvAssyEntry, tvSelectMode,

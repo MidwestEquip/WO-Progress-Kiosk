@@ -1,0 +1,29 @@
+<!-- ============================================================
+     view-engineering-followup.html — Engineering > Customer Follow Up
+     Placeholder. Full implementation in a future patch.
+     ============================================================ -->
+<div v-if="currentView === 'engineering' && engView === 'followup'"
+    class="h-full w-full flex flex-col bg-gray-50">
+
+    <!-- Top bar -->
+    <div class="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+        <button @click="goBack"
+            class="bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg p-2 active:scale-95 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <h1 class="text-xl font-extrabold text-gray-800">Customer Follow Up</h1>
+    </div>
+
+    <!-- Coming soon -->
+    <div class="flex-1 flex flex-col items-center justify-center gap-3">
+        <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        <p class="text-gray-400 font-semibold">Coming Soon</p>
+        <p class="text-gray-300 text-sm">Follow-up part list — in a future patch.</p>
+    </div>
+
+</div>

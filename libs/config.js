@@ -100,12 +100,14 @@ export const PARTIAL_NAMES = [
     'view-manager-home', 'view-manager-kpi', 'view-manager-priorities',
     'view-manager-ai', 'view-manager-problems', 'view-manager-delayed',
     'view-cs', 'view-inventory', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-completed-orders',
+    'view-engineering-inquiries', 'view-engineering-followup',
     'main-close',
     'modal-pin', 'modal-action-panel',
     'modal-tc-unit', 'modal-tc-stock',
     'modal-tv-unit', 'modal-tv-stock',
     'modal-misc', 'modal-open-orders-add',
-    'modal-action-panel-print'
+    'modal-action-panel-print',
+    'modal-eng-inquiry'
 ];
 
 export const OPEN_ORDER_SORT_FIELDS = [
@@ -116,3 +118,18 @@ export const OPEN_ORDER_SORT_FIELDS = [
     { field: 'last_status_update', label: 'Last Upd' },
     { field: 'deadline',           label: 'Deadline' },
 ];
+
+export const ENG_STATUSES = [
+    'Not Started',
+    'In Progress',
+    'Ready to Design',
+    'Needing To Get Measurements in Person',
+    'Not On Order. Design Complete. Ready For Order',
+    'On Hold',
+    'Done',
+    'Canceled',
+];
+
+export const ENG_PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
+
+export const ENG_ASSIGNEES = ['CSR', 'Engineering'];

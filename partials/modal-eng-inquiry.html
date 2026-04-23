@@ -1,0 +1,195 @@
+<!-- ============================================================
+     modal-eng-inquiry.html — Engineering inquiry detail / edit modal
+     ============================================================ -->
+<div v-if="engInquiryDetailOpen && engSelectedInquiry"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    @click.self="closeEngInquiryDetail">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col">
+
+        <!-- Header -->
+        <div class="shrink-0 flex items-center justify-between px-7 py-5 border-b border-gray-100">
+            <div>
+                <h2 class="text-lg font-extrabold text-gray-800">
+                    {{ engSelectedInquiry.part_number_trying || 'Inquiry Detail' }}
+                </h2>
+                <p class="text-xs text-gray-400 mt-0.5">{{ engSelectedInquiry.customer_name }} &mdash; {{ engSelectedInquiry.date_entered }}</p>
+            </div>
+            <button @click="closeEngInquiryDetail" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 min-h-0 overflow-y-auto px-7 py-5 space-y-5">
+
+            <!-- Row 1: Priority / Status / Assigned To -->
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Priority</label>
+                    <select v-model="engSelectedInquiry.priority"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 bg-white">
+                        <option v-for="p in engPriorities" :key="p" :value="p">{{ p }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Status</label>
+                    <select v-model="engSelectedInquiry.status"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 bg-white">
+                        <option v-for="s in engStatuses" :key="s" :value="s">{{ s }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Assigned To</label>
+                    <select v-model="engSelectedInquiry.assigned_to"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 bg-white">
+                        <option value="">— Select —</option>
+                        <option v-for="a in engAssignees" :key="a" :value="a">{{ a }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Row 2: Part # / Wrong #s / Date / Sales Order -->
+            <div class="grid grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Part # Trying</label>
+                    <input v-model="engSelectedInquiry.part_number_trying" type="text" maxlength="60"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Wrong #(s)</label>
+                    <input v-model="engSelectedInquiry.wrong_numbers" type="text" maxlength="200" placeholder="comma-separated"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Date Entered</label>
+                    <input v-model="engSelectedInquiry.date_entered" type="date"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Sales Order #</label>
+                    <input v-model="engSelectedInquiry.sales_order_number" type="text" maxlength="30"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+            </div>
+
+            <!-- Row 3: Deck info -->
+            <div class="grid grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Deck Model #</label>
+                    <input v-model="engSelectedInquiry.deck_model_number" type="text" maxlength="60"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Brand</label>
+                    <input v-model="engSelectedInquiry.brand" type="text" maxlength="60"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Model of Deck</label>
+                    <input v-model="engSelectedInquiry.deck_model" type="text" maxlength="60"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Deck Width</label>
+                        <input v-model="engSelectedInquiry.deck_width" type="text" maxlength="20"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Year</label>
+                        <input v-model="engSelectedInquiry.year" type="text" maxlength="10"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 4: Customer info -->
+            <div class="grid grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Customer Name</label>
+                    <input v-model="engSelectedInquiry.customer_name" type="text" maxlength="100"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Phone</label>
+                    <input v-model="engSelectedInquiry.customer_phone" type="text" maxlength="30"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email</label>
+                    <input v-model="engSelectedInquiry.customer_email" type="email" maxlength="100"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">CSR Rep</label>
+                    <input v-model="engSelectedInquiry.csr_rep" type="text" maxlength="60"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+            </div>
+
+            <!-- Row 5: Notes -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">CSR Notes / Description</label>
+                    <textarea v-model="engSelectedInquiry.csr_notes" rows="4" maxlength="2000"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Engineering Notes / Questions</label>
+                    <textarea v-model="engSelectedInquiry.engineering_notes" rows="4" maxlength="2000"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 resize-none"></textarea>
+                </div>
+            </div>
+
+            <!-- Row 6: Correct Part # -->
+            <div class="max-w-xs">
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Correct Part # (After Drawn)</label>
+                <input v-model="engSelectedInquiry.correct_part_number" type="text" maxlength="60"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 font-mono">
+            </div>
+
+            <!-- Images -->
+            <div class="border-t border-gray-100 pt-5">
+                <div class="flex items-center gap-4 mb-3">
+                    <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">&#128247; Images</span>
+                    <span v-if="engImagesLoading" class="text-gray-400 text-xs">&#8987; Loading&hellip;</span>
+                    <label v-else class="cursor-pointer bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                        Upload Image
+                        <input type="file" class="sr-only" accept=".jpg,.jpeg,.png,.webp,.pdf" @change="handleEngImageUpload($event)">
+                    </label>
+                </div>
+                <div v-if="!engImagesLoading && engInquiryImages.length === 0"
+                    class="text-gray-400 text-xs italic">No images uploaded yet</div>
+                <div v-else class="flex flex-wrap gap-3">
+                    <a v-for="img in engInquiryImages" :key="img.name"
+                        :href="img.signedUrl" target="_blank"
+                        class="group relative flex flex-col items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl p-3 hover:border-rose-300 hover:bg-rose-50 transition-colors w-28">
+                        <!-- Image preview or file icon -->
+                        <img v-if="img.name.match(/\.(jpg|jpeg|png|webp)$/i)"
+                            :src="img.signedUrl" :alt="img.name"
+                            class="w-20 h-20 object-cover rounded-lg">
+                        <svg v-else class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <span class="text-xs text-gray-500 text-center truncate w-full">{{ img.name }}</span>
+                    </a>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="shrink-0 flex items-center justify-end gap-3 px-7 py-5 border-t border-gray-100">
+            <button @click="closeEngInquiryDetail"
+                class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all">
+                Close
+            </button>
+            <button @click="saveEngInquiry" :disabled="loading"
+                class="bg-rose-600 hover:bg-rose-500 text-white px-8 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                Save Changes
+            </button>
+        </div>
+
+    </div>
+</div>

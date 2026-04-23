@@ -22,6 +22,7 @@ export * from './db-manager.js';
 export * from './db-inventory.js';
 export * from './db-cs.js';
 export * from './db-storage.js';
+export * from './db-engineering.js';
 
 // ── Dashboard queries ─────────────────────────────────────────
 

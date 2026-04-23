@@ -1,0 +1,275 @@
+<!-- ============================================================
+     view-engineering-inquiries.html — Engineering > Customer Inquiries & Concerns
+     ============================================================ -->
+<div v-if="currentView === 'engineering' && engView === 'inquiries'"
+    class="h-full w-full flex flex-col bg-gray-50">
+
+    <!-- Top bar -->
+    <div class="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+        <button @click="goBack"
+            class="bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg p-2 active:scale-95 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <div class="flex-1">
+            <h1 class="text-xl font-extrabold text-gray-800">Customer Inquiries &amp; Concerns</h1>
+            <p class="text-xs text-gray-400">Chutes / Hitches</p>
+        </div>
+        <!-- Filters -->
+        <select v-model="engStatusFilter"
+            class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:border-rose-400">
+            <option value="">All Statuses</option>
+            <option v-for="s in engStatuses" :key="s" :value="s">{{ s }}</option>
+        </select>
+        <select v-model="engPriorityFilter"
+            class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:border-rose-400">
+            <option value="">All Priorities</option>
+            <option v-for="p in engPriorities" :key="p" :value="p">{{ p }}</option>
+        </select>
+        <button @click="openEngInquiryForm"
+            class="bg-rose-600 hover:bg-rose-500 text-white px-5 py-2 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            New Inquiry
+        </button>
+    </div>
+
+    <!-- List -->
+    <div class="flex-1 min-h-0 overflow-y-auto p-6">
+
+        <!-- Loading -->
+        <div v-if="engInquiriesLoading" class="flex items-center justify-center h-40">
+            <span class="text-gray-400 text-sm">Loading&hellip;</span>
+        </div>
+
+        <!-- Empty -->
+        <div v-else-if="filteredEngInquiries.length === 0" class="flex flex-col items-center justify-center h-40 gap-2">
+            <svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <p class="text-gray-400 text-sm italic">No inquiries found</p>
+        </div>
+
+        <!-- Table -->
+        <div v-else class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                        <th class="px-4 py-3 text-left">Priority</th>
+                        <th class="px-4 py-3 text-left">Status</th>
+                        <th class="px-4 py-3 text-left">Part # Trying</th>
+                        <th class="px-4 py-3 text-left">Wrong #(s)</th>
+                        <th class="px-4 py-3 text-left">Customer</th>
+                        <th class="px-4 py-3 text-left">CSR Rep</th>
+                        <th class="px-4 py-3 text-left">Assigned To</th>
+                        <th class="px-4 py-3 text-left">Date</th>
+                        <th class="px-4 py-3 text-left">Sales Order</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="inq in filteredEngInquiries" :key="inq.id"
+                        @click="openEngInquiryDetail(inq)"
+                        class="border-b border-gray-100 last:border-0 hover:bg-rose-50 cursor-pointer transition-colors"
+                        :class="{
+                            'bg-red-50':    inq.priority === 'Urgent',
+                            'bg-orange-50': inq.priority === 'High',
+                        }">
+                        <!-- Priority -->
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold"
+                                :class="{
+                                    'bg-red-100 text-red-700':    inq.priority === 'Urgent',
+                                    'bg-orange-100 text-orange-700': inq.priority === 'High',
+                                    'bg-yellow-100 text-yellow-700': inq.priority === 'Medium',
+                                    'bg-gray-100 text-gray-600':  inq.priority === 'Low',
+                                }">{{ inq.priority || '—' }}</span>
+                        </td>
+                        <!-- Status -->
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+                                :class="{
+                                    'bg-green-100 text-green-700':   inq.status === 'Done',
+                                    'bg-yellow-100 text-yellow-700': inq.status === 'In Progress',
+                                    'bg-red-100 text-red-700':       inq.status === 'Not Started',
+                                    'bg-gray-200 text-gray-600':     inq.status === 'Canceled' || inq.status === 'On Hold',
+                                    'bg-blue-100 text-blue-700':     inq.status === 'Ready to Design',
+                                    'bg-orange-100 text-orange-700': inq.status === 'Needing To Get Measurements in Person',
+                                    'bg-emerald-100 text-emerald-700': inq.status === 'Not On Order. Design Complete. Ready For Order',
+                                }">{{ inq.status || '—' }}</span>
+                        </td>
+                        <td class="px-4 py-3 font-mono font-semibold text-gray-800">{{ inq.part_number_trying || '—' }}</td>
+                        <td class="px-4 py-3 text-gray-600 max-w-[140px] truncate">{{ inq.wrong_numbers || '—' }}</td>
+                        <td class="px-4 py-3 text-gray-700">{{ inq.customer_name || '—' }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ inq.csr_rep || '—' }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ inq.assigned_to || '—' }}</td>
+                        <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ inq.date_entered || '—' }}</td>
+                        <td class="px-4 py-3 text-gray-500">{{ inq.sales_order_number || '—' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── New Inquiry Modal ──────────────────────────────────── -->
+    <div v-if="engInquiryFormOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        @click.self="closeEngInquiryForm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+
+            <!-- Modal header -->
+            <div class="shrink-0 flex items-center justify-between px-7 py-5 border-b border-gray-100">
+                <h2 class="text-lg font-extrabold text-gray-800">New Inquiry / Concern</h2>
+                <button @click="closeEngInquiryForm" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Modal body -->
+            <div class="flex-1 min-h-0 overflow-y-auto px-7 py-5 space-y-6">
+
+                <!-- Top: Priority / Assigned To / Sales Order # -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Priority</label>
+                        <select v-model="engInquiryForm.priority"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 bg-white">
+                            <option v-for="p in engPriorities" :key="p" :value="p">{{ p }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Assigned To</label>
+                        <select v-model="engInquiryForm.assigned_to"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 bg-white">
+                            <option value="">— Select —</option>
+                            <option v-for="a in engAssignees" :key="a" :value="a">{{ a }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Sales Order # <span class="text-red-500">*</span> <span class="text-gray-400 normal-case font-normal">(use "none" if N/A)</span></label>
+                        <input v-model="engInquiryForm.sales_order_number" type="text" maxlength="30"
+                            :class="engInquiryFormErrors.sales_order_number ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                            class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                    </div>
+                </div>
+
+                <!-- Mower Info -->
+                <div>
+                    <p class="text-sm font-extrabold text-gray-700 uppercase tracking-wide mb-3 border-b border-gray-100 pb-2">Mower Info</p>
+                    <div class="grid grid-cols-5 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Brand <span class="text-red-500">*</span></label>
+                            <input v-model="engInquiryForm.brand" type="text" maxlength="60"
+                                :class="engInquiryFormErrors.brand ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                                class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Model of Deck <span class="text-red-500">*</span></label>
+                            <input v-model="engInquiryForm.deck_model" type="text" maxlength="60"
+                                :class="engInquiryFormErrors.deck_model ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                                class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Deck Width <span class="text-red-500">*</span></label>
+                            <input v-model="engInquiryForm.deck_width" type="text" maxlength="20"
+                                :class="engInquiryFormErrors.deck_width ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                                class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Year <span class="text-red-500">*</span></label>
+                            <input v-model="engInquiryForm.year" type="text" maxlength="10"
+                                :class="engInquiryFormErrors.year ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                                class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Deck Model #</label>
+                            <input v-model="engInquiryForm.deck_model_number" type="text" maxlength="60"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Info -->
+                <div>
+                    <p class="text-sm font-extrabold text-gray-700 uppercase tracking-wide mb-3 border-b border-gray-100 pb-2">Customer Info</p>
+                    <div class="grid grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Customer Name <span class="text-red-500">*</span></label>
+                            <input v-model="engInquiryForm.customer_name" type="text" maxlength="100"
+                                :class="engInquiryFormErrors.customer_name ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                                class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Phone <span class="text-red-500">*</span></label>
+                            <input v-model="engInquiryForm.customer_phone" type="text" maxlength="30"
+                                :class="engInquiryFormErrors.customer_phone ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                                class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email <span class="text-red-500">*</span></label>
+                            <input v-model="engInquiryForm.customer_email" type="email" maxlength="100"
+                                :class="engInquiryFormErrors.customer_email ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                                class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">CSR Rep <span class="text-red-500">*</span></label>
+                            <input v-model="engInquiryForm.csr_rep" type="text" maxlength="60"
+                                :class="engInquiryFormErrors.csr_rep ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                                class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">CSR Notes / Description <span class="text-red-500">*</span></label>
+                        <textarea v-model="engInquiryForm.csr_notes" rows="3" maxlength="2000"
+                            :class="engInquiryFormErrors.csr_notes ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                            class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 resize-none"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Engineering Notes / Questions</label>
+                        <textarea v-model="engInquiryForm.engineering_notes" rows="3" maxlength="2000"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 resize-none"></textarea>
+                    </div>
+                </div>
+
+                <!-- Images -->
+                <div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest">&#128247; Images</span>
+                        <label class="cursor-pointer bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                            Add Images
+                            <input type="file" class="sr-only" accept=".jpg,.jpeg,.png,.webp,.pdf" multiple @change="handleEngNewInquiryFileSelect($event)">
+                        </label>
+                    </div>
+                    <div v-if="engNewInquiryFiles.length === 0" class="text-gray-400 text-xs italic">No images queued</div>
+                    <div v-else class="flex flex-wrap gap-2">
+                        <div v-for="(file, i) in engNewInquiryFiles" :key="i"
+                            class="flex items-center gap-2 bg-gray-100 border border-gray-200 rounded-lg px-3 py-1.5">
+                            <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <span class="text-xs text-gray-700 max-w-[160px] truncate">{{ file.name }}</span>
+                            <button @click="removeEngNewInquiryFile(i)" class="text-gray-400 hover:text-red-500 transition-colors text-xs leading-none">&#10005;</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal footer -->
+            <div class="shrink-0 flex items-center justify-end gap-3 px-7 py-5 border-t border-gray-100">
+                <button @click="closeEngInquiryForm"
+                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all">
+                    Cancel
+                </button>
+                <button @click="submitEngInquiry" :disabled="loading"
+                    class="bg-rose-600 hover:bg-rose-500 text-white px-8 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    Save Inquiry
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+</div>
