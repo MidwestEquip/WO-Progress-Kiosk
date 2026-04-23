@@ -45,7 +45,7 @@ export function tvSelectMode(mode) {
 }
 
 // ── openTvAssyUnit ────────────────────────────────────────────
-// Opens the TV Unit workflow screen; resets all stage pending states.
+// Opens the TV Unit workflow screen; resets stage pending states and unit detail form.
 export function openTvAssyUnit(order) {
     store.activeOrder.value      = order;
     store.tvAssyJobType.value    = 'unit';
@@ -56,11 +56,16 @@ export function openTvAssyUnit(order) {
     const blank = { pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false };
     store.tvEngStage.value = { ...blank };
     store.tvCrtStage.value = { ...blank };
-    store.tvFinStage.value = { ...blank };
     store.tvUnitHoldOpen.value        = false;
     store.tvUnitHoldReason.value      = '';
     store.tvUnitHoldReasonError.value = false;
     store.tvStockNotes.value          = order.tv_assy_notes || '';
+    store.tvUnitInfoForm.value = {
+        unitSerial:   order.unit_serial_number   || '',
+        engineModel:  order.engine               || '',
+        engineSerial: order.engine_serial_number || '',
+    };
+    store.tvUnitInfoErrors.value = { unitSerial: false, engineModel: false, engineSerial: false };
     // Persist mode on first selection so future openings skip the choice screen
     if (!order.tv_job_mode) {
         dbAssy.saveTvJobMode(order.id, 'unit').then(res => {
@@ -236,13 +241,69 @@ export async function saveTvStockNotes() {
 }
 
 // tvUnitStageDirectAction — submits a TV Unit stage action immediately (no confirm step).
-// Input: stageName = 'engine'|'cart'|'final', action = 'start'|'resume'
+// Input: stageName = 'engine'|'cart', action = 'start'|'resume'
 export async function tvUnitStageDirectAction(stageName, action) {
-    const stageRef = stageName === 'engine' ? store.tvEngStage
-                   : stageName === 'cart'   ? store.tvCrtStage
-                   : store.tvFinStage;
+    const stageRef = stageName === 'engine' ? store.tvEngStage : store.tvCrtStage;
     stageRef.value.pending = action;
     await submitTvUnitStageFromUi(stageName);
+}
+
+// saveTvUnitDetails — saves the inline unit detail fields to work_orders (fire on blur).
+export async function saveTvUnitDetails() {
+    const order = store.activeOrder.value;
+    if (!order) return;
+    store.loading.value = true;
+    try {
+        const f = store.tvUnitInfoForm.value;
+        const result = await dbAssy.saveTvUnitInfo(order.id, f.unitSerial, f.engineModel, f.engineSerial);
+        if (result.error) throw result.error;
+        const updated = result.data[0];
+        store.activeOrder.value = updated;
+        store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
+        store.showToast('Details saved.', 'success');
+    } catch (err) {
+        store.showToast('Failed to save details: ' + err.message);
+        logError('saveTvUnitDetails', err, { id: store.activeOrder.value?.id });
+    } finally {
+        store.loading.value = false;
+    }
+}
+
+// markTvUnitWoComplete — validates unit detail fields then marks the WO complete.
+export async function markTvUnitWoComplete() {
+    const operator = store.tvAssyEntryName.value.trim();
+    if (!operator) { store.showToast('Enter your name before completing the WO.', 'error'); return; }
+    const form   = store.tvUnitInfoForm.value;
+    const errors = store.tvUnitInfoErrors.value;
+    errors.unitSerial   = !form.unitSerial.trim();
+    errors.engineModel  = !form.engineModel.trim();
+    errors.engineSerial = !form.engineSerial.trim();
+    if (errors.unitSerial || errors.engineModel || errors.engineSerial) {
+        store.showToast('Unit Serial #, Engine Model, and Engine Serial # are required.', 'error');
+        return;
+    }
+    const order = store.activeOrder.value;
+    store.loading.value = true;
+    try {
+        const result = await dbAssy.completeTvUnitWo({ id: order.id, currentOrder: order, opName: operator });
+        if (result.error) throw result.error;
+        const updated = result.data[0];
+        store.activeOrder.value = updated;
+        store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
+        store.showToast('WO marked complete', 'success');
+        dbAssy.recordUnitCompletion(updated.id, updated.wo_number, 'Trac Vac Assy', 1, {
+            unitSerial:   form.unitSerial,
+            engineModel:  form.engineModel,
+            engineSerial: form.engineSerial,
+            operator,
+        });
+        await db.autoReceiveAssyWo(updated, operator);
+    } catch (err) {
+        store.showToast('Failed: ' + err.message);
+        logError('markTvUnitWoComplete', err, { id: store.activeOrder.value?.id });
+    } finally {
+        store.loading.value = false;
+    }
 }
 
 // tvUnitOpenHold — opens the sidebar hold form for the currently active unit stage.
@@ -252,21 +313,18 @@ export function tvUnitOpenHold() {
     store.tvUnitHoldReasonError.value = false;
 }
 
-// tvUnitConfirmHold — validates reason and submits hold for the active stage.
+// tvUnitConfirmHold — validates reason and submits hold for the active engine or cart stage.
 export async function tvUnitConfirmHold() {
     if (!store.tvUnitHoldReason.value.trim()) {
         store.tvUnitHoldReasonError.value = true;
         return;
     }
     const order = store.activeOrder.value;
-    const stageName = order.tv_final_status  === 'started' ? 'final'
-                    : order.tv_cart_status   === 'started' ? 'cart'
+    const stageName = order.tv_cart_status   === 'started' ? 'cart'
                     : order.tv_engine_status === 'started' ? 'engine'
                     : null;
     if (!stageName) { store.tvUnitHoldOpen.value = false; return; }
-    const stageRef = stageName === 'engine' ? store.tvEngStage
-                   : stageName === 'cart'   ? store.tvCrtStage
-                   : store.tvFinStage;
+    const stageRef = stageName === 'engine' ? store.tvEngStage : store.tvCrtStage;
     stageRef.value.pending = 'hold';
     stageRef.value.reason  = store.tvUnitHoldReason.value;
     store.tvUnitHoldOpen.value = false;

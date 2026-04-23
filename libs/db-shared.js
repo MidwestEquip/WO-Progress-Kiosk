@@ -71,4 +71,15 @@ export function normalizeDept(row) {
     return canon ? { ...row, department: canon } : row;
 }
 
+// fetchAppPins — returns { name → pin } map from app_pins table.
+// Called once at startup. Returns empty map on error so startup never fails.
+export async function fetchAppPins() {
+    const { data } = await withRetry(() =>
+        supabase.from('app_pins').select('name, pin')
+    );
+    const map = {};
+    (data || []).forEach(r => { map[r.name] = r.pin; });
+    return map;
+}
+
 export { supabase };

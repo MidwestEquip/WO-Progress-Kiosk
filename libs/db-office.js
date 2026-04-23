@@ -179,6 +179,30 @@ async function archiveWorkOrder(woNumber) {
     );
 }
 
+// saveCloseoutNotes — updates closeout_notes on a tracking row. Fire-and-forget safe.
+export async function saveCloseoutNotes(id, notes) {
+    if (!id) return { data: null, error: new Error('Missing tracking row ID') };
+    return withRetry(() =>
+        supabase.from('wo_status_tracking')
+            .update({ closeout_notes: (notes || '').trim() || null })
+            .eq('id', id).select()
+    );
+}
+
+// fetchClosedOutOrders — returns closed tracking rows within an optional date range.
+// Input: from/to date strings (YYYY-MM-DD). Output: { data, error }
+export async function fetchClosedOutOrders(from, to) {
+    return withRetry(() => {
+        let q = supabase.from('wo_status_tracking')
+            .select('*')
+            .eq('erp_status', 'closed')
+            .order('closed_at', { ascending: false });
+        if (from) q = q.gte('closed_at', from);
+        if (to)   q = q.lte('closed_at', to + 'T23:59:59');
+        return q;
+    });
+}
+
 export async function closeOutWorkOrder(id, closedBy) {
     if (!id)       return { data: null, error: new Error('Missing tracking row ID') };
     if (!closedBy) return { data: null, error: new Error('Closer name is required') };

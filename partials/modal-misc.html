@@ -282,22 +282,22 @@
 
         <!-- CLOSE-OUT MODAL -->
         <div v-if="closeoutModalOpen" class="fixed z-50 inset-0 bg-black/80 flex items-center justify-center p-4">
-            <div class="bg-slate-800 rounded-2xl w-full max-w-md border border-violet-500/30 shadow-2xl">
-                <div class="bg-violet-900/30 border-b border-violet-500/30 p-5 rounded-t-2xl">
-                    <div class="font-bold text-violet-300 text-lg">Close Out WO</div>
+            <div class="bg-slate-800 rounded-2xl w-full max-w-md border border-emerald-500/30 shadow-2xl">
+                <div class="bg-emerald-900/30 border-b border-emerald-500/30 p-5 rounded-t-2xl">
+                    <div class="font-bold text-emerald-300 text-lg">Close Out WO</div>
                     <div class="text-slate-400 text-sm mt-0.5">WO #{{ closeoutTarget?.wo_number }} &#8212; {{ closeoutTarget?.part_number }}</div>
                 </div>
                 <div class="p-6 space-y-4">
                     <div>
                         <label class="block text-slate-400 text-sm font-bold mb-1 uppercase tracking-wide">Your Name <span class="text-red-400">*</span></label>
                         <input v-model="closeoutName" type="text" placeholder="Your name..." maxlength="50"
-                            class="w-full p-3 bg-slate-900 border rounded-lg text-white focus:outline-none focus:border-violet-500"
+                            class="w-full p-3 bg-slate-900 border rounded-lg text-white focus:outline-none focus:border-emerald-500"
                             :class="closeoutNameError ? 'border-red-500' : 'border-slate-700'">
                         <div v-if="closeoutNameError" class="text-red-400 text-xs mt-1">Name is required</div>
                     </div>
                     <div class="flex gap-3 pt-2">
                         <button @click="closeoutModalOpen = false" class="flex-1 p-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold">CANCEL</button>
-                        <button @click="submitCloseout" class="flex-1 p-3 bg-violet-600 hover:bg-violet-500 rounded-lg font-bold text-white">CLOSE OUT &#10003;</button>
+                        <button @click="submitCloseout" class="flex-1 p-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold text-white">CLOSE OUT &#10003;</button>
                     </div>
                 </div>
             </div>

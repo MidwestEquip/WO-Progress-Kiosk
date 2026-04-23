@@ -177,6 +177,49 @@ export async function submitAlereUpdated() {
     }
 }
 
+// ── saveCloseoutNoteInline ────────────────────────────────────
+// Fire-and-forget inline save for the notes field on a closeout row.
+export async function saveCloseoutNoteInline(id, notes) {
+    try {
+        const { error } = await db.saveCloseoutNotes(id, notes);
+        if (error) throw error;
+    } catch (err) {
+        store.showToast('Failed to save notes: ' + err.message);
+        logError('saveCloseoutNoteInline', err);
+    }
+}
+
+// ── loadClosedOutOrders ───────────────────────────────────────
+// Fetches closed WOs within the selected date range into store.
+export async function loadClosedOutOrders() {
+    store.loading.value = true;
+    try {
+        const { data, error } = await db.fetchClosedOutOrders(
+            store.closedOutFrom.value,
+            store.closedOutTo.value
+        );
+        if (error) throw error;
+        store.closedOutOrders.value = data || [];
+    } catch (err) {
+        store.showToast('Failed to load closed out WOs: ' + err.message);
+        logError('loadClosedOutOrders', err);
+    } finally {
+        store.loading.value = false;
+    }
+}
+
+// ── openClosedOutHistory ──────────────────────────────────────
+// Switches to history mode, defaults date range to last 30 days, loads data.
+export async function openClosedOutHistory() {
+    store.closedOutFilter.value = '';
+    const to   = new Date();
+    const from = new Date(); from.setDate(from.getDate() - 30);
+    store.closedOutTo.value   = to.toISOString().slice(0, 10);
+    store.closedOutFrom.value = from.toISOString().slice(0, 10);
+    store.officeMode.value    = 'history';
+    await loadClosedOutOrders();
+}
+
 // ── Internal helpers ──────────────────────────────────────────
 
 async function _refreshWoStatusData() {

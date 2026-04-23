@@ -42,7 +42,8 @@ export const managerAlerts  = ref({
     pausedOnHold:         [],
     startedNoProgress:    [],
     qtyMismatch:          [],
-    staleOrders:          []
+    staleOrders:          [],
+    woQtyVsCompleted:     []
 });
 
 // ── Delayed WO detail modal ───────────────────────────────────
@@ -69,11 +70,21 @@ export const managerAlertCount = computed(() => {
          + (a.pausedOnHold?.length        || 0)
          + (a.startedNoProgress?.length   || 0)
          + (a.qtyMismatch?.length         || 0)
-         + (a.staleOrders?.length         || 0);
+         + (a.staleOrders?.length         || 0)
+         + (a.woQtyVsCompleted?.length    || 0);
 });
 export const managerTotalBadge = computed(() =>
     delayedWoCount.value + woProblemCount.value + managerAlertCount.value
 );
+
+// ── Alert resolve modal ───────────────────────────────────────
+export const alertResolveOpen      = ref(false);
+export const alertResolveTarget    = ref(null);   // the alert row object
+export const alertResolveType      = ref('');     // alert_type key string
+export const alertResolveBy        = ref('');
+export const alertResolveByError   = ref(false);
+export const alertResolveText      = ref('');
+export const alertResolveTextError = ref(false);
 
 // ── WO Problem resolve modal ──────────────────────────────────
 export const woProblemModalOpen         = ref(false);

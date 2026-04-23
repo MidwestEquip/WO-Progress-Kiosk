@@ -68,7 +68,7 @@
                                 <div class="p-3 space-y-2 bg-gray-50 min-h-[4rem]">
                                     <div v-if="managerAlerts.completedNotReceived.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
                                     <div v-for="o in managerAlerts.completedNotReceived" :key="o.id"
-                                        @click="openDelayedWoDetail(o)"
+                                        @click="openAlertResolve(o, 'completed_not_received')"
                                         class="bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all">
                                         <div class="flex items-center justify-between mb-1">
                                             <span class="font-bold text-gray-900 text-sm">WO #{{ o.wo_number }}</span>
@@ -103,7 +103,7 @@
                                 <div class="p-3 space-y-2 bg-gray-50 min-h-[4rem]">
                                     <div v-if="managerAlerts.pausedOnHold.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
                                     <div v-for="o in managerAlerts.pausedOnHold" :key="o.id"
-                                        @click="openDelayedWoDetail(o)"
+                                        @click="openAlertResolve(o, 'paused_on_hold')"
                                         class="bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all">
                                         <div class="flex items-center justify-between mb-1">
                                             <span class="font-bold text-gray-900 text-sm">WO #{{ o.wo_number }}</span>
@@ -137,7 +137,7 @@
                                 <div class="p-3 space-y-2 bg-gray-50 min-h-[4rem]">
                                     <div v-if="managerAlerts.startedNoProgress.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
                                     <div v-for="o in managerAlerts.startedNoProgress" :key="o.id"
-                                        @click="openDelayedWoDetail(o)"
+                                        @click="openAlertResolve(o, 'started_no_progress')"
                                         class="bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all">
                                         <div class="flex items-center justify-between mb-1">
                                             <span class="font-bold text-gray-900 text-sm">WO #{{ o.wo_number }}</span>
@@ -171,7 +171,7 @@
                                 <div class="p-3 space-y-2 bg-gray-50 min-h-[4rem]">
                                     <div v-if="managerAlerts.qtyMismatch.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
                                     <div v-for="o in managerAlerts.qtyMismatch" :key="o.id"
-                                        @click="openDelayedWoDetail(o)"
+                                        @click="openAlertResolve(o, 'qty_mismatch')"
                                         class="bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all">
                                         <div class="flex items-center justify-between mb-1">
                                             <span class="font-bold text-gray-900 text-sm">WO #{{ o.wo_number }}</span>
@@ -208,7 +208,7 @@
                                     <div v-if="managerAlerts.staleOrders.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
                                     <div class="grid grid-cols-2 gap-2">
                                         <div v-for="o in managerAlerts.staleOrders" :key="o.id"
-                                            @click="openDelayedWoDetail(o)"
+                                            @click="openAlertResolve(o, 'stale_order')"
                                             class="bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all">
                                             <div class="flex items-center justify-between mb-1">
                                                 <span class="font-bold text-gray-900 text-sm">{{ o.sales_order || o.wo_po_number || '—' }}</span>
@@ -231,6 +231,85 @@
                                 </div>
                             </div>
 
+                            <!-- 6. WO Qty vs Completed (full-width) -->
+                            <div class="col-span-2 rounded-xl border border-gray-300 overflow-hidden">
+                                <div class="bg-white px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                                    <div>
+                                        <div class="font-bold text-gray-800 text-sm">WO Qty vs Completed</div>
+                                        <div class="text-gray-500 text-xs mt-0.5">Completed WOs where qty required &#8800; qty completed (last 30 days)</div>
+                                    </div>
+                                    <span v-if="managerAlerts.woQtyVsCompleted.length > 0"
+                                        class="bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.5rem] h-6 flex items-center justify-center px-1 ml-2">
+                                        {{ managerAlerts.woQtyVsCompleted.length }}
+                                    </span>
+                                </div>
+                                <div class="p-3 bg-gray-50 min-h-[4rem]">
+                                    <div v-if="managerAlerts.woQtyVsCompleted.length === 0" class="text-gray-400 text-sm py-3 text-center">None</div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div v-for="o in managerAlerts.woQtyVsCompleted" :key="o.id"
+                                            @click="openAlertResolve(o, 'qty_vs_completed')"
+                                            class="bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <span class="font-bold text-gray-900 text-sm">WO #{{ o.wo_number }}</span>
+                                                <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">qty mismatch</span>
+                                            </div>
+                                            <div class="text-gray-700 text-xs font-medium truncate">{{ o.part_number }}</div>
+                                            <div class="flex items-center gap-3 mt-1 text-gray-500 text-xs">
+                                                <span>{{ o.department }}</span>
+                                                <span>Required: <span class="font-bold text-gray-700">{{ o.qty_required }}</span></span>
+                                                <span>Done: <span class="font-bold text-red-600">{{ o.qty_completed ?? 0 }}</span></span>
+                                            </div>
+                                            <div v-if="o.comp_date" class="text-gray-400 text-xs mt-0.5">Completed {{ formatDateLocal(o.comp_date) }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Alert Resolve Modal ────────────────────────── -->
+            <div v-if="alertResolveOpen"
+                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                 @click.self="alertResolveOpen = false">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+                    <div class="bg-slate-800 px-6 py-4 flex items-center justify-between">
+                        <div>
+                            <div class="text-white font-bold text-lg">Resolve Alert</div>
+                            <div class="text-slate-400 text-sm mt-0.5">
+                                WO #{{ alertResolveTarget?.wo_number || alertResolveTarget?.sales_order || alertResolveTarget?.id }}
+                                &mdash; {{ alertResolveTarget?.part_number || alertResolveTarget?.description || '' }}
+                            </div>
+                        </div>
+                        <button @click="alertResolveOpen = false"
+                            class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Your Name <span class="text-red-500">*</span></label>
+                            <input v-model="alertResolveBy" type="text" placeholder="Enter your name..." maxlength="80"
+                                class="w-full p-3 border rounded-lg text-gray-900 focus:outline-none focus:border-blue-500 text-sm"
+                                :class="alertResolveByError ? 'border-red-400 bg-red-50' : 'border-gray-300'">
+                            <div v-if="alertResolveByError" class="text-red-500 text-xs mt-1">Name is required</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Resolution Description <span class="text-red-500">*</span></label>
+                            <textarea v-model="alertResolveText" rows="3" placeholder="Describe how this was resolved..." maxlength="500"
+                                class="w-full p-3 border rounded-lg text-gray-900 focus:outline-none focus:border-blue-500 text-sm resize-none"
+                                :class="alertResolveTextError ? 'border-red-400 bg-red-50' : 'border-gray-300'"></textarea>
+                            <div v-if="alertResolveTextError" class="text-red-500 text-xs mt-1">Resolution description is required</div>
+                        </div>
+                        <div class="flex gap-3 pt-1">
+                            <button @click="submitAlertResolve()" :disabled="loading"
+                                class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                Mark Resolved
+                            </button>
+                            <button @click="alertResolveOpen = false"
+                                class="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl active:scale-95 transition-all">
+                                Cancel
+                            </button>
                         </div>
                     </div>
                 </div>

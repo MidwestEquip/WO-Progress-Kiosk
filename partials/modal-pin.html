@@ -5,6 +5,9 @@
             <div class="bg-slate-800 p-8 rounded-xl w-96 text-center border border-slate-600">
                 <h3 class="text-2xl font-bold mb-4 uppercase text-white">{{ pinMode }} LOGIN</h3>
                 <input v-model="pinInput" type="password" placeholder="PIN"
+                    autocomplete="new-password"
+                    readonly
+                    @focus="$event.target.removeAttribute('readonly')"
                     class="w-full text-center text-3xl tracking-[1em] p-4 bg-slate-900 border border-slate-700 rounded-lg mb-6"
                     @keyup.enter="submitPin">
                 <div class="flex gap-4">

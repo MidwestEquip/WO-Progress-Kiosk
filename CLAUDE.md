@@ -294,3 +294,18 @@ No active series.
 
 ### wo_time_sessions stage wiring
 - Patch 1: Schema — `ALTER TABLE wo_time_sessions ADD COLUMN IF NOT EXISTS stage TEXT`. Added `openTimeSession`, `closeTimeSession`, `closeAllOpenSessions` helpers to db.js. Refactored Fab/Weld inline session code to use helpers (stage=null). Wired reel ops (stage='weld'|'grind'), TV Assy stages (stage=stageKey or 'stock'), TC Assy stages (stage=stageKey or 'stock'), and manual TC WO complete (closeAllOpenSessions) in db-assy.js.
+
+### TV Assy unit WO required fields + redesign
+- Patch 1: TV unit inline unit details (engine model, engine serial, unit serial) + Engine/Cart Assy panels matching TC Assy layout; `saveTvUnitInfo` + `completeTvUnitWo` in db-assy.js; `saveTvUnitDetails` + `markTvUnitWoComplete` in dashboard-tv.js; full modal-tv-unit.html redesign.
+
+### Color standardization
+- Patch 1: All violet/purple completion actions → emerald (TC complete button, TC complete modal, TCWOC badge, TVWOC badge, closeout modal, closeout view, close-out button). Removed colored text from inside form input values.
+
+### Closeout notes + history + PINs from Supabase
+- Patch 1: Schema — `wo_status_tracking.closeout_notes TEXT`; `app_pins` table (name, pin) with rows for manager/closeout_office/cs.
+- Patch 2: `saveCloseoutNotes`/`fetchClosedOutOrders` in db-office.js; `closedOutOrders/From/To/Filter/filteredClosedOutOrders` in store.js; `saveCloseoutNoteInline`/`loadClosedOutOrders`/`openClosedOutHistory` in wo-status-view.js; Notes column (inline edit on blur) + "Closed Out WOs" history view (amber mode, date range, filter) in view-office.html.
+- Patch 3: `libs/pins.js` (zero-import PIN cache); `fetchAppPins()` in db-shared.js; PINs removed from config.js; `splash-view.js` uses `getPin('manager'|'cs'|'closeout_office')`; `main.js` loads PINs in parallel with partials at startup.
+
+### Manager live alert resolution + WO qty alert
+- Patch 1: Schema — `manager_alert_resolutions` table (id, alert_type, reference_id, resolved_by, resolution, resolved_at); index on (alert_type, reference_id, resolved_at).
+- Patch 2: `insertAlertResolution` in db-manager.js; resolved filtering + `woQtyVsCompleted` bucket in `fetchManagerAlerts`; 7 resolve modal refs in store-manager.js; `openAlertResolve`/`submitAlertResolve` in pages/manager-alerts.js; 60s auto-poll in `openManagerSection`; bucket 6 + resolve modal in view-manager-home.html.

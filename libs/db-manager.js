@@ -7,13 +7,24 @@
 import { supabase, withRetry, normalizeDept } from './db-shared.js';
 import { getStaleInfo } from './utils.js';
 
+// insertAlertResolution — records a manager's resolution for a live alert.
+// Inputs: alertType (string key), referenceId (wo_number or id), resolvedBy, resolution text.
+export async function insertAlertResolution(alertType, referenceId, resolvedBy, resolution) {
+    return withRetry(() =>
+        supabase.from('manager_alert_resolutions')
+            .insert([{ alert_type: alertType, reference_id: referenceId, resolved_by: resolvedBy, resolution }])
+            .select()
+    );
+}
+
 export async function fetchManagerAlerts() {
     const now          = new Date();
+    const thirtyDaysAgo = new Date(now); thirtyDaysAgo.setDate(now.getDate() - 30);
     const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
     const fiveDaysAgo  = new Date(now); fiveDaysAgo.setDate(now.getDate() - 5);
     const twoDaysAgo   = new Date(now); twoDaysAgo.setDate(now.getDate() - 2);
 
-    const [completedRes, activeRes, trackingRes, staleRes] = await Promise.all([
+    const [completedRes, activeRes, trackingRes, staleRes, resolvedRes] = await Promise.all([
         withRetry(() =>
             supabase.from('work_orders')
                 .select('*')
@@ -34,6 +45,11 @@ export async function fetchManagerAlerts() {
             supabase.from('open_orders')
                 .select('id,customer,sales_order,part_number,status,last_status_update,deadline,wo_va_notes,wo_po_number')
                 .in('status', ['New/Picking', 'WO Created'])
+        ),
+        withRetry(() =>
+            supabase.from('manager_alert_resolutions')
+                .select('alert_type,reference_id')
+                .gte('resolved_at', thirtyDaysAgo.toISOString())
         )
     ]);
 
@@ -42,9 +58,16 @@ export async function fetchManagerAlerts() {
     const tracked      = trackingRes.data  || [];
     const staleWos     = staleRes.data     || [];
 
+    // Build resolved set: "alertType|referenceId" keys resolved in the last 30 days
+    const resolvedSet = new Set(
+        (resolvedRes.data || []).map(r => `${r.alert_type}|${r.reference_id}`)
+    );
+    const isResolved = (type, refId) => resolvedSet.has(`${type}|${refId}`);
+
     const receivedOrClosedNums = new Set(tracked.map(t => t.wo_number));
     const completedNotReceived = completedWos
         .filter(w => !receivedOrClosedNums.has(w.wo_number))
+        .filter(w => !isResolved('completed_not_received', w.wo_number))
         .slice(0, 5);
 
     const pausedOnHold = activeWos
@@ -53,6 +76,7 @@ export async function fetchManagerAlerts() {
             const ref = w.start_date || w.created_at;
             return ref && new Date(ref) < fiveDaysAgo;
         })
+        .filter(w => !isResolved('paused_on_hold', w.wo_number))
         .slice(0, 5);
 
     const startedNoProgress = activeWos
@@ -61,6 +85,7 @@ export async function fetchManagerAlerts() {
             const ref = w.start_date || w.created_at;
             return ref && new Date(ref) < twoDaysAgo && (parseFloat(w.qty_completed) || 0) === 0;
         })
+        .filter(w => !isResolved('started_no_progress', w.wo_number))
         .slice(0, 5);
 
     const receivedOnly = tracked.filter(t => t.erp_status === 'received');
@@ -79,12 +104,24 @@ export async function fetchManagerAlerts() {
                 return parseFloat(t.qty_received) !== parseFloat(wo.qty_completed);
             })
             .map(t => ({ ...woMap[t.wo_number], qty_received: t.qty_received }))
+            .filter(w => !isResolved('qty_mismatch', w.wo_number))
             .slice(0, 5);
     }
 
     const staleOrders = staleWos
         .map(o => ({ ...o, staleInfo: getStaleInfo(o) }))
-        .filter(o => o.staleInfo !== null);
+        .filter(o => o.staleInfo !== null)
+        .filter(o => !isResolved('stale_order', String(o.id)));
+
+    // WOs where qty_required != qty_completed (completed in last 30 days)
+    const woQtyVsCompleted = completedWos
+        .filter(w => {
+            const req  = parseFloat(w.qty_required)  || 0;
+            const done = parseFloat(w.qty_completed) || 0;
+            return req !== done;
+        })
+        .filter(w => !isResolved('qty_vs_completed', w.wo_number))
+        .slice(0, 5);
 
     return {
         completedNotReceived,
@@ -92,6 +129,7 @@ export async function fetchManagerAlerts() {
         startedNoProgress,
         qtyMismatch,
         staleOrders,
+        woQtyVsCompleted,
         error: completedRes.error || activeRes.error || trackingRes.error || staleRes.error
     };
 }

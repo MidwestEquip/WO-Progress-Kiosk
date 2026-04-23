@@ -275,6 +275,21 @@ export const filteredCloseoutOrders = computed(() => {
     );
 });
 
+// ── Closed Out WOs history ─────────────────────────────────────
+export const closedOutOrders = ref([]);
+export const closedOutFrom   = ref('');
+export const closedOutTo     = ref('');
+export const closedOutFilter = ref('');
+export const filteredClosedOutOrders = computed(() => {
+    if (!closedOutFilter.value.trim()) return closedOutOrders.value;
+    const t = closedOutFilter.value.toLowerCase();
+    return closedOutOrders.value.filter(o =>
+        (o.wo_number   || '').toLowerCase().includes(t) ||
+        (o.part_number || '').toLowerCase().includes(t) ||
+        (o.description || '').toLowerCase().includes(t)
+    );
+});
+
 export const alerePendingOrders = computed(() =>
     woStatusOrders.value.filter(o => o.alere_bin_update_needed === true)
 );

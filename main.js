@@ -23,6 +23,8 @@ import {
 import * as store from './libs/store.js';
 import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS, OPEN_ORDER_STATUSES, CHUTE_PART_STATUSES, OPEN_ORDER_SORT_FIELDS, INVENTORY_TABS, PARTIAL_NAMES } from './libs/config.js';
 import { formatDateLocal, getStageCum, detectTcMode, sanitizePartKey, isChutePart } from './libs/utils.js';
+import { fetchAppPins } from './libs/db-shared.js';
+import { setPins } from './libs/pins.js';
 
 // ── Page controllers ──────────────────────────────────────────
 import { selectDept, promptPin, submitPin, goBack,
@@ -62,7 +64,8 @@ import {
     openTvAssyEntry, tvSelectMode,
     submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
     tvStockDirectAction, saveTvStockNotes,
-    tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold
+    tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold,
+    saveTvUnitDetails, markTvUnitWoComplete
 } from './pages/dashboard-tv.js';
 import {
     openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
@@ -75,7 +78,8 @@ import {
     searchOfficeReceive, openReceiveModal, submitReceive,
     openCloseoutModal, submitCloseout, loadReceivingEligible,
     openAlereConfirm, cancelAlereConfirm, submitAlereUpdated,
-    goToCloseout
+    goToCloseout,
+    saveCloseoutNoteInline, loadClosedOutOrders, openClosedOutHistory
 } from './pages/wo-status-view.js';
 import {
     openManagerSection, loadKpiData, loadDelayedOrders,
@@ -86,6 +90,7 @@ import {
     loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
     openDelayedWoDetail, closeDelayedWoDetail
 } from './pages/manager-view.js';
+import { openAlertResolve, submitAlertResolve } from './pages/manager-alerts.js';
 import { searchCS, searchPastOrders, selectPastWo, clearPastOrders } from './pages/cs-view.js';
 import {
     loadOpenOrders, setSectionSort, openOrderSortIcon,
@@ -113,7 +118,8 @@ async function loadPartials() {
     );
     document.getElementById('app').innerHTML = chunks.join('\n');
 }
-await loadPartials();
+const [, pinsMap] = await Promise.all([loadPartials(), fetchAppPins()]);
+setPins(pinsMap);
 
 // ── Show loading fallback until Vue mounts ────────────────────
 // The #app-loading div in index.html is visible by default and hidden here.
@@ -305,6 +311,10 @@ try {
                 tcPreCum:     store.tcPreCum,
                 tcFinCum:     store.tcFinCum,
 
+                // TV Assy unit inline detail fields
+                tvUnitInfoForm:   store.tvUnitInfoForm,
+                tvUnitInfoErrors: store.tvUnitInfoErrors,
+
                 // TC Assy complete modal
                 tcAssyCompleteModalOpen: store.tcAssyCompleteModalOpen,
                 tcAssyCompleteForm:      store.tcAssyCompleteForm,
@@ -415,6 +425,7 @@ try {
                 submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
                 tvStockDirectAction, saveTvStockNotes,
                 tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold,
+                saveTvUnitDetails, markTvUnitWoComplete,
                 openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
                 saveTcStockNotes, saveTcUnitDetails, tcUnitOpenHold, tcUnitConfirmHold,
                 submitTcUnitStageFromUi, tcStockDirectAction, tcUnitStageDirectAction,
@@ -429,6 +440,12 @@ try {
                 openCloseoutModal, submitCloseout, loadReceivingEligible,
                 goToCloseout, markAlereUpdated,
                 openAlereConfirm, cancelAlereConfirm, submitAlereUpdated,
+                saveCloseoutNoteInline, loadClosedOutOrders, openClosedOutHistory,
+                closedOutOrders:          store.closedOutOrders,
+                closedOutFrom:            store.closedOutFrom,
+                closedOutTo:              store.closedOutTo,
+                closedOutFilter:          store.closedOutFilter,
+                filteredClosedOutOrders:  store.filteredClosedOutOrders,
 
                 // Manager
                 openManagerSection, loadKpiData, loadDelayedOrders,
@@ -440,6 +457,14 @@ try {
                 delayedWoDetail:     store.delayedWoDetail,
                 openDelayedWoDetail, closeDelayedWoDetail,
                 loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
+                alertResolveOpen:      store.alertResolveOpen,
+                alertResolveTarget:    store.alertResolveTarget,
+                alertResolveType:      store.alertResolveType,
+                alertResolveBy:        store.alertResolveBy,
+                alertResolveByError:   store.alertResolveByError,
+                alertResolveText:      store.alertResolveText,
+                alertResolveTextError: store.alertResolveTextError,
+                openAlertResolve, submitAlertResolve,
 
                 // Time Report
                 timeReportSessions:     store.timeReportSessions,

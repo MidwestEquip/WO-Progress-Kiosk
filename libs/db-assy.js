@@ -311,6 +311,58 @@ export async function saveTcUnitInfo(id, fields) {
     );
 }
 
+// completeTvUnitWo — marks a TV Unit WO complete regardless of stage status.
+// Sets status='completed', appends TVWOC history line, closes open time sessions.
+export async function completeTvUnitWo({ id, currentOrder, opName }) {
+    if (!id)     return { data: null, error: new Error('Missing WO ID') };
+    if (!opName) return { data: null, error: new Error('Operator required') };
+
+    const now = new Date().toISOString();
+    const ts  = new Date().toLocaleString('en-US', {
+        month: 'numeric', day: 'numeric', year: '2-digit',
+        hour: 'numeric', minute: '2-digit'
+    });
+    const histLine = `TVWOC|${ts}|${opName}|WO completed (manual)|||`;
+    const notes    = currentOrder.notes ? currentOrder.notes + '\n' + histLine : histLine;
+
+    insertProgressEvent({
+        workOrderId:        id,
+        woNumber:           currentOrder.wo_number || '',
+        department:         'Trac Vac Assy',
+        stage:              null,
+        operatorName:       opName,
+        action:             'WO completed (manual)',
+        sessionQty:         0,
+        cumulativeQtyAfter: currentOrder.qty_required || 0,
+        reason:             ''
+    });
+
+    closeAllOpenSessions({ woId: id, endStatus: 'completed', sessionQty: 0 });
+
+    return withRetry(() =>
+        supabase.from('work_orders').update({
+            status:        'completed',
+            qty_completed: currentOrder.qty_required || 0,
+            comp_date:     now,
+            operator:      opName,
+            notes
+        }).eq('id', id).select()
+    );
+}
+
+// saveTvUnitInfo — writes unit serial, engine model, and engine serial to work_orders for a TV Unit WO.
+// Input: id (WO id), unitSerial, engineModel, engineSerial strings.
+export async function saveTvUnitInfo(id, unitSerial, engineModel, engineSerial) {
+    if (!id) return { data: null, error: new Error('Missing WO ID') };
+    return withRetry(() =>
+        supabase.from('work_orders').update({
+            unit_serial_number:   unitSerial.trim()   || null,
+            engine:               engineModel.trim()  || null,
+            engine_serial_number: engineSerial.trim() || null,
+        }).eq('id', id).select()
+    );
+}
+
 // Save the notes/differences/mods field for a TC Assy WO (standalone, any time)
 // Accepts id (WO id) and notes (string). Clears the field if notes is empty.
 // saveTvAssyNotes — saves TV Assy notes/mods text. Input: WO id, notes string.

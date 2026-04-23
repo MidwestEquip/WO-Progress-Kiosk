@@ -4,16 +4,31 @@
                 <!-- Mode toggle header -->
                 <div class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-3">
-                        <div class="w-3 h-3 rounded-full" :class="officeMode==='receive' ? 'bg-blue-400' : 'bg-violet-400'"></div>
-                        <h2 class="text-2xl font-bold" :class="officeMode==='receive' ? 'text-blue-300' : 'text-violet-300'">
-                            {{ officeMode === 'receive' ? 'Receiving' : 'Close-Out' }}
+                        <div class="w-3 h-3 rounded-full"
+                            :class="officeMode==='receive' ? 'bg-blue-400' : officeMode==='closeout' ? 'bg-emerald-400' : 'bg-amber-400'"></div>
+                        <h2 class="text-2xl font-bold"
+                            :class="officeMode==='receive' ? 'text-blue-300' : officeMode==='closeout' ? 'text-emerald-300' : 'text-amber-300'">
+                            {{ officeMode === 'receive' ? 'Receiving' : officeMode === 'closeout' ? 'Close-Out' : 'Closed Out WOs' }}
                         </h2>
                     </div>
-                    <button @click="officeMode === 'receive' ? goToCloseout() : (officeMode = 'receive', officeSearchTerm = '', officeSearchResults = [], officeSuccessMsg = '')"
-                        class="px-5 py-2 rounded-lg font-bold text-sm transition-all active:scale-95"
-                        :class="officeMode==='receive' ? 'bg-violet-700 hover:bg-violet-600 text-white' : 'bg-blue-700 hover:bg-blue-600 text-white'">
-                        {{ officeMode === 'receive' ? '&#8594; Go to Close-Out List' : '&#8594; Receive New Items' }}
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button v-if="officeMode === 'closeout'"
+                            @click="openClosedOutHistory()"
+                            class="px-4 py-2 rounded-lg font-bold text-sm bg-amber-700 hover:bg-amber-600 text-white transition-all active:scale-95">
+                            &#128196; Closed Out WOs
+                        </button>
+                        <button v-if="officeMode === 'history'"
+                            @click="officeMode = 'closeout'"
+                            class="px-4 py-2 rounded-lg font-bold text-sm bg-slate-600 hover:bg-slate-500 text-white transition-all active:scale-95">
+                            &#8592; Back to Close-Out
+                        </button>
+                        <button v-if="officeMode !== 'history'"
+                            @click="officeMode === 'receive' ? goToCloseout() : (officeMode = 'receive', officeSearchTerm = '', officeSearchResults = [], officeSuccessMsg = '')"
+                            class="px-5 py-2 rounded-lg font-bold text-sm transition-all active:scale-95"
+                            :class="officeMode==='receive' ? 'bg-emerald-700 hover:bg-emerald-600 text-white' : 'bg-blue-700 hover:bg-blue-600 text-white'">
+                            {{ officeMode === 'receive' ? '&#8594; Go to Close-Out List' : '&#8594; Receive New Items' }}
+                        </button>
+                    </div>
                 </div>
 
                 <!-- RECEIVE MODE -->
@@ -86,7 +101,7 @@
                     <div class="px-6 py-4 border-b border-slate-800 shrink-0">
                         <input v-model="officeCloseoutFilter" type="text"
                             placeholder="Filter by WO #, Part #..."
-                            class="w-full max-w-md p-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-violet-500">
+                            class="w-full max-w-md p-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500">
                     </div>
                     <!-- 2-column body: table (left) + Alere panel (right 1/3) -->
                     <div class="flex flex-1 min-h-0 overflow-hidden">
@@ -109,6 +124,7 @@
                                             <th class="px-5 py-3 text-center">Qty</th>
                                             <th class="px-5 py-3">Received By</th>
                                             <th class="px-5 py-3">Received At</th>
+                                            <th class="px-5 py-3">Notes</th>
                                             <th class="px-5 py-3 text-right">Action</th>
                                         </tr>
                                     </thead>
@@ -121,9 +137,14 @@
                                             <td class="px-5 py-4 text-center font-bold text-emerald-400 text-lg">{{ o.qty_received || o.qty_completed_fallback || o.qty_required }}</td>
                                             <td class="px-5 py-4 text-slate-400 text-sm">{{ o.received_by || '&#8212;' }}</td>
                                             <td class="px-5 py-4 text-slate-500 text-xs">{{ o.received_at ? formatDateLocal(o.received_at) : '&#8212;' }}</td>
+                                            <td class="px-5 py-4">
+                                                <input v-model="o.closeout_notes" type="text" placeholder="Add notes..."
+                                                    @blur="saveCloseoutNoteInline(o.id, o.closeout_notes)"
+                                                    class="w-full min-w-[140px] p-1.5 bg-slate-700 border border-slate-600 rounded text-slate-200 text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                                            </td>
                                             <td class="px-5 py-4 text-right">
                                                 <button @click="openCloseoutModal(o)"
-                                                    class="bg-violet-700 hover:bg-violet-600 px-4 py-2 rounded-lg text-sm font-bold active:scale-95 transition-transform">Close Out</button>
+                                                    class="bg-emerald-700 hover:bg-emerald-600 px-4 py-2 rounded-lg text-sm font-bold active:scale-95 transition-transform">Close Out</button>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -174,5 +195,69 @@
                         </div>
 
                     </div><!-- /2-column body -->
+                </div>
+
+                <!-- HISTORY MODE -->
+                <div v-if="officeMode === 'history'" class="flex-1 flex flex-col overflow-hidden">
+                    <!-- Date range filter bar -->
+                    <div class="px-6 py-4 border-b border-slate-800 flex items-center gap-4 shrink-0 flex-wrap">
+                        <div class="flex items-center gap-2">
+                            <label class="text-slate-400 text-sm font-semibold">From</label>
+                            <input v-model="closedOutFrom" type="date"
+                                class="p-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-slate-400 text-sm font-semibold">To</label>
+                            <input v-model="closedOutTo" type="date"
+                                class="p-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500">
+                        </div>
+                        <button @click="loadClosedOutOrders()" :disabled="loading"
+                            class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm rounded-lg active:scale-95 transition-all disabled:opacity-40">
+                            Load
+                        </button>
+                        <input v-model="closedOutFilter" type="text" placeholder="Filter by WO #, Part #..."
+                            class="ml-auto p-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500 w-64">
+                    </div>
+                    <!-- Results table -->
+                    <div class="flex-1 overflow-y-auto">
+                        <div v-if="filteredClosedOutOrders.length === 0 && !loading"
+                            class="flex flex-col items-center justify-center h-full text-slate-600">
+                            <svg class="w-16 h-16 mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p class="text-xl font-bold text-slate-500">No closed out WOs found</p>
+                            <p class="text-sm mt-1 text-slate-700">Try adjusting the date range and clicking Load.</p>
+                        </div>
+                        <table v-if="filteredClosedOutOrders.length > 0" class="w-full text-left border-collapse">
+                            <thead class="sticky top-0 z-10">
+                                <tr class="bg-slate-800 text-slate-300 border-b border-slate-700 text-sm uppercase tracking-wide">
+                                    <th class="px-5 py-3">WO #</th>
+                                    <th class="px-5 py-3">Part #</th>
+                                    <th class="px-5 py-3">Description</th>
+                                    <th class="px-5 py-3 text-center">Qty</th>
+                                    <th class="px-5 py-3">Received By</th>
+                                    <th class="px-5 py-3">Closed By</th>
+                                    <th class="px-5 py-3">Closed At</th>
+                                    <th class="px-5 py-3">Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="o in filteredClosedOutOrders" :key="o.id"
+                                    class="border-b border-slate-800 hover:bg-slate-800/60 transition-colors">
+                                    <td class="px-5 py-4 font-bold text-white">WO #{{ o.wo_number }}</td>
+                                    <td class="px-5 py-4 text-blue-400 font-medium">{{ o.part_number || '&#8212;' }}</td>
+                                    <td class="px-5 py-4 text-slate-400 text-sm max-w-[160px] truncate">{{ o.description || '&#8212;' }}</td>
+                                    <td class="px-5 py-4 text-center font-bold text-emerald-400 text-lg">{{ o.qty_received || o.qty_required || '&#8212;' }}</td>
+                                    <td class="px-5 py-4 text-slate-400 text-sm">{{ o.received_by || '&#8212;' }}</td>
+                                    <td class="px-5 py-4 text-slate-400 text-sm">{{ o.closed_by || '&#8212;' }}</td>
+                                    <td class="px-5 py-4 text-slate-500 text-xs">{{ o.closed_at ? formatDateLocal(o.closed_at) : '&#8212;' }}</td>
+                                    <td class="px-5 py-4 text-slate-400 text-sm max-w-[200px]">{{ o.closeout_notes || '&#8212;' }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div v-if="filteredClosedOutOrders.length > 0" class="text-slate-600 text-xs px-5 py-3">
+                            {{ filteredClosedOutOrders.length }} record(s)
+                        </div>
+                    </div>
                 </div>
             </div>

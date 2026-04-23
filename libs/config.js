@@ -21,12 +21,6 @@ export const KIOSK_USER_MAP = {
     office: 'project@midmfg.com',
 };
 
-// ----- Auth PINs -----
-// Future: move these to Supabase secrets or environment variables
-export const MANAGER_PIN  = "1234";
-export const CS_PIN       = "5678";
-export const CLOSEOUT_PIN = "1234";   // Close-Out view PIN
-
 // Gemini API calls go through a Cloudflare Worker so the key never touches the frontend.
 // After deploying workers/gemini-proxy.js, replace this with your Worker URL.
 export const GEMINI_WORKER_URL = 'https://gemini-proxy.project-85a.workers.dev';

@@ -67,3 +67,7 @@ export const tcUnitStep      = ref(1);    // current unit being entered (1-index
 export const tcUnitForms     = ref([]);   // array of { unitSerial, engineModel, engineSerial, numBlades }
 export const tcUnitTotal     = ref(0);    // total units in this WO
 export const tcUnitStepError = ref(false); // true if current step has a missing required field
+
+// TV Assy unit inline detail fields (saved on blur, validated at WO completion)
+export const tvUnitInfoForm   = ref({ unitSerial: '', engineModel: '', engineSerial: '' });
+export const tvUnitInfoErrors = ref({ unitSerial: false, engineModel: false, engineSerial: false });

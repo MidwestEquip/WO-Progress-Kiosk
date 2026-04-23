@@ -11,6 +11,9 @@ import { DELAY_THRESHOLDS, GEMINI_WORKER_URL } from '../libs/config.js';
 import { daysAgo, daysBetween, extractHoldReasons, getHistoricalAvgDays } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
+// ── Alert polling ─────────────────────────────────────────────
+let _alertPollTimer = null;
+
 // ── openManagerSection ────────────────────────────────────────
 // Navigate to a sub-section and auto-load its data
 export async function openManagerSection(section) {
@@ -19,6 +22,11 @@ export async function openManagerSection(section) {
     if (section === 'kpi')        await loadKpiData();
     if (section === 'delayed')    await loadDelayedOrders();
     if (section === 'problems')   await loadWoProblems();
+
+    clearInterval(_alertPollTimer);
+    if (section === 'home') {
+        _alertPollTimer = setInterval(loadManagerAlerts, 60000);
+    }
 }
 
 // ── loadKpiData ───────────────────────────────────────────────
@@ -31,7 +39,8 @@ export async function loadManagerAlerts() {
             pausedOnHold:         result.pausedOnHold,
             startedNoProgress:    result.startedNoProgress,
             qtyMismatch:          result.qtyMismatch,
-            staleOrders:          result.staleOrders
+            staleOrders:          result.staleOrders,
+            woQtyVsCompleted:     result.woQtyVsCompleted
         };
         // Populate delayedOrders using the same source as the Delayed WOs tab
         // so the badge count always matches what the tab shows

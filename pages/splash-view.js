@@ -8,7 +8,7 @@
 import * as store  from '../libs/store.js';
 import * as db     from '../libs/db.js';
 import { kioskSignIn, kioskSignOut } from '../libs/db.js';
-import { MANAGER_PIN, CS_PIN, CLOSEOUT_PIN } from '../libs/config.js';
+import { getPin } from '../libs/pins.js';
 import { logError } from '../libs/db-shared.js';
 
 // ── submitLogin ───────────────────────────────────────────────
@@ -112,7 +112,7 @@ export async function submitPin() {
     const pin  = store.pinInput.value;
     const mode = store.pinMode.value;
 
-    if (mode === 'manager' && pin === MANAGER_PIN) {
+    if (mode === 'manager' && pin === getPin('manager')) {
         store.pinModalOpen.value = false;
         store.currentView.value  = 'manager';
         store.managerSubView.value = 'home';
@@ -131,7 +131,7 @@ export async function submitPin() {
         return;
     }
 
-    if (mode === 'cs' && pin === CS_PIN) {
+    if (mode === 'cs' && pin === getPin('cs')) {
         store.pinModalOpen.value = false;
         store.currentView.value  = 'cs';
         store.csSearchTerm.value = '';
@@ -141,7 +141,7 @@ export async function submitPin() {
         return;
     }
 
-    if (mode === 'closeout_office' && pin === CLOSEOUT_PIN) {
+    if (mode === 'closeout_office' && pin === getPin('closeout_office')) {
         store.closeoutAuthorized.value = true;
         store.officeMode.value         = 'closeout';
         store.officeSearchTerm.value   = '';
