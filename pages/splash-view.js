@@ -287,3 +287,34 @@ async function _loadWoStatusData() {
         store.loading.value = false;
     }
 }
+
+// ── loadHeaderLinks ───────────────────────────────────────────
+// Reads header_links JSON from app_settings and populates store.
+// Called once at startup. Silently falls back to empty slots on error.
+export async function loadHeaderLinks() {
+    try {
+        const val = await db.fetchAppSetting('header_links');
+        if (!val) return;
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            store.headerLinks.value = parsed;
+        }
+    } catch { /* silently ignore — links are optional */ }
+}
+
+// ── saveHeaderLinks ───────────────────────────────────────────
+// Persists current store.headerLinks to app_settings and closes modal.
+export async function saveHeaderLinks() {
+    store.headerLinksSaving.value = true;
+    try {
+        const { error } = await db.upsertAppSetting('header_links', JSON.stringify(store.headerLinks.value));
+        if (error) throw error;
+        store.headerLinksModalOpen.value = false;
+        store.showToast('Links saved.', 'success');
+    } catch (err) {
+        store.showToast('Failed to save links: ' + err.message, 'error');
+        logError('saveHeaderLinks', err);
+    } finally {
+        store.headerLinksSaving.value = false;
+    }
+}

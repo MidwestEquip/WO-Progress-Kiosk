@@ -31,7 +31,8 @@ import { selectDept, promptPin, submitPin, goBack,
          selectCategory, selectSubCategory, splashBack,
          enterInventoryView, enterWoRequestView, enterCreateWoView,
          enterOpenOrdersView, enterWoForecastingView,
-         submitLogin, logout, enterManagerView } from './pages/splash-view.js';
+         submitLogin, logout, enterManagerView,
+         loadHeaderLinks, saveHeaderLinks } from './pages/splash-view.js';
 import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          openWoRequestDetail, closeWoRequestDetail,
          saveWoRequestDetail, approveWoRequest,
@@ -128,6 +129,7 @@ async function loadPartials() {
 }
 const [, pinsMap] = await Promise.all([loadPartials(), fetchAppPins()]);
 setPins(pinsMap);
+await loadHeaderLinks();
 
 // ── Show loading fallback until Vue mounts ────────────────────
 // The #app-loading div in index.html is visible by default and hidden here.
@@ -623,6 +625,10 @@ try {
                 reminderEmail:          store.reminderEmail,
                 reminderEmailSaving:    store.reminderEmailSaving,
                 saveReminderEmail,
+                headerLinks:            store.headerLinks,
+                headerLinksModalOpen:   store.headerLinksModalOpen,
+                headerLinksSaving:      store.headerLinksSaving,
+                saveHeaderLinks,
                 openOrderColorDotClass,
                 openOrderStatusClass,
                 chuteStatusClass,

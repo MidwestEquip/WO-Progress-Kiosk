@@ -15,10 +15,11 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 // ----- Kiosk username → Supabase Auth email map -----
 // Passwords are managed in Supabase Auth dashboard — never stored here.
 export const KIOSK_USER_MAP = {
-    fab:    'fabricationmidwest@gmail.com',
-    weld:   'weldermidwest@gmail.com',
-    assy:   'trucutassembly1@gmail.com',
-    office: 'project@midmfg.com',
+    fab:     'fabricationmidwest@gmail.com',
+    weld:    'weldermidwest@gmail.com',
+    assy:    'trucutassembly1@gmail.com',
+    office:  'project@midmfg.com',
+    manager: 'office@midmfg.com',
 };
 
 // Gemini API calls go through a Cloudflare Worker so the key never touches the frontend.

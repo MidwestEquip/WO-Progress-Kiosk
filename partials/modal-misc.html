@@ -433,3 +433,59 @@
                 </div>
             </div>
         </div>
+
+<!-- ── Header Quick-Links Config ─────────────────────────────── -->
+<div v-if="headerLinksModalOpen"
+    class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+        <div class="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200">
+            <h2 class="text-lg font-bold text-gray-800">Configure Quick Links</h2>
+            <button @click="headerLinksModalOpen = false" class="text-gray-400 hover:text-gray-600 p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="px-6 py-4 space-y-2">
+            <div class="flex items-center gap-2 mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
+                <span class="w-5"></span>
+                <span class="flex-1">Label (shown on button)</span>
+                <span class="flex-[2]">URL</span>
+                <span class="w-6"></span>
+            </div>
+            <div v-for="(link, i) in headerLinks" :key="i" class="flex items-center gap-2">
+                <span class="text-xs font-bold text-gray-400 w-5 shrink-0 text-right">{{ i + 1 }}</span>
+                <input v-model="link.label" type="text" placeholder="e.g. Price Sheet" maxlength="40"
+                    class="flex-1 px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-rose-400">
+                <input v-model="link.url" type="url" placeholder="https://docs.google.com/…"
+                    class="flex-[2] px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-rose-400">
+                <button @click="headerLinks.splice(i, 1)" title="Remove"
+                    class="shrink-0 w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="flex items-center gap-2 pt-1">
+                <span class="w-5"></span>
+                <button @click="headerLinks.push({ label: '', url: '' })"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-gray-400 hover:border-rose-400 hover:text-rose-500 text-xs font-semibold transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Add link
+                </button>
+            </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 pb-5 pt-2">
+            <button @click="headerLinksModalOpen = false"
+                class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-semibold">
+                Cancel
+            </button>
+            <button @click="saveHeaderLinks()" :disabled="headerLinksSaving"
+                class="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold active:scale-95 disabled:opacity-50">
+                {{ headerLinksSaving ? 'Saving…' : 'Save Links' }}
+            </button>
+        </div>
+    </div>
+</div>

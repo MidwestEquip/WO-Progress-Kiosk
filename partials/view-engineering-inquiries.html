@@ -40,6 +40,22 @@
             <option value="assigned_to">Sort: Assigned To</option>
             <option value="priority">Sort: Priority</option>
         </select>
+        <!-- Quick links -->
+        <div class="flex items-center gap-1.5 flex-wrap">
+            <template v-for="(link, i) in headerLinks" :key="i">
+                <a v-if="link.url && link.label" :href="link.url" target="_blank"
+                    class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition-colors active:scale-95 whitespace-nowrap">
+                    {{ link.label }}
+                </a>
+            </template>
+            <button @click="headerLinksModalOpen = true" title="Configure quick links"
+                class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </button>
+        </div>
         <button @click="openEngInquiryForm"
             class="bg-rose-600 hover:bg-rose-500 text-white px-5 py-2 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
@@ -67,7 +83,7 @@
         <div v-else class="space-y-4">
             <div v-for="inq in filteredEngInquiries" :key="inq.id"
                 class="bg-white rounded-xl shadow-sm border-l-4 border border-gray-200 overflow-hidden flex items-stretch"
-                style="height:220px"
+                style="height:175px"
                 :class="{
                     'border-l-red-500':    inq.priority === 'Urgent',
                     'border-l-orange-400': inq.priority === 'High',
@@ -183,19 +199,22 @@
 
                     </div>
 
-                    <!-- Part # column — spans full card height beside header+rows -->
-                    <div class="shrink-0 border-l border-gray-200 flex flex-col justify-center gap-2.5 px-3 py-2" style="width:148px">
-                        <div>
+                    <!-- Part # column — 3 bands aligned with header / Customer Info / Mower Info rows -->
+                    <div class="shrink-0 border-l border-gray-200 flex flex-col" style="width:148px">
+                        <!-- Band 1: aligned with header (Images row) -->
+                        <div class="shrink-0 bg-gray-50/60 border-b border-gray-100 px-3 py-2">
                             <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Part # Trying</label>
                             <input v-model="inq.part_number_trying" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)"
                                 class="w-full px-1.5 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs font-mono focus:outline-none focus:border-rose-400">
                         </div>
-                        <div>
+                        <!-- Band 2: aligned with Customer Info / Sales Order # -->
+                        <div class="flex-1 border-b border-gray-100 px-3 flex flex-col justify-center">
                             <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Wrong #(s)</label>
                             <input v-model="inq.wrong_numbers" type="text" maxlength="200" @blur="saveEngInquiryInline(inq)"
                                 class="w-full px-1.5 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                         </div>
-                        <div>
+                        <!-- Band 3: aligned with Deck Model / Hitch–Ground -->
+                        <div class="flex-1 px-3 flex flex-col justify-center">
                             <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Correct Part #</label>
                             <input v-model="inq.correct_part_number" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)"
                                 class="w-full px-1.5 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs font-mono focus:outline-none focus:border-rose-400">
