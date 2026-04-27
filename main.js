@@ -14,6 +14,7 @@
 
 import {
     createApp,
+    nextTick,
     onMounted,
     onUnmounted,
     watch
@@ -166,7 +167,6 @@ try {
             // Remove loading fallback once Vue successfully mounts.
             // Restore an existing Supabase Auth session so a page refresh doesn't log out.
             onMounted(async () => {
-                if (loadingEl) loadingEl.remove();
                 probeConnectivity();
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session?.user) {
@@ -177,6 +177,10 @@ try {
                         loadManagerAlerts();
                     }
                 }
+                // Wait for Vue to finish rendering the correct view before
+                // revealing the app — prevents login/modal flash on refresh.
+                await nextTick();
+                if (loadingEl) loadingEl.remove();
             });
 
             // Load data on view entry; reset Close-Out auth when leaving wo_status

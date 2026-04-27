@@ -44,7 +44,7 @@ export function openEngInquiryForm() {
         deck_width:                '',
         year:                      '',
         mower_model:               '',
-        hitch_to_ground_distance:  '',
+        hose_size:                 '',
         trac_vac_trailer_model:    '',
         customer_name:             '',
         customer_phone:            '',
@@ -55,7 +55,7 @@ export function openEngInquiryForm() {
         current_action_step:       '',
         status:                    'Not Started',
         assigned_to:               '',
-        priority:                  'Medium',
+        priority:                  '',
     };
     store.engInquiryFormErrors.value = {};
     store.engNewInquiryFiles.value   = [];
@@ -100,6 +100,7 @@ export async function submitEngInquiry() {
     } else {
         if (!form.deck_model?.trim())  errors.deck_model  = true;
         if (!form.deck_width?.trim())  errors.deck_width  = true;
+        if (!form.hose_size?.trim())   errors.hose_size   = true;
     }
     if (Object.keys(errors).length) {
         store.engInquiryFormErrors.value = errors;
@@ -109,10 +110,10 @@ export async function submitEngInquiry() {
     const { data: newRow, error } = await db.insertEngInquiry({
         ...form,
         part_number_trying:       form.part_number_trying?.trim().toUpperCase() || null,
-        wrong_numbers:            form.wrong_numbers?.trim() || null,
-        mower_model:              form.mower_model?.trim() || null,
-        hitch_to_ground_distance: form.hitch_to_ground_distance?.trim() || null,
-        trac_vac_trailer_model:   form.trac_vac_trailer_model?.trim() || null,
+        wrong_numbers:          form.wrong_numbers?.trim() || null,
+        mower_model:            form.mower_model?.trim() || null,
+        hose_size:              form.hose_size?.trim() || null,
+        trac_vac_trailer_model: form.trac_vac_trailer_model?.trim() || null,
     });
     if (error) {
         store.loading.value = false;
@@ -162,7 +163,7 @@ export async function saveEngInquiryInline(inq) {
         year:                     inq.year                     || null,
         inquiry_type:             inq.inquiry_type             || 'chute',
         mower_model:              inq.mower_model              || null,
-        hitch_to_ground_distance: inq.hitch_to_ground_distance || null,
+        hose_size:                inq.hose_size                || null,
         trac_vac_trailer_model:   inq.trac_vac_trailer_model   || null,
         customer_name:            inq.customer_name            || null,
         customer_phone:           inq.customer_phone           || null,
@@ -213,7 +214,7 @@ export async function saveEngInquiry() {
         year:                     inq.year                        || null,
         inquiry_type:             inq.inquiry_type                || 'chute',
         mower_model:              inq.mower_model                 || null,
-        hitch_to_ground_distance: inq.hitch_to_ground_distance    || null,
+        hose_size:                inq.hose_size                   || null,
         trac_vac_trailer_model:   inq.trac_vac_trailer_model      || null,
         customer_name:       inq.customer_name        || null,
         customer_phone:      inq.customer_phone       || null,

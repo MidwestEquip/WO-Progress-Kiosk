@@ -102,7 +102,7 @@
     </script>
 
     <style>
-        [v-cloak] { display: none; }
+        [v-cloak] { display: none !important; }
     </style>
 
     <style>
@@ -155,7 +155,7 @@
 
     <!-- Loading fallback: visible before Vue mounts, removed by main.js onMounted() -->
     <!-- If Vue fails, this stays visible and shows the error via window.onerror or main.js catch -->
-    <div id="app-loading" class="h-full w-full flex items-center justify-center absolute inset-0 z-50 bg-slate-900">
+    <div id="app-loading" class="h-full w-full flex items-center justify-center absolute inset-0 bg-slate-900" style="z-index:9999">
         <div class="text-center">
             <h2 class="text-4xl font-bold text-white mb-4">Midwest Mfg.</h2>
             <p class="text-slate-400 text-lg">Loading&hellip;</p>

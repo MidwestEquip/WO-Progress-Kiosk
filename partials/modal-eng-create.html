@@ -38,15 +38,8 @@
                 </div>
             </div>
 
-            <!-- Top: Priority / Assigned To / Sales Order # -->
-            <div class="grid grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Priority</label>
-                    <select v-model="engInquiryForm.priority"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 bg-white">
-                        <option v-for="p in engPriorities" :key="p" :value="p">{{ p }}</option>
-                    </select>
-                </div>
+            <!-- Top: Assigned To / Sales Order # -->
+            <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Assigned To</label>
                     <select v-model="engInquiryForm.assigned_to"
@@ -66,7 +59,7 @@
             <!-- Mower Info — Chute -->
             <div v-if="engInquiryForm.inquiry_type === 'chute'">
                 <p class="text-sm font-extrabold text-gray-700 uppercase tracking-wide mb-3 border-b border-gray-100 pb-2">Mower Info</p>
-                <div class="grid grid-cols-5 gap-4">
+                <div class="grid grid-cols-3 gap-4 mb-4">
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Brand <span class="text-red-500">*</span></label>
                         <input v-model="engInquiryForm.brand" type="text" maxlength="60"
@@ -85,6 +78,8 @@
                             :class="engInquiryFormErrors.deck_width ? 'border-red-400 bg-red-50' : 'border-gray-300'"
                             class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
                     </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Year <span class="text-red-500">*</span></label>
                         <input v-model="engInquiryForm.year" type="text" maxlength="10"
@@ -95,6 +90,17 @@
                         <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Deck Model #</label>
                         <input v-model="engInquiryForm.deck_model_number" type="text" maxlength="60"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Hose Size <span class="text-red-500">*</span></label>
+                        <select v-model="engInquiryForm.hose_size"
+                            :class="engInquiryFormErrors.hose_size ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                            class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400 bg-white">
+                            <option value="">— Select —</option>
+                            <option value='6"'>6"</option>
+                            <option value='7"'>7"</option>
+                            <option value='8"'>8"</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -116,17 +122,12 @@
                             class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
                     </div>
                 </div>
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Year <span class="text-red-500">*</span></label>
                         <input v-model="engInquiryForm.year" type="text" maxlength="10"
                             :class="engInquiryFormErrors.year ? 'border-red-400 bg-red-50' : 'border-gray-300'"
                             class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Distance: Hitch to Ground</label>
-                        <input v-model="engInquiryForm.hitch_to_ground_distance" type="text" maxlength="40"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:border-rose-400">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Model of Trac Vac Trailer <span class="text-red-500">*</span></label>

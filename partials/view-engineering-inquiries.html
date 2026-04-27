@@ -105,8 +105,13 @@
                             </span>
                             <span class="text-[10px] font-semibold text-gray-400 shrink-0">Priority:</span>
                             <select v-model="inq.priority" @change="saveEngInquiryInline(inq)"
-                                class="appearance-none rounded-full px-2.5 py-0.5 text-xs font-semibold cursor-pointer focus:outline-none"
-                                :class="{ 'bg-red-100 text-red-700': inq.priority === 'Urgent', 'bg-orange-100 text-orange-700': inq.priority === 'High', 'bg-yellow-100 text-yellow-700': inq.priority === 'Medium', 'bg-gray-100 text-gray-600': inq.priority === 'Low' || !inq.priority }">
+                                :disabled="sessionRole !== 'manager'"
+                                class="appearance-none rounded-full px-2.5 py-0.5 text-xs font-semibold focus:outline-none"
+                                :class="[
+                                    sessionRole === 'manager' ? 'cursor-pointer' : 'cursor-default opacity-60',
+                                    { 'bg-red-100 text-red-700': inq.priority === 'Urgent', 'bg-orange-100 text-orange-700': inq.priority === 'High', 'bg-yellow-100 text-yellow-700': inq.priority === 'Medium', 'bg-gray-100 text-gray-600': inq.priority === 'Low' || !inq.priority }
+                                ]">
+                                <option value="">— None —</option>
                                 <option v-for="p in engPriorities" :key="p" :value="p">{{ p }}</option>
                             </select>
                             <span class="text-[10px] font-semibold text-gray-400 shrink-0">Status:</span>
@@ -173,6 +178,15 @@
                                             <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Deck Model #</label>
                                             <input v-model="inq.deck_model_number" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-28 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                         </div>
+                                        <div class="shrink-0">
+                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Hose Size</label>
+                                            <select v-model="inq.hose_size" @change="saveEngInquiryInline(inq)" class="w-16 px-1 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400 bg-white">
+                                                <option value="">—</option>
+                                                <option value='6"'>6"</option>
+                                                <option value='7"'>7"</option>
+                                                <option value='8"'>8"</option>
+                                            </select>
+                                        </div>
                                     </template>
                                     <template v-else>
                                         <div class="shrink-0">
@@ -186,10 +200,6 @@
                                         <div class="shrink-0">
                                             <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Year</label>
                                             <input v-model="inq.year" type="text" maxlength="10" @blur="saveEngInquiryInline(inq)" class="w-12 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
-                                        </div>
-                                        <div class="shrink-0">
-                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Hitch–Ground</label>
-                                            <input v-model="inq.hitch_to_ground_distance" type="text" maxlength="40" @blur="saveEngInquiryInline(inq)" class="w-24 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                         </div>
                                     </template>
                                 </div>
@@ -279,8 +289,12 @@
                             <label class="text-[9px] font-semibold uppercase tracking-wide shrink-0 opacity-50"
                                 :class="{ 'text-blue-700': inq.assigned_to === 'Engineering', 'text-green-700': inq.assigned_to === 'CSR', 'text-gray-500': !inq.assigned_to || inq.assigned_to === 'Customer' }">Due</label>
                             <input v-model="inq.action_step_due_date" type="date" @blur="saveEngInquiryInline(inq)"
-                                class="text-xs bg-transparent border-0 border-b focus:outline-none cursor-pointer"
-                                :class="{ 'border-blue-300 text-blue-700': inq.assigned_to === 'Engineering', 'border-green-300 text-green-700': inq.assigned_to === 'CSR', 'border-gray-300 text-gray-500': !inq.assigned_to || inq.assigned_to === 'Customer' }">
+                                :disabled="sessionRole !== 'manager'"
+                                class="text-xs bg-transparent border-0 border-b focus:outline-none"
+                                :class="[
+                                    sessionRole === 'manager' ? 'cursor-pointer' : 'cursor-default opacity-50',
+                                    { 'border-blue-300 text-blue-700': inq.assigned_to === 'Engineering', 'border-green-300 text-green-700': inq.assigned_to === 'CSR', 'border-gray-300 text-gray-500': !inq.assigned_to || inq.assigned_to === 'Customer' }
+                                ]">
                         </div>
                     </div>
 
