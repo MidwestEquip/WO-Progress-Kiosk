@@ -131,6 +131,30 @@ export async function submitEngInquiry() {
     await loadEngInquiries();
 }
 
+// openEngNoteModal — open the add-note popup for a specific log field on a card.
+export function openEngNoteModal(inq, field, entryKey, title) {
+    store.engNoteModalContext.value = { inq, field, entryKey, title };
+    store.engNoteModalText.value    = '';
+    store.engNoteModalOpen.value    = true;
+}
+
+// submitEngNoteModal — confirm the popup: write text into engNewEntries then append.
+export async function submitEngNoteModal() {
+    const ctx = store.engNoteModalContext.value;
+    if (!ctx) return;
+    const key = ctx.inq.id + '_' + ctx.entryKey;
+    store.engNewEntries.value[key] = store.engNoteModalText.value;
+    if (ctx.entryKey === 'action') ctx.inq.action_step_unread = true;
+    store.engNoteModalOpen.value   = false;
+    await appendEngNote(ctx.inq, ctx.field, ctx.entryKey);
+}
+
+// markActionStepRead — clear the unread flag on an inquiry's action step.
+export async function markActionStepRead(inq) {
+    inq.action_step_unread = false;
+    await saveEngInquiryInline(inq);
+}
+
 // appendEngNote — timestamp and append a new log entry to a note field, then save inline.
 export async function appendEngNote(inq, field, entryKey) {
     const key     = inq.id + '_' + entryKey;
@@ -173,6 +197,7 @@ export async function saveEngInquiryInline(inq) {
         engineering_notes:        inq.engineering_notes        || null,
         current_action_step:      inq.current_action_step      || null,
         action_step_due_date:     inq.action_step_due_date     || null,
+        action_step_unread:       inq.action_step_unread       ?? false,
         status:                   inq.status                   || null,
         assigned_to:              inq.assigned_to              || null,
         priority:                 inq.priority                 || null,

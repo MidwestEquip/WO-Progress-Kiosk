@@ -243,3 +243,24 @@
 
     </div>
 </div>
+
+<!-- ADD-NOTE POPUP (CSR Notes / Engineering Notes / Action Step) -->
+<div v-if="engNoteModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="engNoteModalOpen = false">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <span class="font-bold text-gray-800 text-base">{{ engNoteModalContext?.title }}</span>
+            <button @click="engNoteModalOpen = false" class="text-gray-400 hover:text-gray-600 p-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="p-5 space-y-4">
+            <textarea v-model="engNoteModalText" rows="4" placeholder="Type note here…"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:border-rose-400 text-gray-800"
+                @keydown.ctrl.enter.prevent="submitEngNoteModal()" autofocus></textarea>
+            <div class="flex gap-3">
+                <button @click="engNoteModalOpen = false" class="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm font-semibold">Cancel</button>
+                <button @click="submitEngNoteModal()" :disabled="!engNoteModalText.trim()" class="flex-1 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-sm font-bold active:scale-95 disabled:opacity-40">Add Note</button>
+            </div>
+        </div>
+    </div>
+</div>

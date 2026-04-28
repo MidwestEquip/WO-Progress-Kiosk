@@ -37,6 +37,11 @@ export const engImagesLoading   = ref(false);
 // Per-card new log entry inputs, keyed as `${inq.id}_csr`, `_eng`, `_action`
 export const engNewEntries = ref({});
 
+// Add-note popup modal
+export const engNoteModalOpen    = ref(false);
+export const engNoteModalContext = ref(null); // { inq, field, entryKey, title }
+export const engNoteModalText    = ref('');
+
 // Delete confirmation modal
 export const engDeleteConfirmOpen = ref(false);
 export const engDeleteTarget      = ref(null);

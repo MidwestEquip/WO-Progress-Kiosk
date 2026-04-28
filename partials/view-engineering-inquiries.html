@@ -88,7 +88,7 @@
         <div v-else class="space-y-4">
             <div v-for="inq in filteredEngInquiries" :key="inq.id"
                 class="bg-white rounded-xl shadow-sm border-l-4 border border-gray-200 overflow-hidden flex items-stretch"
-                style="height:175px"
+                style="height:128px"
                 :class="{
                     'border-l-red-500':    inq.priority === 'Urgent',
                     'border-l-orange-400': inq.priority === 'High',
@@ -141,59 +141,59 @@
                         </div>
 
                         <!-- Field rows -->
-                        <div class="flex-1 min-h-0 px-4 py-2.5 space-y-2 overflow-hidden">
+                        <div class="flex-1 min-h-0 px-4 py-1.5 space-y-1 overflow-hidden">
 
                             <!-- Customer Info row -->
-                            <div class="flex items-start gap-3">
-                                <span class="text-[11px] font-bold text-gray-600 uppercase tracking-wide shrink-0 w-24 pt-1.5">Customer Info</span>
-                                <div class="flex items-start flex-nowrap gap-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-[11px] font-bold text-gray-600 uppercase tracking-wide shrink-0 w-24">Customer Info</span>
+                                <div class="flex items-center flex-nowrap gap-2">
                                     <div class="shrink-0">
-                                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Name</label>
-                                        <input v-model="inq.customer_name" type="text" maxlength="100" @blur="saveEngInquiryInline(inq)" class="w-28 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Name</label>
+                                        <input v-model="inq.customer_name" type="text" maxlength="100" @blur="saveEngInquiryInline(inq)" class="w-28 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                     </div>
                                     <div class="shrink-0">
-                                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Phone</label>
-                                        <input v-model="inq.customer_phone" type="text" maxlength="30" @blur="saveEngInquiryInline(inq)" class="w-28 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Phone</label>
+                                        <input v-model="inq.customer_phone" type="text" maxlength="30" @blur="saveEngInquiryInline(inq)" class="w-28 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                     </div>
                                     <div class="shrink-0">
-                                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Email</label>
-                                        <input v-model="inq.customer_email" type="email" maxlength="100" @blur="saveEngInquiryInline(inq)" class="w-44 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Email</label>
+                                        <input v-model="inq.customer_email" type="email" maxlength="100" @blur="saveEngInquiryInline(inq)" class="w-44 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                     </div>
                                     <div class="shrink-0">
-                                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Sales Order #</label>
-                                        <input v-model="inq.sales_order_number" type="text" maxlength="30" @blur="saveEngInquiryInline(inq)" class="w-20 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Sales Order #</label>
+                                        <input v-model="inq.sales_order_number" type="text" maxlength="30" @blur="saveEngInquiryInline(inq)" class="w-20 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Mower Info row -->
-                            <div class="flex items-start gap-3">
-                                <span class="text-[11px] font-bold text-gray-600 uppercase tracking-wide shrink-0 w-24 pt-1.5">Mower Info</span>
-                                <div class="flex items-start flex-nowrap gap-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-[11px] font-bold text-gray-600 uppercase tracking-wide shrink-0 w-24">Mower Info</span>
+                                <div class="flex items-center flex-nowrap gap-2">
                                     <div class="shrink-0">
-                                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Brand</label>
-                                        <input v-model="inq.brand" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-28 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Brand</label>
+                                        <input v-model="inq.brand" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-28 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                     </div>
                                     <template v-if="inq.inquiry_type !== 'hitch'">
                                         <div class="shrink-0">
-                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Deck Model</label>
-                                            <input v-model="inq.deck_model" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-28 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Deck Model</label>
+                                            <input v-model="inq.deck_model" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-28 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                         </div>
                                         <div class="shrink-0">
-                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Deck Width</label>
-                                            <input v-model="inq.deck_width" type="text" maxlength="20" @blur="saveEngInquiryInline(inq)" class="w-12 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Deck Width</label>
+                                            <input v-model="inq.deck_width" type="text" maxlength="20" @blur="saveEngInquiryInline(inq)" class="w-12 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                         </div>
                                         <div class="shrink-0">
-                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Year</label>
-                                            <input v-model="inq.year" type="text" maxlength="10" @blur="saveEngInquiryInline(inq)" class="w-12 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Year</label>
+                                            <input v-model="inq.year" type="text" maxlength="10" @blur="saveEngInquiryInline(inq)" class="w-12 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                         </div>
                                         <div class="shrink-0">
-                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Deck Model #</label>
-                                            <input v-model="inq.deck_model_number" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-28 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Deck Model #</label>
+                                            <input v-model="inq.deck_model_number" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-28 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                         </div>
                                         <div class="shrink-0">
-                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Hose Size</label>
-                                            <select v-model="inq.hose_size" @change="saveEngInquiryInline(inq)" class="w-16 px-1 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400 bg-white">
+                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hose Size</label>
+                                            <select v-model="inq.hose_size" @change="saveEngInquiryInline(inq)" class="w-16 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                                 <option value="">—</option>
                                                 <option value='6"'>6"</option>
                                                 <option value='7"'>7"</option>
@@ -203,16 +203,16 @@
                                     </template>
                                     <template v-else>
                                         <div class="shrink-0">
-                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Mower Model</label>
-                                            <input v-model="inq.mower_model" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-32 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Mower Model</label>
+                                            <input v-model="inq.mower_model" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-32 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                         </div>
                                         <div class="shrink-0">
-                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Trac Vac Trailer</label>
-                                            <input v-model="inq.trac_vac_trailer_model" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-32 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Trac Vac Trailer</label>
+                                            <input v-model="inq.trac_vac_trailer_model" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)" class="w-32 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                         </div>
                                         <div class="shrink-0">
-                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Year</label>
-                                            <input v-model="inq.year" type="text" maxlength="10" @blur="saveEngInquiryInline(inq)" class="w-12 px-1.5 py-1 border border-gray-300 rounded text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Year</label>
+                                            <input v-model="inq.year" type="text" maxlength="10" @blur="saveEngInquiryInline(inq)" class="w-12 px-0 py-0.5 bg-transparent border-0 border-b border-gray-200 text-gray-800 text-xs focus:outline-none focus:border-rose-400">
                                         </div>
                                     </template>
                                 </div>
@@ -222,25 +222,22 @@
 
                     </div>
 
-                    <!-- Part # column — 3 bands aligned with header / Customer Info / Mower Info rows -->
-                    <div class="shrink-0 border-l border-gray-200 flex flex-col" style="width:148px">
-                        <!-- Band 1: aligned with header (Images row) -->
-                        <div class="shrink-0 bg-gray-50/60 border-b border-gray-100 px-3 py-2">
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Part # Trying</label>
+                    <!-- Part # column -->
+                    <div class="shrink-0 border-l border-gray-200 flex flex-col pt-1 px-3 gap-0.5" style="width:140px">
+                        <div>
+                            <label class="block text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Part # Trying</label>
                             <input v-model="inq.part_number_trying" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)"
-                                class="w-full px-1.5 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs font-mono focus:outline-none focus:border-rose-400">
+                                class="w-full px-0 py-px bg-transparent border-0 border-b border-gray-200 text-gray-800 text-[10px] font-mono focus:outline-none focus:border-rose-400">
                         </div>
-                        <!-- Band 2: aligned with Customer Info / Sales Order # -->
-                        <div class="flex-1 border-b border-gray-100 px-3 flex flex-col justify-center">
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Wrong #(s)</label>
+                        <div>
+                            <label class="block text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Wrong #(s)</label>
                             <input v-model="inq.wrong_numbers" type="text" maxlength="200" @blur="saveEngInquiryInline(inq)"
-                                class="w-full px-1.5 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs focus:outline-none focus:border-rose-400">
+                                class="w-full px-0 py-px bg-transparent border-0 border-b border-gray-200 text-gray-800 text-[10px] focus:outline-none focus:border-rose-400">
                         </div>
-                        <!-- Band 3: aligned with Deck Model / Hitch–Ground -->
-                        <div class="flex-1 px-3 flex flex-col justify-center">
-                            <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Correct Part #</label>
+                        <div>
+                            <label class="block text-[9px] font-semibold text-gray-400 uppercase tracking-wide">Correct Part #</label>
                             <input v-model="inq.correct_part_number" type="text" maxlength="60" @blur="saveEngInquiryInline(inq)"
-                                class="w-full px-1.5 py-1 border border-gray-300 rounded bg-white text-gray-800 text-xs font-mono focus:outline-none focus:border-rose-400">
+                                class="w-full px-0 py-px bg-transparent border-0 border-b border-gray-200 text-gray-800 text-[10px] font-mono focus:outline-none focus:border-rose-400">
                         </div>
                     </div>
 
@@ -257,57 +254,48 @@
                             <span class="text-[10px] font-semibold text-gray-400 shrink-0">CSR Rep:</span>
                             <input v-model="inq.csr_rep" type="text" maxlength="60" placeholder="Name" @blur="saveEngInquiryInline(inq)"
                                 class="flex-1 min-w-0 bg-transparent border-0 border-b border-gray-200 text-xs text-gray-700 font-semibold focus:outline-none focus:border-rose-300 placeholder-gray-300">
+                            <button @click="openEngNoteModal(inq, 'csr_notes', 'csr', 'Add CSR Note')" class="shrink-0 bg-rose-100 hover:bg-rose-200 text-rose-700 px-2 py-0.5 rounded text-xs font-bold active:scale-95">+ Add</button>
                         </div>
                         <pre class="flex-1 min-h-0 overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap px-1.5 py-1 bg-gray-50 border border-gray-200 rounded leading-relaxed">{{ inq.csr_notes || '' }}</pre>
-                        <div class="shrink-0 flex gap-1 mt-1">
-                            <textarea v-model="engNewEntries[inq.id + '_csr']" rows="2" placeholder="Add note…" class="flex-1 px-1.5 py-1 border border-gray-300 rounded text-xs resize-none focus:outline-none focus:border-rose-400"></textarea>
-                            <button @click="appendEngNote(inq, 'csr_notes', 'csr')" class="shrink-0 self-end bg-rose-100 hover:bg-rose-200 text-rose-700 px-2 py-1 rounded text-xs font-bold active:scale-95">Add</button>
-                        </div>
                     </div>
 
                     <!-- Engineering Notes log -->
                     <div class="flex flex-col flex-1 px-2 pt-2 pb-2 border-r border-gray-100 min-w-0">
-                        <label class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5 shrink-0">Engineering Notes</label>
-                        <pre class="flex-1 min-h-0 overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap px-1.5 py-1 bg-gray-50 border border-gray-200 rounded leading-relaxed">{{ inq.engineering_notes || '' }}</pre>
-                        <div class="shrink-0 flex gap-1 mt-1">
-                            <textarea v-model="engNewEntries[inq.id + '_eng']" rows="2" placeholder="Add note…" class="flex-1 px-1.5 py-1 border border-gray-300 rounded text-xs resize-none focus:outline-none focus:border-blue-400"></textarea>
-                            <button @click="appendEngNote(inq, 'engineering_notes', 'eng')" class="shrink-0 self-end bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded text-xs font-bold active:scale-95">Add</button>
+                        <div class="shrink-0 flex items-center justify-between mb-0.5">
+                            <label class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Engineering Notes</label>
+                            <button @click="openEngNoteModal(inq, 'engineering_notes', 'eng', 'Add Engineering Note')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded text-xs font-bold active:scale-95">+ Add</button>
                         </div>
+                        <pre class="flex-1 min-h-0 overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap px-1.5 py-1 bg-gray-50 border border-gray-200 rounded leading-relaxed">{{ inq.engineering_notes || '' }}</pre>
                     </div>
 
-                    <!-- Action Step log — header: label + assigned to -->
-                    <div class="flex flex-col flex-1 min-w-0"
-                        :class="{ 'bg-blue-50': inq.assigned_to === 'Engineering', 'bg-green-50': inq.assigned_to === 'CSR' }">
+                    <!-- Action Step log — header: label + assigned to + due date -->
+                    <div class="flex flex-col flex-1 min-w-0 transition-colors"
+                        :class="inq.action_step_unread ? 'bg-pink-50' : inq.assigned_to === 'Engineering' ? 'bg-blue-50' : inq.assigned_to === 'CSR' ? 'bg-green-50' : ''">
                         <div class="shrink-0 flex items-center gap-1.5 px-2 pt-2 pb-1.5 border-b"
-                            :class="{ 'border-blue-100': inq.assigned_to === 'Engineering', 'border-green-100': inq.assigned_to === 'CSR', 'border-gray-100': !inq.assigned_to || inq.assigned_to === 'Customer' }">
+                            :class="inq.action_step_unread ? 'border-pink-200' : inq.assigned_to === 'Engineering' ? 'border-blue-100' : inq.assigned_to === 'CSR' ? 'border-green-100' : 'border-gray-100'">
                             <span class="text-[10px] font-semibold uppercase tracking-wide shrink-0"
-                                :class="{ 'text-blue-600': inq.assigned_to === 'Engineering', 'text-green-600': inq.assigned_to === 'CSR', 'text-gray-400': !inq.assigned_to || inq.assigned_to === 'Customer' }">Action Step</span>
+                                :class="inq.action_step_unread ? 'text-pink-600' : inq.assigned_to === 'Engineering' ? 'text-blue-600' : inq.assigned_to === 'CSR' ? 'text-green-600' : 'text-gray-400'">Action Step</span>
                             <span class="text-[10px] text-gray-300 shrink-0">—</span>
-                            <span class="text-[10px] font-semibold text-gray-400 shrink-0">Assigned to:</span>
                             <select v-model="inq.assigned_to" @change="saveEngInquiryInline(inq)"
-                                class="appearance-none rounded-full px-2 py-0.5 text-xs font-bold cursor-pointer focus:outline-none"
+                                class="appearance-none rounded-full px-2 py-0.5 text-xs font-bold cursor-pointer focus:outline-none shrink-0"
                                 :class="{ 'bg-blue-100 text-blue-700': inq.assigned_to === 'Engineering', 'bg-green-100 text-green-700': inq.assigned_to === 'CSR', 'bg-gray-100 text-gray-600': !inq.assigned_to || inq.assigned_to === 'Customer' }">
-                                <option value="">— Select —</option>
+                                <option value="">— Assign —</option>
                                 <option v-for="a in engAssignees" :key="a" :value="a">{{ a }}</option>
                             </select>
-                        </div>
-                        <pre class="flex-1 min-h-0 overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap px-2 py-1 leading-relaxed bg-transparent">{{ inq.current_action_step || '' }}</pre>
-                        <div class="shrink-0 flex gap-1 px-2 mt-1">
-                            <textarea v-model="engNewEntries[inq.id + '_action']" rows="2" placeholder="Add step…" class="flex-1 px-1.5 py-1 border border-gray-300 rounded text-xs resize-none focus:outline-none bg-white/80"
-                                :class="{ 'focus:border-blue-400': inq.assigned_to === 'Engineering', 'focus:border-green-400': inq.assigned_to === 'CSR', 'focus:border-rose-400': !inq.assigned_to || inq.assigned_to === 'Customer' }"></textarea>
-                            <button @click="appendEngNote(inq, 'current_action_step', 'action')" class="shrink-0 self-end px-2 py-1 rounded text-xs font-bold active:scale-95"
-                                :class="{ 'bg-blue-100 hover:bg-blue-200 text-blue-700': inq.assigned_to === 'Engineering', 'bg-green-100 hover:bg-green-200 text-green-700': inq.assigned_to === 'CSR', 'bg-gray-100 hover:bg-gray-200 text-gray-600': !inq.assigned_to || inq.assigned_to === 'Customer' }">Add</button>
-                        </div>
-                        <div class="shrink-0 flex items-center gap-1.5 px-2 pt-1 pb-2">
-                            <label class="text-[9px] font-semibold uppercase tracking-wide shrink-0 opacity-50"
-                                :class="{ 'text-blue-700': inq.assigned_to === 'Engineering', 'text-green-700': inq.assigned_to === 'CSR', 'text-gray-500': !inq.assigned_to || inq.assigned_to === 'Customer' }">Due</label>
                             <input v-model="inq.action_step_due_date" type="date" @blur="saveEngInquiryInline(inq)"
                                 :disabled="sessionRole !== 'manager'"
-                                class="text-xs bg-transparent border-0 border-b focus:outline-none"
-                                :class="[
-                                    sessionRole === 'manager' ? 'cursor-pointer' : 'cursor-default opacity-50',
-                                    { 'border-blue-300 text-blue-700': inq.assigned_to === 'Engineering', 'border-green-300 text-green-700': inq.assigned_to === 'CSR', 'border-gray-300 text-gray-500': !inq.assigned_to || inq.assigned_to === 'Customer' }
-                                ]">
+                                title="Due date"
+                                class="text-[10px] bg-transparent border-0 border-b focus:outline-none shrink-0"
+                                :class="[sessionRole === 'manager' ? 'cursor-pointer' : 'cursor-default opacity-50', inq.action_step_unread ? 'border-pink-300 text-pink-600' : inq.assigned_to === 'Engineering' ? 'border-blue-300 text-blue-700' : inq.assigned_to === 'CSR' ? 'border-green-300 text-green-700' : 'border-gray-300 text-gray-500']">
+                        </div>
+                        <pre class="flex-1 min-h-0 overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap px-2 py-1 leading-relaxed bg-transparent">{{ inq.current_action_step || '' }}</pre>
+                        <div class="shrink-0 flex items-center gap-1 px-2 pb-1.5">
+                            <button v-if="inq.action_step_unread" @click="markActionStepRead(inq)"
+                                class="bg-pink-200 hover:bg-pink-300 text-pink-700 px-2 py-0.5 rounded text-xs font-bold active:scale-95">✓ Read</button>
+                            <div class="flex-1"></div>
+                            <button @click="openEngNoteModal(inq, 'current_action_step', 'action', 'Add Action Step')"
+                                class="px-2 py-0.5 rounded text-xs font-bold active:scale-95"
+                                :class="inq.action_step_unread ? 'bg-pink-100 hover:bg-pink-200 text-pink-700' : inq.assigned_to === 'Engineering' ? 'bg-blue-100 hover:bg-blue-200 text-blue-700' : inq.assigned_to === 'CSR' ? 'bg-green-100 hover:bg-green-200 text-green-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'">+ Add</button>
                         </div>
                     </div>
 
