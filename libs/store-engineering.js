@@ -64,12 +64,26 @@ export const filteredEngCompleted = computed(() => {
     );
 });
 
-// filteredEngInquiries — filters by status/priority/assignee then sorts.
+// Text search for active inquiries — customer name is the primary field
+export const engInquirySearch = ref('');
+
+// filteredEngInquiries — filters by status/priority/assignee + text search, then sorts.
 export const filteredEngInquiries = computed(() => {
     let list = engInquiries.value;
     if (engStatusFilter.value)   list = list.filter(r => r.status      === engStatusFilter.value);
     if (engPriorityFilter.value) list = list.filter(r => r.priority    === engPriorityFilter.value);
     if (engAssigneeFilter.value) list = list.filter(r => r.assigned_to === engAssigneeFilter.value);
+    const q = engInquirySearch.value.trim().toLowerCase();
+    if (q) list = list.filter(r =>
+        (r.customer_name        || '').toLowerCase().includes(q) ||
+        (r.sales_order_number   || '').toLowerCase().includes(q) ||
+        (r.part_number_trying   || '').toLowerCase().includes(q) ||
+        (r.correct_part_number  || '').toLowerCase().includes(q) ||
+        (r.brand                || '').toLowerCase().includes(q) ||
+        (r.deck_model           || '').toLowerCase().includes(q) ||
+        (r.wrong_numbers        || '').toLowerCase().includes(q) ||
+        (r.csr_rep              || '').toLowerCase().includes(q)
+    );
 
     const PRIORITY = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
     const STATUS   = { 'Not Started': 0, 'In Progress': 1, 'Ready to Design': 2,

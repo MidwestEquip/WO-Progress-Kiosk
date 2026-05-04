@@ -1,8 +1,8 @@
 // ============================================================
 // libs/db.js — Core Supabase operations + re-export hub
 //
-// Contains: dashboard queries, updateOrderStatus, undo, manual WO,
-//           notes, insertProgressEvent.
+// Contains: dashboard queries, updateOrderStatus, undo, manual WO, notes.
+// Activity logging helpers (insertProgressEvent, time sessions) live in db-activity.js.
 // All other domain functions live in db-*.js sub-files and are
 // re-exported here so callers can keep: import * as db from './db.js'
 //
@@ -12,9 +12,11 @@
 // ============================================================
 
 import { supabase, withRetry, DEPT_ALIASES, normalizeDept } from './db-shared.js';
+import { insertProgressEvent, openTimeSession, closeTimeSession, closeAllOpenSessions } from './db-activity.js';
 
-// Re-export shared helpers (db-assy.js imports withRetry from here)
 export { withRetry, supabase } from './db-shared.js';
+// Re-export activity helpers so existing callers of db.js keep working
+export { insertProgressEvent, openTimeSession, closeTimeSession, closeAllOpenSessions } from './db-activity.js';
 
 // Re-export all domain sub-files so callers need only one import
 export * from './db-office.js';
@@ -134,79 +136,95 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
     }
     updates.notes = currentOrder.notes ? currentOrder.notes + '\n' + newLine : newLine;
 
-    // Log Fab/Weld actions to wo_progress_events (fire-and-forget)
-    if (isFabWeld) {
-        insertProgressEvent({
-            workOrderId:        id,
-            woNumber:           currentOrder.wo_number || '',
-            department:         currentOrder.department,
-            stage:              null,
-            operatorName:       opName,
-            action:             newStatus,
-            sessionQty:         sessionQty,
-            cumulativeQtyAfter: updates.qty_completed || 0,
-            reason:             actionForm.holdReason || ''
-        });
-    }
-
-    // ── Time session tracking (fire-and-forget) ───────────────
+    // Capture session intent before update for post-confirmation logging
     const prevStatus      = currentOrder.status;
     const activeStatuses  = ['started', 'resumed'];
     const closingStatuses = ['paused', 'on_hold', 'completed'];
     const openingStatuses = ['started', 'resumed'];
-
-    if (openingStatuses.includes(overallStatus) && !activeStatuses.includes(prevStatus)) {
-        openTimeSession({
-            woId: id, woNumber: currentOrder.wo_number || '',
-            department: currentOrder.department, operator: opName, stage: null,
-        });
-    } else if (closingStatuses.includes(overallStatus) && activeStatuses.includes(prevStatus)) {
-        closeTimeSession({ woId: id, stage: null, endStatus: overallStatus, sessionQty });
-    }
+    const shouldOpenSession  = openingStatuses.includes(overallStatus) && !activeStatuses.includes(prevStatus);
+    const shouldCloseSession = closingStatuses.includes(overallStatus) && activeStatuses.includes(prevStatus);
 
     updates.updated_at = now;
 
     // Conflict check: if the row was modified since the action panel opened, bail out.
     // Rows with null updated_at (pre-migration) skip this guard and write normally.
-    return withRetry(async () => {
+    const result = await withRetry(async () => {
         const query = supabase.from('work_orders').update(updates).eq('id', id);
         const filtered = currentOrder.updated_at
             ? query.eq('updated_at', currentOrder.updated_at)
             : query;
-        const result = await filtered.select();
-        if (!result.error && result.data && result.data.length === 0) {
+        const r = await filtered.select();
+        if (!r.error && r.data && r.data.length === 0) {
             return { data: null, error: null, conflict: true };
         }
-        return result;
+        return r;
     });
+
+    // Fire side-effects only after a confirmed successful write
+    if (!result.error && !result.conflict) {
+        if (isFabWeld) {
+            insertProgressEvent({
+                workOrderId:        id,
+                woNumber:           currentOrder.wo_number || '',
+                department:         currentOrder.department,
+                stage:              null,
+                operatorName:       opName,
+                action:             newStatus,
+                sessionQty:         sessionQty,
+                cumulativeQtyAfter: updates.qty_completed || 0,
+                reason:             actionForm.holdReason || ''
+            });
+        }
+        if (shouldOpenSession) {
+            openTimeSession({
+                woId: id, woNumber: currentOrder.wo_number || '',
+                department: currentOrder.department, operator: opName, stage: null,
+            });
+        } else if (shouldCloseSession) {
+            closeTimeSession({ woId: id, stage: null, endStatus: overallStatus, sessionQty });
+        }
+    }
+
+    return result;
 }
 
 // Undo: restore a previous snapshot of a work order
 export async function restoreOrderSnapshot(id, previousData) {
     if (!id || !previousData) return { data: null, error: new Error('Missing undo data') };
     const restore = {
-        status:                previousData.status,
-        qty_completed:         previousData.qty_completed,
-        operator:              previousData.operator,
-        notes:                 previousData.notes,
-        start_date:            previousData.start_date,
-        comp_date:             previousData.comp_date,
-        tc_pre_lap_status:     previousData.tc_pre_lap_status,
-        tc_pre_lap_operator:   previousData.tc_pre_lap_operator,
-        tc_final_status:       previousData.tc_final_status,
-        tc_final_operator:     previousData.tc_final_operator,
-        tc_packaging_status:   previousData.tc_packaging_status,
-        tc_packaging_operator: previousData.tc_packaging_operator,
-        tv_engine_status:      previousData.tv_engine_status,
-        tv_cart_status:        previousData.tv_cart_status,
-        tv_final_status:       previousData.tv_final_status,
-        fab_bring_to:          previousData.fab_bring_to,
-        weld_reel_status:      previousData.weld_reel_status,
-        grind_reel_status:     previousData.grind_reel_status,
-        weld_reel_operator:    previousData.weld_reel_operator,
-        grind_reel_operator:   previousData.grind_reel_operator,
-        weld_reel_qty:         previousData.weld_reel_qty,
-        grind_reel_qty:        previousData.grind_reel_qty,
+        status:                        previousData.status,
+        qty_completed:                 previousData.qty_completed,
+        operator:                      previousData.operator,
+        notes:                         previousData.notes,
+        start_date:                    previousData.start_date,
+        comp_date:                     previousData.comp_date,
+        tc_pre_lap_status:             previousData.tc_pre_lap_status,
+        tc_pre_lap_operator:           previousData.tc_pre_lap_operator,
+        tc_pre_lap_qty_completed:      previousData.tc_pre_lap_qty_completed,
+        tc_final_status:               previousData.tc_final_status,
+        tc_final_operator:             previousData.tc_final_operator,
+        tc_final_qty_completed:        previousData.tc_final_qty_completed,
+        tc_packaging_status:           previousData.tc_packaging_status,
+        tc_packaging_operator:         previousData.tc_packaging_operator,
+        tc_assy_notes_differences_mods: previousData.tc_assy_notes_differences_mods,
+        tv_engine_status:              previousData.tv_engine_status,
+        tv_engine_qty_completed:       previousData.tv_engine_qty_completed,
+        tv_cart_status:                previousData.tv_cart_status,
+        tv_cart_qty_completed:         previousData.tv_cart_qty_completed,
+        tv_final_status:               previousData.tv_final_status,
+        tv_final_qty_completed:        previousData.tv_final_qty_completed,
+        tv_assy_notes:                 previousData.tv_assy_notes,
+        unit_serial_number:            previousData.unit_serial_number,
+        engine:                        previousData.engine,
+        engine_serial_number:          previousData.engine_serial_number,
+        num_blades:                    previousData.num_blades,
+        fab_bring_to:                  previousData.fab_bring_to,
+        weld_reel_status:              previousData.weld_reel_status,
+        grind_reel_status:             previousData.grind_reel_status,
+        weld_reel_operator:            previousData.weld_reel_operator,
+        grind_reel_operator:           previousData.grind_reel_operator,
+        weld_reel_qty:                 previousData.weld_reel_qty,
+        grind_reel_qty:                previousData.grind_reel_qty,
     };
     return withRetry(() =>
         supabase.from('work_orders').update(restore).eq('id', id).select()
@@ -255,17 +273,6 @@ export async function updateReelOperation({ id, currentOrder, op, newStatus, opN
         updates.start_date = now;
     }
 
-    // ── Time session tracking ─────────────────────────────────
-    // stage = 'weld' or 'grind' — keeps the two ops' sessions separate.
-    if (newStatus === 'started') {
-        openTimeSession({
-            woId: id, woNumber: currentOrder.wo_number || '',
-            department: currentOrder.department, operator: opName, stage: op,
-        });
-    } else if (newStatus === 'paused' || newStatus === 'completed') {
-        closeTimeSession({ woId: id, stage: op, endStatus: newStatus, sessionQty });
-    }
-
     // Append a history note
     const ts = new Date().toLocaleString([], {
         month: '2-digit', day: '2-digit', year: 'numeric',
@@ -279,17 +286,31 @@ export async function updateReelOperation({ id, currentOrder, op, newStatus, opN
     }
     updates.notes = currentOrder.notes ? currentOrder.notes + '\n' + newLine : newLine;
 
-    return withRetry(async () => {
+    const result = await withRetry(async () => {
         const query    = supabase.from('work_orders').update(updates).eq('id', id);
         const filtered = currentOrder.updated_at
             ? query.eq('updated_at', currentOrder.updated_at)
             : query;
-        const result = await filtered.select();
-        if (!result.error && result.data && result.data.length === 0) {
+        const r = await filtered.select();
+        if (!r.error && r.data && r.data.length === 0) {
             return { data: null, error: null, conflict: true };
         }
-        return result;
+        return r;
     });
+
+    // Time session tracking — only after a confirmed successful write
+    if (!result.error && !result.conflict) {
+        if (newStatus === 'started') {
+            openTimeSession({
+                woId: id, woNumber: currentOrder.wo_number || '',
+                department: currentOrder.department, operator: opName, stage: op,
+            });
+        } else if (newStatus === 'paused' || newStatus === 'completed') {
+            closeTimeSession({ woId: id, stage: op, endStatus: newStatus, sessionQty });
+        }
+    }
+
+    return result;
 }
 
 // completeReelWo — marks a reel Weld WO as completed (explicit user action).
@@ -307,10 +328,7 @@ export async function completeReelWo({ id, currentOrder, opName }) {
     const newLine = `[${ts}] ${opName}: WO COMPLETED`;
     const notes   = currentOrder.notes ? currentOrder.notes + '\n' + newLine : newLine;
 
-    // Close any open reel time sessions before marking complete
-    closeAllOpenSessions({ woId: id, endStatus: 'completed', sessionQty: 0 });
-
-    return withRetry(async () => {
+    const result = await withRetry(async () => {
         const query = supabase.from('work_orders').update({
             status:     'completed',
             comp_date:  now,
@@ -321,12 +339,19 @@ export async function completeReelWo({ id, currentOrder, opName }) {
         const filtered = currentOrder.updated_at
             ? query.eq('updated_at', currentOrder.updated_at)
             : query;
-        const result = await filtered.select();
-        if (!result.error && result.data && result.data.length === 0) {
+        const r = await filtered.select();
+        if (!r.error && r.data && r.data.length === 0) {
             return { data: null, error: null, conflict: true };
         }
-        return result;
+        return r;
     });
+
+    // Close sessions only after WO is confirmed completed
+    if (!result.error && !result.conflict) {
+        closeAllOpenSessions({ woId: id, endStatus: 'completed', sessionQty: 0 });
+    }
+
+    return result;
 }
 
 // insertManualWorkOrder — creates a new work order row for all departments.
@@ -381,99 +406,6 @@ export async function appendManagerNote(id, existingNotes, authorName, noteConte
     return withRetry(() =>
         supabase.from('work_orders').update({ notes: combined }).eq('id', id).select()
     );
-}
-
-// ── Time session helpers (fire-and-forget) ────────────────────
-// openTimeSession — opens a new row in wo_time_sessions.
-// stage: 'weld'|'grind'|'tv_engine'|'tc_pre_lap'|'stock'|null, etc.
-// Exported so db-assy.js can import and use the same helpers.
-export function openTimeSession({ woId, woNumber, department, operator, stage = null }) {
-    supabase.from('wo_time_sessions').insert({
-        wo_id:      woId,
-        wo_number:  woNumber  || '',
-        department: department || '',
-        operator:   operator  || '',
-        stage:      stage     || null,
-        started_at: new Date().toISOString(),
-    }).then(({ error }) => {
-        if (error) console.warn('wo_time_sessions open failed:', error.message);
-    });
-}
-
-// closeTimeSession — closes the latest open session for this WO + stage.
-// Filtering by stage prevents TV/TC concurrent-stage rows from clobbering each other.
-// For Fab/Weld (stage=null) it matches rows where stage IS NULL.
-export function closeTimeSession({ woId, stage = null, endStatus, sessionQty = 0 }) {
-    const now = new Date().toISOString();
-    let q = supabase.from('wo_time_sessions')
-        .select('id, started_at')
-        .eq('wo_id', woId)
-        .is('ended_at', null);
-    q = stage ? q.eq('stage', stage) : q.is('stage', null);
-    q.order('started_at', { ascending: false })
-        .limit(1)
-        .single()
-        .then(({ data: session, error }) => {
-            if (error || !session) return;
-            const durationMinutes = Math.round(
-                (new Date(now) - new Date(session.started_at)) / 60000
-            );
-            supabase.from('wo_time_sessions').update({
-                ended_at:         now,
-                duration_minutes: durationMinutes,
-                end_status:       endStatus,
-                qty_this_session: sessionQty,
-            }).eq('id', session.id).then(({ error: e }) => {
-                if (e) console.warn('wo_time_sessions close failed:', e.message);
-            });
-        });
-}
-
-// closeAllOpenSessions — closes every open session for a WO (used on manual TC WO complete).
-export function closeAllOpenSessions({ woId, endStatus, sessionQty = 0 }) {
-    const now = new Date().toISOString();
-    supabase.from('wo_time_sessions')
-        .select('id, started_at')
-        .eq('wo_id', woId)
-        .is('ended_at', null)
-        .then(({ data: sessions, error }) => {
-            if (error || !sessions || !sessions.length) return;
-            sessions.forEach(session => {
-                const durationMinutes = Math.round(
-                    (new Date(now) - new Date(session.started_at)) / 60000
-                );
-                supabase.from('wo_time_sessions').update({
-                    ended_at:         now,
-                    duration_minutes: durationMinutes,
-                    end_status:       endStatus,
-                    qty_this_session: sessionQty,
-                }).eq('id', session.id).then(({ error: e }) => {
-                    if (e) console.warn('wo_time_sessions closeAll failed:', e.message);
-                });
-            });
-        });
-}
-
-// ── Progress event logging ────────────────────────────────────
-// Fire-and-forget: inserts one row into wo_progress_events.
-// Failures are logged to console only — never blocks the main action.
-// Also imported by db-assy.js.
-export async function insertProgressEvent({ workOrderId, woNumber, department, stage, operatorName, action, sessionQty, cumulativeQtyAfter, reason }) {
-    try {
-        await supabase.from('wo_progress_events').insert([{
-            work_order_id:        workOrderId  || null,
-            wo_number:            woNumber     || '',
-            department:           department   || '',
-            stage:                stage        || null,
-            operator_name:        operatorName || '',
-            action:               action       || '',
-            session_qty:          parseFloat(sessionQty)         || 0,
-            cumulative_qty_after: parseFloat(cumulativeQtyAfter) || 0,
-            reason:               reason       || null
-        }]);
-    } catch (err) {
-        console.warn('[insertProgressEvent] failed silently:', err);
-    }
 }
 
 // fetchAppSetting — read a single key from app_settings. Returns value string or null.

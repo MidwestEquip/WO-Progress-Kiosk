@@ -68,6 +68,25 @@
         </button>
     </div>
 
+    <!-- Search bar -->
+    <div class="shrink-0 border-b border-gray-200 bg-white px-6 py-3 flex items-center gap-3">
+        <div class="relative flex-1 max-w-md">
+            <input v-model="engInquirySearch" type="text"
+                placeholder="Search customer name, part #, SO#..."
+                class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:border-rose-400 transition-colors">
+            <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+            </svg>
+        </div>
+        <button v-if="engInquirySearch" @click="engInquirySearch = ''"
+            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-lg text-sm transition-colors">
+            &#10005; Clear
+        </button>
+        <span v-if="engInquirySearch.trim()" class="text-sm text-gray-400">
+            {{ filteredEngInquiries.length }} result{{ filteredEngInquiries.length === 1 ? '' : 's' }}
+        </span>
+    </div>
+
     <!-- List -->
     <div class="flex-1 min-h-0 overflow-y-auto p-6">
 

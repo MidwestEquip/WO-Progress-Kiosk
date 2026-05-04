@@ -24,6 +24,9 @@ export * from './store-assy.js';
 export * from './store-inventory.js';
 export * from './store-engineering.js';
 
+// ── Version update banner ─────────────────────────────────────
+export const versionUpdateAvailable = ref(false);
+
 // ── Navigation ────────────────────────────────────────────────
 export const currentView   = ref('login');
 export const selectedDept  = ref('');
@@ -45,6 +48,21 @@ export const closeoutOrders  = ref([]);
 export const completedDeptOrders  = ref([]);
 export const closedOutDeptOrders  = ref([]);
 export const showingCompletedDept = ref(false);
+export const completedDeptSearch  = ref('');
+
+// Filters both completed-dept tables by WO#, Part#, Description, or Operator
+function _completedDeptFilter(list) {
+    const q = completedDeptSearch.value.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(o =>
+        (o.wo_number        || '').toLowerCase().includes(q) ||
+        (o.part_number      || '').toLowerCase().includes(q) ||
+        (o.description      || '').toLowerCase().includes(q) ||
+        (o.assigned_operator|| '').toLowerCase().includes(q)
+    );
+}
+export const filteredCompletedDeptOrders  = computed(() => _completedDeptFilter(completedDeptOrders.value));
+export const filteredClosedOutDeptOrders  = computed(() => _completedDeptFilter(closedOutDeptOrders.value));
 
 // ── Action panel ──────────────────────────────────────────────
 export const actionPanelOpen   = ref(false);
@@ -150,25 +168,40 @@ export function showToast(msg, type = 'error', durationMs = 4000) {
 
 // ── Computed ──────────────────────────────────────────────────
 
-// Stage cumulative qty derived from notes history
+// Stage cumulative qty — prefer dedicated DB column; fall back to notes parsing for pre-column rows.
 export const tvEngineCum = computed(() => {
-    const lines = (activeOrder.value?.notes || '').split('\n').filter(l => l.startsWith('TVENG|'));
+    const o = activeOrder.value;
+    if (!o) return 0;
+    if (o.tv_engine_qty_completed != null) return parseFloat(o.tv_engine_qty_completed) || 0;
+    const lines = (o.notes || '').split('\n').filter(l => l.startsWith('TVENG|'));
     return lines.length ? parseFloat(lines.at(-1).split('|')[5]) || 0 : 0;
 });
 export const tvCartCum = computed(() => {
-    const lines = (activeOrder.value?.notes || '').split('\n').filter(l => l.startsWith('TVCRT|'));
+    const o = activeOrder.value;
+    if (!o) return 0;
+    if (o.tv_cart_qty_completed != null) return parseFloat(o.tv_cart_qty_completed) || 0;
+    const lines = (o.notes || '').split('\n').filter(l => l.startsWith('TVCRT|'));
     return lines.length ? parseFloat(lines.at(-1).split('|')[5]) || 0 : 0;
 });
 export const tvFinalCum = computed(() => {
-    const lines = (activeOrder.value?.notes || '').split('\n').filter(l => l.startsWith('TVFIN|'));
+    const o = activeOrder.value;
+    if (!o) return 0;
+    if (o.tv_final_qty_completed != null) return parseFloat(o.tv_final_qty_completed) || 0;
+    const lines = (o.notes || '').split('\n').filter(l => l.startsWith('TVFIN|'));
     return lines.length ? parseFloat(lines.at(-1).split('|')[5]) || 0 : 0;
 });
 export const tcPreCum = computed(() => {
-    const lines = (activeOrder.value?.notes || '').split('\n').filter(l => l.startsWith('TCPRE|'));
+    const o = activeOrder.value;
+    if (!o) return 0;
+    if (o.tc_pre_lap_qty_completed != null) return parseFloat(o.tc_pre_lap_qty_completed) || 0;
+    const lines = (o.notes || '').split('\n').filter(l => l.startsWith('TCPRE|'));
     return lines.length ? parseFloat(lines.at(-1).split('|')[5]) || 0 : 0;
 });
 export const tcFinCum = computed(() => {
-    const lines = (activeOrder.value?.notes || '').split('\n').filter(l => l.startsWith('TCFIN|'));
+    const o = activeOrder.value;
+    if (!o) return 0;
+    if (o.tc_final_qty_completed != null) return parseFloat(o.tc_final_qty_completed) || 0;
+    const lines = (o.notes || '').split('\n').filter(l => l.startsWith('TCFIN|'));
     return lines.length ? parseFloat(lines.at(-1).split('|')[5]) || 0 : 0;
 });
 

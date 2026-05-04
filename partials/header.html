@@ -45,3 +45,9 @@
             class="bg-red-700 text-white text-center font-bold py-2 px-4 text-sm shrink-0 z-20">
             &#9888; No connection to server &mdash; changes may not be saved. Retrying&hellip;
         </div>
+        <!-- Version update banner -->
+        <div v-if="versionUpdateAvailable"
+            class="bg-amber-500 text-slate-900 text-center font-bold py-2 px-4 text-sm shrink-0 z-20 flex items-center justify-center gap-4">
+            <span>&#8635; A new version is available &mdash; reloading shortly&hellip;</span>
+            <button @click="location.reload()" class="underline font-extrabold hover:text-slate-700">Reload Now</button>
+        </div>

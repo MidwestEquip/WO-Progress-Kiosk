@@ -8,7 +8,7 @@
 import * as store  from '../libs/store.js';
 import * as db     from '../libs/db.js';
 import * as dbAssy from '../libs/db-assy.js';
-import { isNonEmpty, detectTcMode } from '../libs/utils.js';
+import { isNonEmpty, detectTcMode, deepClone } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
 // ── loadWoFiles ───────────────────────────────────────────────
@@ -185,6 +185,7 @@ export async function submitTcStockActionFromUi() {
     const STATUS_MAP = { start: 'started', pause: 'paused', resume: 'started', complete: 'completed', hold: 'on_hold', cant_start: null };
     const keepStatus = pending === 'cant_start';
 
+    const previousSnapshot = deepClone(order);
     store.loading.value = true;
     try {
         const result = await dbAssy.submitTcStockAction({
@@ -206,6 +207,11 @@ export async function submitTcStockActionFromUi() {
         store.tcStockReason.value     = '';
         store.tcStockNotes.value      = updated.tc_assy_notes_differences_mods || '';
         store.showToast('Action recorded', 'success');
+        store.lastUndoAction.value = {
+            id: order.id, previousData: previousSnapshot,
+            description: `TC stock ${pending} — WO ${order.wo_number}`,
+            dept: store.selectedDept.value
+        };
         if (updated.status === 'completed') await db.autoReceiveAssyWo(updated, operator);
     } catch (err) {
         store.showToast('Failed: ' + err.message);
@@ -263,6 +269,7 @@ export async function submitTcUnitStageFromUi(stageName) {
     const STATUS_MAP = { start: 'started', pause: 'paused', resume: 'started', complete: 'completed', hold: 'on_hold', cant_start: null };
     const keepStatus = pending === 'cant_start';
 
+    const previousSnapshot = deepClone(order);
     store.loading.value = true;
     try {
         const result = await dbAssy.submitTcUnitStageAction({
@@ -284,6 +291,11 @@ export async function submitTcUnitStageFromUi(stageName) {
         stageRef.value.sessionQty = '';
         stageRef.value.reason     = '';
         store.showToast('Stage action recorded', 'success');
+        store.lastUndoAction.value = {
+            id: order.id, previousData: previousSnapshot,
+            description: `TC ${stageName} ${STATUS_MAP[pending] || 'can\'t start'} — WO ${order.wo_number}`,
+            dept: store.selectedDept.value
+        };
     } catch (err) {
         store.showToast('Failed: ' + err.message);
         logError('submitTcUnitStageFromUi', err, { id: store.activeOrder.value?.id, stageName });
@@ -365,6 +377,7 @@ export async function confirmTcWoComplete() {
         if (errors.salesOrder || store.tcUnitStepError.value) return;
     }
 
+    const previousSnapshot = deepClone(order);
     store.loading.value = true;
     try {
         // For single-unit: write fields into work_orders for backward compat.
@@ -392,6 +405,11 @@ export async function confirmTcWoComplete() {
         store.activeOrder.value = updated;
         store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
         store.showToast('WO marked complete', 'success');
+        store.lastUndoAction.value = {
+            id: order.id, previousData: previousSnapshot,
+            description: `TC WO complete — ${order.wo_number}`,
+            dept: store.selectedDept.value
+        };
         store.tcAssyCompleteModalOpen.value = false;
 
         // Record each unit in wo_unit_completions (fire-and-forget)

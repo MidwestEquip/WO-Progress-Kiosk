@@ -295,6 +295,18 @@ export async function fetchOpenOrders() {
     );
 }
 
+// checkWoNumberExists — returns true if any work_orders row already has this wo_number.
+export async function checkWoNumberExists(woNumber) {
+    if (!woNumber) return false;
+    const { count, error } = await withRetry(() =>
+        supabase.from('work_orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('wo_number', woNumber.trim().toUpperCase())
+    );
+    if (error) return false;
+    return (count || 0) > 0;
+}
+
 // fetchWorkOrdersByWoNumber — active WOs matching a given wo_number (for open order drill-down).
 // Returns key production fields only; excludes completed orders.
 export async function fetchWorkOrdersByWoNumber(woNumber) {

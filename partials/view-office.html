@@ -35,7 +35,7 @@
                 <div v-if="officeMode === 'receive'" class="flex-1 flex flex-col overflow-hidden">
                     <div class="px-6 py-5 border-b border-slate-800 shrink-0">
                         <div class="flex gap-3 max-w-2xl mx-auto">
-                            <input v-model="officeSearchTerm" @keyup.enter="searchOfficeReceive" type="text"
+                            <input v-model="officeSearchTerm" @input="searchOfficeReceive" @keyup.enter="searchOfficeReceive" type="text"
                                 placeholder="Search WO #, Part #, or Sales Order #..."
                                 class="flex-1 p-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-lg">
                             <button @click="searchOfficeReceive" class="bg-blue-600 hover:bg-blue-500 px-8 font-bold rounded-lg active:scale-95 transition-transform">SEARCH</button>

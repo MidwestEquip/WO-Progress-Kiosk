@@ -113,9 +113,19 @@ export function deepClone(obj) {
 }
 
 // Clamp a number between min and max
-// Return the cumulative qty for a TV Assy unit stage from the notes history.
+// Map of stage prefix → dedicated DB column name (authoritative source of truth)
+const STAGE_QTY_COL = {
+    TVENG: 'tv_engine_qty_completed',
+    TVCRT: 'tv_cart_qty_completed',
+    TVFIN: 'tv_final_qty_completed',
+};
+
+// Return the cumulative qty for a TV Assy unit stage.
+// Prefers the dedicated DB column; falls back to notes parsing for pre-column rows.
 // prefix is one of: TVENG, TVCRT, TVFIN
 export function getStageCum(order, prefix) {
+    const col = STAGE_QTY_COL[prefix];
+    if (col && order?.[col] != null) return parseFloat(order[col]) || 0;
     const lines = (order?.notes || '').split('\n').filter(l => l.startsWith(prefix + '|'));
     if (!lines.length) return 0;
     return parseFloat(lines.at(-1).split('|')[5]) || 0;

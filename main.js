@@ -34,7 +34,12 @@ import { buildOpsExpose } from './expose-ops.js';
 // ── Load HTML partials into #app before Vue mounts ───────────
 async function loadPartials() {
     const chunks = await Promise.all(
-        PARTIAL_NAMES.map(n => fetch(`./partials/${n}.html`).then(r => r.text()))
+        PARTIAL_NAMES.map(n =>
+            fetch(`./partials/${n}.html`).then(r => {
+                if (!r.ok) throw new Error(`Partial "${n}.html" failed to load (HTTP ${r.status})`);
+                return r.text();
+            })
+        )
     );
     document.getElementById('app').innerHTML = chunks.join('\n');
 }
@@ -55,6 +60,21 @@ try {
                 });
             }, 1000);
             onUnmounted(() => clearInterval(clockInterval));
+
+            // Version poller — reload when version.json changes
+            let _seenVersion = null;
+            async function checkVersion() {
+                try {
+                    const res = await fetch(`./version.json?_=${Date.now()}`);
+                    if (!res.ok) return;
+                    const { v } = await res.json();
+                    if (_seenVersion === null) { _seenVersion = v; return; }
+                    if (v !== _seenVersion) store.versionUpdateAvailable.value = true;
+                } catch { /* ignore network errors */ }
+            }
+            checkVersion();
+            const versionInterval = setInterval(checkVersion, 60_000);
+            onUnmounted(() => clearInterval(versionInterval));
 
             // Offline detection
             async function probeConnectivity() {
@@ -100,6 +120,9 @@ try {
             });
             watch(store.managerSubView, (v) => {
                 if (v === 'home' && store.currentView.value === 'manager') loadManagerAlerts();
+            });
+            watch(store.versionUpdateAvailable, (v) => {
+                if (v) setTimeout(() => location.reload(), 10_000);
             });
 
             return { ...buildCoreExpose(), ...buildOpsExpose() };

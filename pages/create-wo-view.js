@@ -73,6 +73,12 @@ export async function confirmCreateWoItem(id) {
         return;
     }
 
+    const isDupe = await db.checkWoNumberExists(woNumber);
+    if (isDupe) {
+        store.showToast(`WO# ${woNumber.toUpperCase()} already exists in the system.`, 'error');
+        return;
+    }
+
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
     store.loading.value = true;

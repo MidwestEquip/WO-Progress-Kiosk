@@ -66,6 +66,7 @@ export function buildCoreExpose() {
         engView:               store.engView,
         engInquiries:          store.engInquiries,
         engInquiriesLoading:   store.engInquiriesLoading,
+        engInquirySearch:      store.engInquirySearch,
         engStatusFilter:       store.engStatusFilter,
         engPriorityFilter:     store.engPriorityFilter,
         engAssigneeFilter:     store.engAssigneeFilter,
@@ -260,7 +261,8 @@ export function buildCoreExpose() {
         // Toast
         toastMessage: store.toastMessage,
         toastType:    store.toastType,
-        isOffline:    store.isOffline,
+        isOffline:             store.isOffline,
+        versionUpdateAvailable: store.versionUpdateAvailable,
 
         // ── Actions ──────────────────────────────────────────
         getStageCum,
@@ -324,9 +326,12 @@ export function buildCoreExpose() {
         searchCS, searchPastOrders, selectPastWo, clearPastOrders,
 
         // Dept completed WOs
-        completedDeptOrders:  store.completedDeptOrders,
-        closedOutDeptOrders:  store.closedOutDeptOrders,
-        showingCompletedDept: store.showingCompletedDept,
+        completedDeptOrders:          store.completedDeptOrders,
+        closedOutDeptOrders:          store.closedOutDeptOrders,
+        showingCompletedDept:         store.showingCompletedDept,
+        completedDeptSearch:          store.completedDeptSearch,
+        filteredCompletedDeptOrders:  store.filteredCompletedDeptOrders,
+        filteredClosedOutDeptOrders:  store.filteredClosedOutDeptOrders,
         toggleCompletedDeptView,
 
         // Utilities

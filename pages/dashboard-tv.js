@@ -5,9 +5,11 @@
 //          hold flows, notes, auto-receive on completion.
 // ============================================================
 
-import * as store  from '../libs/store.js';
-import * as db     from '../libs/db.js';
-import * as dbAssy from '../libs/db-assy.js';
+import * as store from '../libs/store.js';
+import * as db    from '../libs/db.js';
+import * as dbTv  from '../libs/db-tv.js';
+import { recordUnitCompletion } from '../libs/db-assy.js';
+import { deepClone } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
 // ── loadWoFiles ───────────────────────────────────────────────
@@ -68,7 +70,7 @@ export function openTvAssyUnit(order) {
     store.tvUnitInfoErrors.value = { unitSerial: false, engineModel: false, engineSerial: false };
     // Persist mode on first selection so future openings skip the choice screen
     if (!order.tv_job_mode) {
-        dbAssy.saveTvJobMode(order.id, 'unit').then(res => {
+        dbTv.saveTvJobMode(order.id, 'unit').then(res => {
             if (!res.error && res.data?.[0]) {
                 const updated = res.data[0];
                 store.activeOrder.value = updated;
@@ -95,7 +97,7 @@ export function openTvAssyStock(order) {
     store.tvStockNotes.value       = order.tv_assy_notes || '';
     // Persist mode on first selection so future openings skip the choice screen
     if (!order.tv_job_mode) {
-        dbAssy.saveTvJobMode(order.id, 'stock').then(res => {
+        dbTv.saveTvJobMode(order.id, 'stock').then(res => {
             if (!res.error && res.data?.[0]) {
                 const updated = res.data[0];
                 store.activeOrder.value = updated;
@@ -132,9 +134,10 @@ export async function submitTvUnitStageFromUi(stageName) {
     const STATUS_MAP = { start: 'started', pause: 'paused', resume: 'started', complete: 'completed', hold: 'on_hold', cant_start: null };
     const keepStatus = pending === 'cant_start';
 
+    const previousSnapshot = deepClone(order);
     store.loading.value = true;
     try {
-        const result = await dbAssy.submitTvUnitStageAction({
+        const result = await dbTv.submitTvUnitStageAction({
             id:           order.id,
             currentOrder: order,
             stageKey,
@@ -153,6 +156,11 @@ export async function submitTvUnitStageFromUi(stageName) {
         stageRef.value.sessionQty = '';
         stageRef.value.reason     = '';
         store.showToast('Stage action recorded', 'success');
+        store.lastUndoAction.value = {
+            id: order.id, previousData: previousSnapshot,
+            description: `TV ${stageName} ${STATUS_MAP[pending] || "can't start"} — WO ${order.wo_number}`,
+            dept: store.selectedDept.value
+        };
         if (updated.status === 'completed') await db.autoReceiveAssyWo(updated, operator);
     } catch (err) {
         store.showToast('Failed: ' + err.message);
@@ -185,9 +193,10 @@ export async function submitTvStockActionFromUi() {
     const STATUS_MAP = { start: 'started', pause: 'paused', resume: 'started', complete: 'completed', hold: 'on_hold', cant_start: null };
     const keepStatus = pending === 'cant_start';
 
+    const previousSnapshot = deepClone(order);
     store.loading.value = true;
     try {
-        const result = await dbAssy.submitTvStockAction({
+        const result = await dbTv.submitTvStockAction({
             id:           order.id,
             currentOrder: order,
             newStatus:    STATUS_MAP[pending],
@@ -204,6 +213,11 @@ export async function submitTvStockActionFromUi() {
         store.tvStockSessionQty.value = '';
         store.tvStockReason.value     = '';
         store.showToast('Action recorded', 'success');
+        store.lastUndoAction.value = {
+            id: order.id, previousData: previousSnapshot,
+            description: `TV stock ${pending} — WO ${order.wo_number}`,
+            dept: store.selectedDept.value
+        };
         if (updated.status === 'completed') await db.autoReceiveAssyWo(updated, operator);
     } catch (err) {
         store.showToast('Failed: ' + err.message);
@@ -226,7 +240,7 @@ export async function saveTvStockNotes() {
     if (!order?.id) return;
     store.loading.value = true;
     try {
-        const result = await dbAssy.saveTvAssyNotes(order.id, store.tvStockNotes.value);
+        const result = await dbTv.saveTvAssyNotes(order.id, store.tvStockNotes.value);
         if (result.error) throw result.error;
         const updated = result.data[0];
         store.activeOrder.value = updated;
@@ -255,7 +269,7 @@ export async function saveTvUnitDetails() {
     store.loading.value = true;
     try {
         const f = store.tvUnitInfoForm.value;
-        const result = await dbAssy.saveTvUnitInfo(order.id, f.unitSerial, f.engineModel, f.engineSerial);
+        const result = await dbTv.saveTvUnitInfo(order.id, f.unitSerial, f.engineModel, f.engineSerial);
         if (result.error) throw result.error;
         const updated = result.data[0];
         store.activeOrder.value = updated;
@@ -283,15 +297,21 @@ export async function markTvUnitWoComplete() {
         return;
     }
     const order = store.activeOrder.value;
+    const previousSnapshot = deepClone(order);
     store.loading.value = true;
     try {
-        const result = await dbAssy.completeTvUnitWo({ id: order.id, currentOrder: order, opName: operator });
+        const result = await dbTv.completeTvUnitWo({ id: order.id, currentOrder: order, opName: operator });
         if (result.error) throw result.error;
         const updated = result.data[0];
         store.activeOrder.value = updated;
         store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
         store.showToast('WO marked complete', 'success');
-        dbAssy.recordUnitCompletion(updated.id, updated.wo_number, 'Trac Vac Assy', 1, {
+        store.lastUndoAction.value = {
+            id: order.id, previousData: previousSnapshot,
+            description: `TV Unit WO complete — ${order.wo_number}`,
+            dept: store.selectedDept.value
+        };
+        recordUnitCompletion(updated.id, updated.wo_number, 'Trac Vac Assy', 1, {
             unitSerial:   form.unitSerial,
             engineModel:  form.engineModel,
             engineSerial: form.engineSerial,

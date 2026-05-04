@@ -15,7 +15,7 @@
                             class="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 border border-slate-500 text-slate-200 font-semibold rounded-lg text-sm transition-all">
                             Completed WOs &#8594;
                         </button>
-                        <button v-else @click="toggleCompletedDeptView()"
+                        <button v-else @click="toggleCompletedDeptView(); completedDeptSearch = ''"
                             class="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 border border-slate-500 text-slate-200 font-semibold rounded-lg text-sm transition-all">
                             &#8592; Active WOs
                         </button>
@@ -24,11 +24,27 @@
                     <!-- Completed WOs panel -->
                     <div v-if="showingCompletedDept" class="space-y-8">
 
+                        <!-- Search bar -->
+                        <div class="flex items-center gap-3">
+                            <div class="relative flex-1 max-w-lg">
+                                <input v-model="completedDeptSearch" type="text"
+                                    placeholder="Search WO#, Part#, Description, Operator..."
+                                    class="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-600 focus:border-blue-500 rounded-xl text-white placeholder-slate-500 focus:outline-none transition-colors text-sm">
+                                <svg class="absolute left-3 top-3.5 w-4 h-4 text-slate-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+                                </svg>
+                            </div>
+                            <button v-if="completedDeptSearch" @click="completedDeptSearch = ''"
+                                class="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-xl transition-all text-sm shrink-0">
+                                &#10005; Clear
+                            </button>
+                        </div>
+
                         <!-- Section 1: Not Closed Out Yet -->
                         <div>
                             <h3 class="text-base font-bold text-amber-400 uppercase tracking-wide mb-3">Not Closed Out Yet</h3>
-                            <div v-if="completedDeptOrders.length === 0" class="bg-slate-800 rounded-xl border border-slate-700 px-6 py-8 text-center text-slate-500">
-                                No pending close-out WOs for {{ selectedDept }}.
+                            <div v-if="filteredCompletedDeptOrders.length === 0" class="bg-slate-800 rounded-xl border border-slate-700 px-6 py-8 text-center text-slate-500">
+                                {{ completedDeptSearch ? 'No results match your search.' : 'No pending close-out WOs for ' + selectedDept + '.' }}
                             </div>
                             <div v-else class="bg-slate-800 rounded-xl border border-amber-700/40 overflow-hidden">
                                 <div class="overflow-x-auto">
@@ -44,7 +60,7 @@
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-slate-700">
-                                            <tr v-for="o in completedDeptOrders" :key="o.id" class="hover:bg-slate-700/40">
+                                            <tr v-for="o in filteredCompletedDeptOrders" :key="o.id" class="hover:bg-slate-700/40">
                                                 <td class="px-4 py-3 font-mono text-blue-300">{{ o.wo_number }}</td>
                                                 <td class="px-4 py-3 font-mono text-slate-200">{{ o.part_number }}</td>
                                                 <td class="px-4 py-3 text-slate-300 max-w-xs truncate">{{ o.description }}</td>
@@ -61,8 +77,8 @@
                         <!-- Section 2: Closed Out Past 90 Days -->
                         <div>
                             <h3 class="text-base font-bold text-emerald-400 uppercase tracking-wide mb-3">Completed / Closed Out WOs — Past 90 Days</h3>
-                            <div v-if="closedOutDeptOrders.length === 0" class="bg-slate-800 rounded-xl border border-slate-700 px-6 py-8 text-center text-slate-500">
-                                No closed-out WOs in the past 90 days for {{ selectedDept }}.
+                            <div v-if="filteredClosedOutDeptOrders.length === 0" class="bg-slate-800 rounded-xl border border-slate-700 px-6 py-8 text-center text-slate-500">
+                                {{ completedDeptSearch ? 'No results match your search.' : 'No closed-out WOs in the past 90 days for ' + selectedDept + '.' }}
                             </div>
                             <div v-else class="bg-slate-800 rounded-xl border border-emerald-700/40 overflow-hidden">
                                 <div class="overflow-x-auto">
@@ -79,7 +95,7 @@
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-slate-700">
-                                            <tr v-for="o in closedOutDeptOrders" :key="o.id" class="hover:bg-slate-700/40">
+                                            <tr v-for="o in filteredClosedOutDeptOrders" :key="o.id" class="hover:bg-slate-700/40">
                                                 <td class="px-4 py-3 font-mono text-blue-300">{{ o.wo_number }}</td>
                                                 <td class="px-4 py-3 font-mono text-slate-200">{{ o.part_number }}</td>
                                                 <td class="px-4 py-3 text-slate-300 max-w-xs truncate">{{ o.description }}</td>
