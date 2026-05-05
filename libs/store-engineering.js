@@ -64,6 +64,73 @@ export const filteredEngCompleted = computed(() => {
     );
 });
 
+// ── Engineering Follow-Up modal ──────────────────────────────
+export const engFollowupModalOpen    = ref(false);
+export const engFollowupModalMode    = ref('create'); // 'create' | 'detail'
+export const engFollowupForm         = ref({});
+export const engFollowupFormErrors   = ref({});
+export const engFollowupSelected     = ref(null);
+export const engFollowupActiveTab    = ref('part');   // 'part'|'customer'|'followup'|'fit'|'checklist'|'history'
+export const engFollowupEvents       = ref([]);
+export const engFollowupEventsLoading = ref(false);
+export const engFollowupNewNote      = ref('');
+export const engFollowupNewNoteBy    = ref('');
+export const engFollowupActionPanel  = ref('');  // '' | 'customer_responded'
+export const engFollowupResponseNote = ref('');
+export const engFollowupResponseType = ref('needs_engineering_review');
+
+// ── Engineering Follow-Up list ────────────────────────────────
+export const engFollowups              = ref([]);
+export const engFollowupsLoading       = ref(false);
+export const engFollowupSearch         = ref('');
+export const engFollowupStatusFilter   = ref('');
+export const engFollowupPriorityFilter = ref('');
+
+// engFollowupSummary — counts for the 6 summary cards.
+export const engFollowupSummary = computed(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const list  = engFollowups.value;
+    return {
+        open:               list.length,
+        dueToday:           list.filter(r => r.next_action_due_date === today).length,
+        overdue:            list.filter(r => r.next_action_due_date && r.next_action_due_date < today).length,
+        waitingOnCustomer:  list.filter(r => r.status === 'waiting_on_customer').length,
+        needsEngReview:     list.filter(r => r.status === 'needs_engineering_review').length,
+        finalizationNeeded: list.filter(r => r.status === 'finalization_needed').length,
+    };
+});
+
+// filteredEngFollowups — applies status/priority/text filters; pre-computes _isOverdue/_isDueToday flags.
+export const filteredEngFollowups = computed(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    let list = engFollowups.value;
+    if (engFollowupStatusFilter.value)   list = list.filter(r => r.status   === engFollowupStatusFilter.value);
+    if (engFollowupPriorityFilter.value) list = list.filter(r => r.priority === engFollowupPriorityFilter.value);
+    const q = engFollowupSearch.value.trim().toLowerCase();
+    if (q) list = list.filter(r =>
+        (r.part_number   || '').toLowerCase().includes(q) ||
+        (r.customer_name || '').toLowerCase().includes(q) ||
+        (r.sales_order   || '').toLowerCase().includes(q) ||
+        (r.wo_number     || '').toLowerCase().includes(q) ||
+        (r.description   || '').toLowerCase().includes(q)
+    );
+    return list.map(r => ({
+        ...r,
+        _isOverdue:  !!(r.next_action_due_date && r.next_action_due_date < today),
+        _isDueToday: r.next_action_due_date === today,
+    }));
+});
+
+// engFollowupChecklistCount — how many of the 9 finalization items are checked on the selected case.
+export const engFollowupChecklistCount = computed(() => {
+    const row = engFollowupSelected.value;
+    if (!row) return { done: 0, total: 9 };
+    const fields = ['alere_bom_updated','alere_part_updated','print_updated','dxf_updated',
+                    'autodesk_files_updated','cad_3d_updated','assembly_model_updated',
+                    'manual_updated','fit_mapping_recorded'];
+    return { done: fields.filter(f => row[f]).length, total: 9 };
+});
+
 // Text search for active inquiries — customer name is the primary field
 export const engInquirySearch = ref('');
 

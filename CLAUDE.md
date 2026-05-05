@@ -309,3 +309,11 @@ No active series.
 ### Manager live alert resolution + WO qty alert
 - Patch 1: Schema — `manager_alert_resolutions` table (id, alert_type, reference_id, resolved_by, resolution, resolved_at); index on (alert_type, reference_id, resolved_at).
 - Patch 2: `insertAlertResolution` in db-manager.js; resolved filtering + `woQtyVsCompleted` bucket in `fetchManagerAlerts`; 7 resolve modal refs in store-manager.js; `openAlertResolve`/`submitAlertResolve` in pages/manager-alerts.js; 60s auto-poll in `openManagerSection`; bucket 6 + resolve modal in view-manager-home.html.
+
+### Engineering Customer Follow-Up
+- Patch 1: Schema — `engineering_followups` + `engineering_followup_events` tables with open anon-key RLS policies; `libs/db-followup.js` with 5 CRUD functions re-exported by db.js; status/priority/fit-status constants + labels/colors in config.js.
+- Patch 2: List view — `engFollowups` store state, `engFollowupSummary` + `filteredEngFollowups` computed; `partials/view-engineering-followup.html` with 6 summary cards, search/filter bar, overdue/due-today row flags.
+- Patch 3: Create + detail modal — follow-up modal state in store-engineering.js; `pages/engineering-followup.js` split from engineering-view.js (500-line cap); `partials/modal-eng-followup.html` with create form + 6-tab detail view (Part/Order, Customer, Follow-Up, Fit, Checklist, History); `addCalendarDays` in utils.js.
+- Patch 4: Action buttons — `addBusinessDays` in utils.js; `engFollowupActionPanel/ResponseNote/ResponseType` refs; `applyFollowupNoAnswer`, `applyFollowupFitConfirmed`, `applyFollowupFitFailed`, `submitFollowupCustomerResponded`, `onFollowupDateShippedChange` in engineering-followup.js; action bar + customer-responded inline panel in modal.
+- Patch 5: Close Case — `engFollowupChecklistCount` computed; `closeEngFollowupCase()` validates fit_status ≠ pending then patches status=closed + closes modal; checklist tab badge showing X/9 count (emerald when complete).
+- Patch 6: Nav badge — `enterEngineeringMenu()` in splash-view.js preloads follow-up counts on Engineering sub-menu entry; red/amber count badge on "Customer Follow Up" splash button when overdue/due-today cases exist.

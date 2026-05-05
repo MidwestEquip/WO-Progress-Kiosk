@@ -79,6 +79,15 @@ export function selectCategory(cat) {
     store.splashLevel.value       = 1;
 }
 
+// enterEngineeringMenu — navigate to Engineering sub-menu and preload follow-up counts.
+// Avoids a cross-page import by fetching follow-ups directly (same query as loadEngFollowups).
+export async function enterEngineeringMenu() {
+    selectCategory('engineering');
+    if (store.engFollowups.value.length > 0) return;
+    const { data } = await db.fetchEngineeringFollowups();
+    if (data) store.engFollowups.value = data;
+}
+
 // ── selectSubCategory ─────────────────────────────────────────
 // Navigate to a second-level sub-menu (level 2).
 export function selectSubCategory(sub) {

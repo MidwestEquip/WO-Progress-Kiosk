@@ -1,0 +1,498 @@
+<!-- ============================================================
+     modal-eng-followup.html — Engineering Follow-Up: create + detail modal
+     Create mode: simple form with auto-status.
+     Detail mode: tabbed view — Part/Order, Customer, Follow-Up, Fit, Checklist, History.
+     ============================================================ -->
+<div v-if="engFollowupModalOpen"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+
+    <!-- ── CREATE MODE ──────────────────────────────────────────── -->
+    <div v-if="engFollowupModalMode === 'create'"
+        class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden">
+
+        <div class="shrink-0 px-6 py-4 border-b border-gray-200 flex items-center gap-3">
+            <h2 class="text-lg font-extrabold text-gray-800 flex-1">New Follow-Up Case</h2>
+            <button @click="closeEngFollowupModal" class="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Part # <span class="text-red-500">*</span></label>
+                    <input v-model="engFollowupForm.part_number" type="text" maxlength="60" placeholder="e.g. TC11490"
+                        :class="['w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400', engFollowupFormErrors.part_number ? 'border-red-400 bg-red-50' : 'border-gray-300']">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Description</label>
+                    <input v-model="engFollowupForm.description" type="text" maxlength="200"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Sales Order #</label>
+                    <input v-model="engFollowupForm.sales_order" type="text" maxlength="40"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">WO #</label>
+                    <input v-model="engFollowupForm.wo_number" type="text" maxlength="40"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Customer Name</label>
+                    <input v-model="engFollowupForm.customer_name" type="text" maxlength="100"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Email</label>
+                    <input v-model="engFollowupForm.customer_email" type="email" maxlength="100"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Phone</label>
+                    <input v-model="engFollowupForm.customer_phone" type="text" maxlength="30"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Change Description</label>
+                <input v-model="engFollowupForm.change_description" type="text" maxlength="400"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+            </div>
+            <div class="grid grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Date Changed</label>
+                    <input v-model="engFollowupForm.date_changed_created" type="date"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Date Shipped</label>
+                    <input v-model="engFollowupForm.date_shipped" type="date"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Priority</label>
+                    <select v-model="engFollowupForm.priority"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                        <option v-for="p in engFollowupPriorities" :key="p" :value="p" class="capitalize">{{ p }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Owner</label>
+                    <input v-model="engFollowupForm.next_action_owner" type="text" maxlength="60"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+            </div>
+            <div class="bg-indigo-50 rounded-lg px-4 py-3 text-xs text-indigo-700">
+                <span v-if="engFollowupForm.date_shipped">
+                    <strong>Status:</strong> Waiting for Customer Use &nbsp;·&nbsp;
+                    <strong>Follow-up due:</strong> {{ engFollowupForm.date_shipped }} + 21 days
+                </span>
+                <span v-else>
+                    <strong>Status:</strong> Waiting to Ship &mdash; enter Date Shipped to auto-set the follow-up due date
+                </span>
+            </div>
+        </div>
+
+        <div class="shrink-0 px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+            <button @click="closeEngFollowupModal"
+                class="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-sm transition-colors">
+                Cancel
+            </button>
+            <button @click="submitEngFollowupCreate" :disabled="loading"
+                class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm active:scale-95 transition-all disabled:opacity-50">
+                Create Case
+            </button>
+        </div>
+    </div>
+
+    <!-- ── DETAIL MODE ──────────────────────────────────────────── -->
+    <div v-else-if="engFollowupModalMode === 'detail' && engFollowupSelected"
+        class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden">
+
+        <!-- Header -->
+        <div class="shrink-0 px-6 py-4 border-b border-gray-200 flex items-center gap-3 bg-gray-50/60">
+            <div class="flex-1 min-w-0 flex items-center gap-3 flex-wrap">
+                <span class="font-extrabold text-gray-900 text-lg">{{ engFollowupSelected.part_number }}</span>
+                <span v-if="engFollowupSelected.description" class="text-sm text-gray-500 truncate">{{ engFollowupSelected.description }}</span>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                    :class="engFollowupStatusColors[engFollowupSelected.status] || 'bg-gray-100 text-gray-600'">
+                    {{ engFollowupStatusLabels[engFollowupSelected.status] || engFollowupSelected.status }}
+                </span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold capitalize"
+                    :class="{
+                        'bg-red-100 text-red-700':       engFollowupSelected.priority === 'urgent',
+                        'bg-orange-100 text-orange-700': engFollowupSelected.priority === 'high',
+                        'bg-yellow-100 text-yellow-700': engFollowupSelected.priority === 'normal',
+                        'bg-gray-100 text-gray-500':     !engFollowupSelected.priority || engFollowupSelected.priority === 'low',
+                    }">{{ engFollowupSelected.priority || 'normal' }}</span>
+            </div>
+            <button @click="saveEngFollowupDetail" :disabled="loading"
+                class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-sm active:scale-95 transition-all disabled:opacity-50 shrink-0">
+                Save All
+            </button>
+            <button @click="closeEngFollowupModal" class="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Tab bar -->
+        <div class="shrink-0 flex border-b border-gray-200 bg-white px-2 overflow-x-auto">
+            <button v-for="tab in [{k:'part',l:'Part / Order'},{k:'customer',l:'Customer'},{k:'followup',l:'Follow-Up'},{k:'fit',l:'Fit'},{k:'checklist',l:'Checklist'},{k:'history',l:'History'}]"
+                :key="tab.k" @click="engFollowupActiveTab = tab.k"
+                class="shrink-0 px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap"
+                :class="engFollowupActiveTab === tab.k ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
+                {{ tab.l }}
+                <span v-if="tab.k === 'history' && engFollowupEvents.length"
+                    class="ml-1 bg-indigo-100 text-indigo-600 text-xs px-1.5 py-0.5 rounded-full font-bold">{{ engFollowupEvents.length }}</span>
+                <span v-if="tab.k === 'checklist'"
+                    :class="['ml-1 text-xs px-1.5 py-0.5 rounded-full font-bold', engFollowupChecklistCount.done === engFollowupChecklistCount.total ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500']">{{ engFollowupChecklistCount.done }}/{{ engFollowupChecklistCount.total }}</span>
+            </button>
+        </div>
+
+        <!-- Action buttons bar -->
+        <div v-if="engFollowupSelected.status !== 'closed'"
+            class="shrink-0 flex flex-wrap gap-2 px-6 py-3 border-b border-gray-100 bg-gray-50/60">
+            <button @click="applyFollowupNoAnswer" :disabled="loading"
+                class="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg font-semibold text-xs active:scale-95 transition-all disabled:opacity-50">No Answer</button>
+            <button @click="engFollowupActionPanel = engFollowupActionPanel === 'customer_responded' ? '' : 'customer_responded'"
+                class="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg font-semibold text-xs active:scale-95 transition-all">Customer Responded</button>
+            <button @click="applyFollowupFitConfirmed" :disabled="loading"
+                class="px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded-lg font-semibold text-xs active:scale-95 transition-all disabled:opacity-50">Fit Confirmed</button>
+            <button @click="applyFollowupFitFailed" :disabled="loading"
+                class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg font-semibold text-xs active:scale-95 transition-all disabled:opacity-50">Fit Failed</button>
+            <button @click="closeEngFollowupCase" :disabled="loading"
+                class="ml-auto px-3 py-1.5 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-semibold text-xs active:scale-95 transition-all disabled:opacity-50">Close Case</button>
+        </div>
+
+        <!-- Customer Responded inline panel -->
+        <div v-if="engFollowupActionPanel === 'customer_responded'"
+            class="shrink-0 px-6 py-4 border-b border-emerald-200 bg-emerald-50 space-y-3">
+            <p class="text-xs font-bold text-emerald-700 uppercase tracking-wide">Log Customer Response</p>
+            <textarea v-model="engFollowupResponseNote" rows="2" placeholder="What did the customer say?"
+                class="w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 resize-none"></textarea>
+            <div class="flex items-center gap-3">
+                <div class="flex-1">
+                    <label class="block text-xs font-semibold text-emerald-700 mb-1">Outcome / Next Status</label>
+                    <select v-model="engFollowupResponseType"
+                        class="w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500">
+                        <option value="needs_engineering_review">Needs Engineering Review</option>
+                        <option value="waiting_for_customer_use">Still Waiting (Customer Use)</option>
+                        <option value="fit_confirmed">Fit Confirmed</option>
+                        <option value="fit_failed">Fit Failed</option>
+                        <option value="finalization_needed">Finalization Needed</option>
+                    </select>
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button @click="engFollowupActionPanel = ''"
+                        class="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-bold text-sm transition-colors">Cancel</button>
+                    <button @click="submitFollowupCustomerResponded" :disabled="!engFollowupResponseNote.trim() || loading"
+                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-sm active:scale-95 transition-all disabled:opacity-40">Submit</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab content -->
+        <div class="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+
+            <!-- Part / Order -->
+            <div v-if="engFollowupActiveTab === 'part'" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Part #</label>
+                        <input v-model="engFollowupSelected.part_number" type="text" maxlength="60" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Description</label>
+                        <input v-model="engFollowupSelected.description" type="text" maxlength="200" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Sales Order #</label>
+                        <input v-model="engFollowupSelected.sales_order" type="text" maxlength="40" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">WO #</label>
+                        <input v-model="engFollowupSelected.wo_number" type="text" maxlength="40" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Change Description</label>
+                    <input v-model="engFollowupSelected.change_description" type="text" maxlength="400" @blur="saveEngFollowupDetail"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Date Changed / Created</label>
+                        <input v-model="engFollowupSelected.date_changed_created" type="date" @change="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Date Shipped</label>
+                        <input v-model="engFollowupSelected.date_shipped" type="date" @change="onFollowupDateShippedChange"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Source Type</label>
+                        <input v-model="engFollowupSelected.source_type" type="text" maxlength="60" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Source URL</label>
+                        <input v-model="engFollowupSelected.source_url" type="text" maxlength="300" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer -->
+            <div v-if="engFollowupActiveTab === 'customer'" class="space-y-4">
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Name</label>
+                        <input v-model="engFollowupSelected.customer_name" type="text" maxlength="100" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Email</label>
+                        <input v-model="engFollowupSelected.customer_email" type="email" maxlength="100" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Phone</label>
+                        <input v-model="engFollowupSelected.customer_phone" type="text" maxlength="30" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Additional Customer Info</label>
+                    <textarea v-model="engFollowupSelected.customer_info_raw" rows="3" @blur="saveEngFollowupDetail"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 resize-none"></textarea>
+                </div>
+            </div>
+
+            <!-- Follow-Up -->
+            <div v-if="engFollowupActiveTab === 'followup'" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Status</label>
+                        <select v-model="engFollowupSelected.status" @change="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                            <option v-for="s in engFollowupStatuses" :key="s" :value="s">{{ engFollowupStatusLabels[s] || s }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Priority</label>
+                        <select v-model="engFollowupSelected.priority" @change="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                            <option v-for="p in engFollowupPriorities" :key="p" :value="p" class="capitalize">{{ p }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Next Action</label>
+                    <input v-model="engFollowupSelected.next_action" type="text" maxlength="300" @blur="saveEngFollowupDetail"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Due Date</label>
+                        <input v-model="engFollowupSelected.next_action_due_date" type="date" @change="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Owner</label>
+                        <input v-model="engFollowupSelected.next_action_owner" type="text" maxlength="60" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">2nd Follow-Up Date</label>
+                        <input v-model="engFollowupSelected.second_follow_up_date" type="date" @change="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Follow-Up Questions</label>
+                    <textarea v-model="engFollowupSelected.follow_up_questions" rows="3" @blur="saveEngFollowupDetail"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Follow-Up Notes</label>
+                    <textarea v-model="engFollowupSelected.follow_up_notes" rows="3" @blur="saveEngFollowupDetail"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 resize-none"></textarea>
+                </div>
+            </div>
+
+            <!-- Fit / Compatibility -->
+            <div v-if="engFollowupActiveTab === 'fit'" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fit Status</label>
+                        <select v-model="engFollowupSelected.fit_status" @change="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                            <option v-for="fs in engFollowupFitStatuses" :key="fs" :value="fs" class="capitalize">{{ fs }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Customer Response</label>
+                        <input v-model="engFollowupSelected.customer_response" type="text" maxlength="300" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fits Chute #</label>
+                        <input v-model="engFollowupSelected.fits_chute" type="text" maxlength="60" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fits Bracket #</label>
+                        <input v-model="engFollowupSelected.fits_bracket" type="text" maxlength="60" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fits Adaptor #</label>
+                        <input v-model="engFollowupSelected.fits_adaptor" type="text" maxlength="60" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fits Pin #</label>
+                        <input v-model="engFollowupSelected.fits_pin" type="text" maxlength="60" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fits Model / Application</label>
+                        <input v-model="engFollowupSelected.fits_model" type="text" maxlength="200" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">New Chute #</label>
+                        <input v-model="engFollowupSelected.new_chute_number" type="text" maxlength="60" @blur="saveEngFollowupDetail"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Dims / Measurements</label>
+                    <input v-model="engFollowupSelected.dims" type="text" maxlength="300" @blur="saveEngFollowupDetail"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Fit Notes</label>
+                    <textarea v-model="engFollowupSelected.fit_notes" rows="3" @blur="saveEngFollowupDetail"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 resize-none"></textarea>
+                </div>
+            </div>
+
+            <!-- Finalization Checklist -->
+            <div v-if="engFollowupActiveTab === 'checklist'" class="space-y-4">
+                <p class="text-sm text-gray-500 italic">Check off items as they are completed. Changes auto-save.</p>
+                <div class="grid grid-cols-2 gap-y-3 gap-x-8">
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" v-model="engFollowupSelected.alere_bom_updated" @change="saveEngFollowupDetail" class="w-4 h-4 rounded text-indigo-600">
+                        <span class="text-sm text-gray-700">Alere BOM updated</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" v-model="engFollowupSelected.alere_part_updated" @change="saveEngFollowupDetail" class="w-4 h-4 rounded text-indigo-600">
+                        <span class="text-sm text-gray-700">Alere part number updated</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" v-model="engFollowupSelected.print_updated" @change="saveEngFollowupDetail" class="w-4 h-4 rounded text-indigo-600">
+                        <span class="text-sm text-gray-700">Print updated</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" v-model="engFollowupSelected.dxf_updated" @change="saveEngFollowupDetail" class="w-4 h-4 rounded text-indigo-600">
+                        <span class="text-sm text-gray-700">DXF updated</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" v-model="engFollowupSelected.autodesk_files_updated" @change="saveEngFollowupDetail" class="w-4 h-4 rounded text-indigo-600">
+                        <span class="text-sm text-gray-700">AutoDesk Docs files updated</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" v-model="engFollowupSelected.cad_3d_updated" @change="saveEngFollowupDetail" class="w-4 h-4 rounded text-indigo-600">
+                        <span class="text-sm text-gray-700">3D CAD model updated</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" v-model="engFollowupSelected.assembly_model_updated" @change="saveEngFollowupDetail" class="w-4 h-4 rounded text-indigo-600">
+                        <span class="text-sm text-gray-700">Assembly model updated</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" v-model="engFollowupSelected.manual_updated" @change="saveEngFollowupDetail" class="w-4 h-4 rounded text-indigo-600">
+                        <span class="text-sm text-gray-700">Manual / book updated</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" v-model="engFollowupSelected.fit_mapping_recorded" @change="saveEngFollowupDetail" class="w-4 h-4 rounded text-indigo-600">
+                        <span class="text-sm text-gray-700">Fit mapping recorded</span>
+                    </label>
+                </div>
+                <div class="mt-2">
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Finalized Notes</label>
+                    <textarea v-model="engFollowupSelected.finalized_notes" rows="3" @blur="saveEngFollowupDetail"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 resize-none"></textarea>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div v-if="engFollowupActiveTab === 'history'" class="space-y-4">
+                <!-- Add note -->
+                <div class="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-wide">Add Note</p>
+                    <textarea v-model="engFollowupNewNote" rows="2" placeholder="Enter a note..."
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400 resize-none"></textarea>
+                    <div class="flex items-center gap-3">
+                        <input v-model="engFollowupNewNoteBy" type="text" maxlength="60" placeholder="Your name (optional)"
+                            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400">
+                        <button @click="submitEngFollowupNote" :disabled="!engFollowupNewNote.trim() || loading"
+                            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-sm active:scale-95 transition-all disabled:opacity-40">
+                            Add Note
+                        </button>
+                    </div>
+                </div>
+                <!-- Events -->
+                <div v-if="engFollowupEventsLoading" class="text-center py-6 text-gray-400 text-sm">Loading&hellip;</div>
+                <div v-else-if="engFollowupEvents.length === 0" class="text-center py-6 text-gray-400 text-sm italic">No history yet.</div>
+                <div v-else class="space-y-2">
+                    <div v-for="ev in engFollowupEvents" :key="ev.id"
+                        class="bg-white rounded-xl border border-gray-200 px-4 py-3">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                                :class="{
+                                    'bg-indigo-100 text-indigo-700':   ev.event_type === 'note',
+                                    'bg-emerald-100 text-emerald-700': ev.event_type === 'created' || ev.event_type === 'fit_confirmed',
+                                    'bg-amber-100 text-amber-700':     ev.event_type === 'no_answer',
+                                    'bg-orange-100 text-orange-700':   ev.event_type === 'fit_failed',
+                                    'bg-gray-100 text-gray-600':       !['note','created','fit_confirmed','no_answer','fit_failed'].includes(ev.event_type),
+                                }">{{ ev.event_type }}</span>
+                            <span v-if="ev.created_by" class="text-xs font-semibold text-gray-500">{{ ev.created_by }}</span>
+                            <span class="text-xs text-gray-400 ml-auto">{{ formatTimestamp(ev.created_at) }}</span>
+                        </div>
+                        <p v-if="ev.note" class="text-sm text-gray-700">{{ ev.note }}</p>
+                        <div v-if="ev.new_status" class="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                            <span>Status →</span>
+                            <span class="px-2 py-0.5 rounded-full font-semibold"
+                                :class="engFollowupStatusColors[ev.new_status] || 'bg-gray-100 text-gray-600'">
+                                {{ engFollowupStatusLabels[ev.new_status] || ev.new_status }}
+                            </span>
+                        </div>
+                        <p v-if="ev.next_action" class="mt-1 text-xs text-gray-500 italic">Next: {{ ev.next_action }}</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>

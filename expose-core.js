@@ -5,11 +5,14 @@
 
 import * as store from './libs/store.js';
 import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS,
-         ENG_STATUSES, ENG_PRIORITIES, ENG_ASSIGNEES } from './libs/config.js';
-import { formatDateLocal, getStageCum, detectTcMode,
+         ENG_STATUSES, ENG_PRIORITIES, ENG_ASSIGNEES,
+         ENG_FOLLOWUP_STATUSES, ENG_FOLLOWUP_PRIORITIES, ENG_FOLLOWUP_FIT_STATUSES,
+         ENG_FOLLOWUP_STATUS_LABELS, ENG_FOLLOWUP_STATUS_COLORS } from './libs/config.js';
+import { formatDateLocal, formatTimestamp, getStageCum, detectTcMode,
          sanitizePartKey, isChutePart } from './libs/utils.js';
 import { selectDept, promptPin, submitPin, goBack,
          selectCategory, selectSubCategory, splashBack,
+         enterEngineeringMenu,
          submitLogin, logout, enterManagerView,
          loadHeaderLinks } from './pages/splash-view.js';
 import { openActionPanel, holdSince,
@@ -37,7 +40,7 @@ import { searchOfficeReceive, openReceiveModal, submitReceive,
          goToCloseout,
          saveCloseoutNoteInline, loadClosedOutOrders, openClosedOutHistory } from './pages/wo-status-view.js';
 import { searchCS, searchPastOrders, selectPastWo, clearPastOrders } from './pages/cs-view.js';
-import { enterEngineeringInquiriesView, enterEngineeringFollowupView,
+import { enterEngineeringInquiriesView,
          openEngInquiryForm, closeEngInquiryForm, submitEngInquiry,
          handleEngNewInquiryFileSelect, removeEngNewInquiryFile,
          openEngInquiryDetail, closeEngInquiryDetail,
@@ -49,6 +52,13 @@ import { enterEngineeringInquiriesView, enterEngineeringFollowupView,
          onEngStatusChange,
          enterEngCompletedView, loadEngCompletedInquiries,
          restoreEngFromCompleted } from './pages/engineering-view.js';
+import { enterEngineeringFollowupView, loadEngFollowups,
+         openEngFollowupCreate, openEngFollowupDetail, closeEngFollowupModal,
+         submitEngFollowupCreate, saveEngFollowupDetail,
+         submitEngFollowupNote, loadEngFollowupEvents,
+         applyFollowupNoAnswer, applyFollowupFitConfirmed, applyFollowupFitFailed,
+         submitFollowupCustomerResponded, onFollowupDateShippedChange,
+         closeEngFollowupCase } from './pages/engineering-followup.js';
 
 export function buildCoreExpose() {
     return {
@@ -84,6 +94,44 @@ export function buildCoreExpose() {
         engStatuses:           ENG_STATUSES,
         engPriorities:         ENG_PRIORITIES,
         engAssignees:          ENG_ASSIGNEES,
+
+        // Engineering Follow-Up
+        engFollowups:              store.engFollowups,
+        engFollowupsLoading:       store.engFollowupsLoading,
+        engFollowupSearch:         store.engFollowupSearch,
+        engFollowupStatusFilter:   store.engFollowupStatusFilter,
+        engFollowupPriorityFilter: store.engFollowupPriorityFilter,
+        engFollowupSummary:        store.engFollowupSummary,
+        filteredEngFollowups:      store.filteredEngFollowups,
+        engFollowupStatuses:       ENG_FOLLOWUP_STATUSES,
+        engFollowupPriorities:     ENG_FOLLOWUP_PRIORITIES,
+        engFollowupFitStatuses:    ENG_FOLLOWUP_FIT_STATUSES,
+        engFollowupStatusLabels:   ENG_FOLLOWUP_STATUS_LABELS,
+        engFollowupStatusColors:   ENG_FOLLOWUP_STATUS_COLORS,
+        loadEngFollowups,
+
+        // Follow-up modal
+        engFollowupModalOpen:     store.engFollowupModalOpen,
+        engFollowupModalMode:     store.engFollowupModalMode,
+        engFollowupForm:          store.engFollowupForm,
+        engFollowupFormErrors:    store.engFollowupFormErrors,
+        engFollowupSelected:      store.engFollowupSelected,
+        engFollowupActiveTab:     store.engFollowupActiveTab,
+        engFollowupEvents:        store.engFollowupEvents,
+        engFollowupEventsLoading: store.engFollowupEventsLoading,
+        engFollowupNewNote:       store.engFollowupNewNote,
+        engFollowupNewNoteBy:     store.engFollowupNewNoteBy,
+        engFollowupActionPanel:   store.engFollowupActionPanel,
+        engFollowupResponseNote:  store.engFollowupResponseNote,
+        engFollowupResponseType:  store.engFollowupResponseType,
+        openEngFollowupCreate, openEngFollowupDetail, closeEngFollowupModal,
+        submitEngFollowupCreate, saveEngFollowupDetail,
+        submitEngFollowupNote, loadEngFollowupEvents,
+        engFollowupChecklistCount: store.engFollowupChecklistCount,
+        applyFollowupNoAnswer, applyFollowupFitConfirmed, applyFollowupFitFailed,
+        submitFollowupCustomerResponded, onFollowupDateShippedChange,
+        closeEngFollowupCase,
+        formatTimestamp,
 
         // Dashboard
         orders:                   store.orders,
@@ -270,6 +318,7 @@ export function buildCoreExpose() {
         // Navigation
         selectDept, promptPin, submitPin, goBack,
         selectCategory, selectSubCategory, splashBack,
+        enterEngineeringMenu,
         submitLogin, logout, enterManagerView,
         enterEngineeringInquiriesView, enterEngineeringFollowupView,
         openEngInquiryForm, closeEngInquiryForm, submitEngInquiry,

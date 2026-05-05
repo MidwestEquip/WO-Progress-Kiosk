@@ -203,6 +203,29 @@ export function getStaleHighlightColor(order) {
     return null;
 }
 
+// addBusinessDays — add n Mon–Fri business days to a YYYY-MM-DD date string. Returns YYYY-MM-DD or null.
+export function addBusinessDays(dateStr, n) {
+    if (!dateStr || n <= 0) return dateStr || null;
+    const d = new Date(dateStr + 'T12:00:00');
+    if (isNaN(d.getTime())) return null;
+    let added = 0;
+    while (added < n) {
+        d.setDate(d.getDate() + 1);
+        if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+    }
+    return d.toISOString().slice(0, 10);
+}
+
+// addCalendarDays — add n calendar days to a YYYY-MM-DD string. Returns YYYY-MM-DD or null.
+// Uses noon local time to avoid DST boundary issues.
+export function addCalendarDays(dateStr, n) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr + 'T12:00:00');
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+}
+
 // ── getStaleInfo ──────────────────────────────────────────────
 // Returns { owner, reason } if an open order is stale, or null if fresh.
 // Mirrors the staleness rules used in the open-orders row highlight.

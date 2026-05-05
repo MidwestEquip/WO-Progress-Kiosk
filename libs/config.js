@@ -112,7 +112,8 @@ export const PARTIAL_NAMES = [
     'modal-eng-inquiry',
     'modal-eng-images',
     'modal-eng-create',
-    'modal-eng-confirm'
+    'modal-eng-confirm',
+    'modal-eng-followup'
 ];
 
 export const OPEN_ORDER_SORT_FIELDS = [
@@ -138,3 +139,46 @@ export const ENG_STATUSES = [
 export const ENG_PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 
 export const ENG_ASSIGNEES = ['CSR', 'Engineering', 'Customer'];
+
+export const ENG_FOLLOWUP_STATUSES = [
+    'new_intake',
+    'waiting_to_ship',
+    'waiting_for_customer_use',
+    'follow_up_due',
+    'waiting_on_customer',
+    'needs_engineering_review',
+    'fit_confirmed',
+    'fit_failed',
+    'finalization_needed',
+    'closed',
+];
+
+export const ENG_FOLLOWUP_FIT_STATUSES = ['pending', 'confirmed', 'failed', 'unknown'];
+
+export const ENG_FOLLOWUP_PRIORITIES = ['low', 'normal', 'high', 'urgent'];
+
+export const ENG_FOLLOWUP_STATUS_LABELS = {
+    new_intake:               'New Intake',
+    waiting_to_ship:          'Waiting to Ship',
+    waiting_for_customer_use: 'Waiting for Customer Use',
+    follow_up_due:            'Follow-Up Due',
+    waiting_on_customer:      'Waiting on Customer',
+    needs_engineering_review: 'Needs Eng Review',
+    fit_confirmed:            'Fit Confirmed',
+    fit_failed:               'Fit Failed',
+    finalization_needed:      'Finalization Needed',
+    closed:                   'Closed',
+};
+
+export const ENG_FOLLOWUP_STATUS_COLORS = {
+    new_intake:               'bg-gray-100 text-gray-600',
+    waiting_to_ship:          'bg-blue-100 text-blue-700',
+    waiting_for_customer_use: 'bg-indigo-100 text-indigo-700',
+    follow_up_due:            'bg-amber-100 text-amber-700',
+    waiting_on_customer:      'bg-amber-100 text-amber-700',
+    needs_engineering_review: 'bg-orange-100 text-orange-700',
+    fit_confirmed:            'bg-emerald-100 text-emerald-700',
+    fit_failed:               'bg-red-100 text-red-700',
+    finalization_needed:      'bg-violet-100 text-violet-700',
+    closed:                   'bg-gray-100 text-gray-500',
+};

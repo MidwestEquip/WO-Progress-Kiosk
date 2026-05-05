@@ -1,6 +1,6 @@
 <!-- ============================================================
-     view-engineering-followup.html — Engineering > Customer Follow Up
-     Placeholder. Full implementation in a future patch.
+     view-engineering-followup.html — Engineering > Customer Follow-Up
+     List view: summary cards, search/filter, due/overdue flags.
      ============================================================ -->
 <div v-if="currentView === 'engineering' && engView === 'followup'"
     class="h-full w-full flex flex-col bg-gray-50">
@@ -13,17 +13,171 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
             </svg>
         </button>
-        <h1 class="text-xl font-extrabold text-gray-800">Customer Follow Up</h1>
+        <div class="flex-1">
+            <h1 class="text-xl font-extrabold text-gray-800">Customer Follow-Up</h1>
+            <p class="text-xs text-gray-400">Engineering part changes &amp; fit confirmations</p>
+        </div>
+        <!-- Search -->
+        <div class="relative">
+            <input v-model="engFollowupSearch" type="text"
+                placeholder="Search part #, SO, WO, customer..."
+                class="w-72 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:border-indigo-400 transition-colors">
+            <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+            </svg>
+        </div>
+        <button v-if="engFollowupSearch" @click="engFollowupSearch = ''"
+            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-lg text-sm transition-colors">&#10005;</button>
+        <!-- Status filter -->
+        <select v-model="engFollowupStatusFilter"
+            class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:border-indigo-400">
+            <option value="">All Statuses</option>
+            <option v-for="s in engFollowupStatuses" :key="s" :value="s">{{ engFollowupStatusLabels[s] || s }}</option>
+        </select>
+        <!-- Priority filter -->
+        <select v-model="engFollowupPriorityFilter"
+            class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:border-indigo-400">
+            <option value="">All Priorities</option>
+            <option v-for="p in engFollowupPriorities" :key="p" :value="p" class="capitalize">{{ p }}</option>
+        </select>
+        <!-- New Case -->
+        <button @click="openEngFollowupCreate"
+            class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl font-bold text-sm active:scale-95 transition-all flex items-center gap-2 shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            New Case
+        </button>
+        <!-- Refresh -->
+        <button @click="loadEngFollowups"
+            class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm active:scale-95 transition-all flex items-center gap-2 shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Refresh
+        </button>
     </div>
 
-    <!-- Coming soon -->
-    <div class="flex-1 flex flex-col items-center justify-center gap-3">
-        <svg class="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-        </svg>
-        <p class="text-gray-400 font-semibold">Coming Soon</p>
-        <p class="text-gray-300 text-sm">Follow-up part list — in a future patch.</p>
+    <!-- Summary cards -->
+    <div class="shrink-0 px-6 py-4 grid grid-cols-6 gap-3">
+        <div class="bg-white rounded-xl border border-gray-200 px-4 py-3 flex flex-col items-center shadow-sm">
+            <span class="text-2xl font-extrabold text-gray-800">{{ engFollowupSummary.open }}</span>
+            <span class="text-xs font-semibold text-gray-400 mt-0.5 text-center">Open Cases</span>
+        </div>
+        <div class="bg-white rounded-xl border border-amber-200 px-4 py-3 flex flex-col items-center shadow-sm">
+            <span class="text-2xl font-extrabold" :class="engFollowupSummary.dueToday > 0 ? 'text-amber-600' : 'text-gray-800'">{{ engFollowupSummary.dueToday }}</span>
+            <span class="text-xs font-semibold text-amber-500 mt-0.5 text-center">Due Today</span>
+        </div>
+        <div class="bg-white rounded-xl border border-red-200 px-4 py-3 flex flex-col items-center shadow-sm">
+            <span class="text-2xl font-extrabold" :class="engFollowupSummary.overdue > 0 ? 'text-red-600' : 'text-gray-800'">{{ engFollowupSummary.overdue }}</span>
+            <span class="text-xs font-semibold text-red-400 mt-0.5 text-center">Overdue</span>
+        </div>
+        <div class="bg-white rounded-xl border border-amber-100 px-4 py-3 flex flex-col items-center shadow-sm">
+            <span class="text-2xl font-extrabold text-gray-800">{{ engFollowupSummary.waitingOnCustomer }}</span>
+            <span class="text-xs font-semibold text-gray-400 mt-0.5 text-center">Waiting on Customer</span>
+        </div>
+        <div class="bg-white rounded-xl border border-orange-200 px-4 py-3 flex flex-col items-center shadow-sm">
+            <span class="text-2xl font-extrabold text-gray-800">{{ engFollowupSummary.needsEngReview }}</span>
+            <span class="text-xs font-semibold text-orange-500 mt-0.5 text-center">Needs Eng Review</span>
+        </div>
+        <div class="bg-white rounded-xl border border-violet-200 px-4 py-3 flex flex-col items-center shadow-sm">
+            <span class="text-2xl font-extrabold text-gray-800">{{ engFollowupSummary.finalizationNeeded }}</span>
+            <span class="text-xs font-semibold text-violet-500 mt-0.5 text-center">Finalization Needed</span>
+        </div>
+    </div>
+
+    <!-- List -->
+    <div class="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+
+        <!-- Loading -->
+        <div v-if="engFollowupsLoading" class="flex items-center justify-center h-40">
+            <span class="text-gray-400 text-sm">Loading&hellip;</span>
+        </div>
+
+        <!-- Empty -->
+        <div v-else-if="filteredEngFollowups.length === 0"
+            class="flex flex-col items-center justify-center h-40 gap-2">
+            <svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <p class="text-gray-400 text-sm italic">No follow-up cases found</p>
+        </div>
+
+        <!-- Cards -->
+        <div v-else class="space-y-3">
+            <div v-for="row in filteredEngFollowups" :key="row.id"
+                @click="openEngFollowupDetail(row)"
+                class="bg-white rounded-xl shadow-sm border border-gray-200 border-l-4 overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                :class="{
+                    'border-l-red-500':    row._isOverdue,
+                    'border-l-amber-400':  !row._isOverdue && row._isDueToday,
+                    'border-l-red-400':    !row._isOverdue && !row._isDueToday && row.priority === 'urgent',
+                    'border-l-orange-400': !row._isOverdue && !row._isDueToday && row.priority === 'high',
+                    'border-l-gray-200':   !row._isOverdue && !row._isDueToday && row.priority !== 'urgent' && row.priority !== 'high',
+                }">
+
+                <!-- Header row: part # · description · priority · status · fit · due date -->
+                <div class="flex items-center gap-3 px-4 py-2 border-b border-gray-100 bg-gray-50/60">
+                    <span class="font-extrabold text-gray-900 text-sm shrink-0">{{ row.part_number }}</span>
+                    <span v-if="row.description" class="text-xs text-gray-500 truncate flex-1 min-w-0">{{ row.description }}</span>
+                    <span v-else class="text-xs text-gray-300 italic flex-1 min-w-0">No description</span>
+                    <!-- Priority -->
+                    <span class="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold capitalize"
+                        :class="{
+                            'bg-red-100 text-red-700':       row.priority === 'urgent',
+                            'bg-orange-100 text-orange-700': row.priority === 'high',
+                            'bg-yellow-100 text-yellow-700': row.priority === 'normal',
+                            'bg-gray-100 text-gray-500':     row.priority === 'low' || !row.priority,
+                        }">{{ row.priority || 'normal' }}</span>
+                    <!-- Status -->
+                    <span class="shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                        :class="engFollowupStatusColors[row.status] || 'bg-gray-100 text-gray-600'">
+                        {{ engFollowupStatusLabels[row.status] || row.status }}
+                    </span>
+                    <!-- Fit status -->
+                    <span class="shrink-0 px-2 py-0.5 rounded text-xs font-semibold"
+                        :class="{
+                            'bg-emerald-100 text-emerald-700': row.fit_status === 'confirmed',
+                            'bg-red-100 text-red-700':         row.fit_status === 'failed',
+                            'bg-amber-100 text-amber-700':     row.fit_status === 'pending' || !row.fit_status,
+                            'bg-gray-100 text-gray-500':       row.fit_status === 'unknown',
+                        }">Fit: {{ row.fit_status || 'pending' }}</span>
+                    <!-- Due date -->
+                    <span v-if="row.next_action_due_date"
+                        class="shrink-0 text-xs font-semibold px-2 py-0.5 rounded"
+                        :class="{
+                            'bg-red-100 text-red-700':     row._isOverdue,
+                            'bg-amber-100 text-amber-700': !row._isOverdue && row._isDueToday,
+                            'text-gray-500':               !row._isOverdue && !row._isDueToday,
+                        }">
+                        <span v-if="row._isOverdue">OVERDUE · </span>
+                        <span v-else-if="row._isDueToday">DUE TODAY · </span>
+                        {{ row.next_action_due_date }}
+                    </span>
+                </div>
+
+                <!-- Body row: SO · WO · customer · next action · owner -->
+                <div class="flex items-center gap-4 px-4 py-2.5 text-xs text-gray-600 min-w-0">
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span v-if="row.sales_order" class="flex items-center gap-1">
+                            <span class="font-semibold text-gray-400 uppercase tracking-wide">SO</span>
+                            <span class="font-bold text-gray-700">{{ row.sales_order }}</span>
+                        </span>
+                        <span v-if="row.wo_number" class="flex items-center gap-1">
+                            <span class="font-semibold text-gray-400 uppercase tracking-wide">WO</span>
+                            <span class="font-bold text-gray-700">{{ row.wo_number }}</span>
+                        </span>
+                    </div>
+                    <span v-if="(row.sales_order || row.wo_number) && row.customer_name" class="text-gray-200 shrink-0">|</span>
+                    <span v-if="row.customer_name" class="shrink-0 font-semibold text-gray-700">{{ row.customer_name }}</span>
+                    <span v-if="row.next_action" class="text-gray-200 shrink-0">|</span>
+                    <span v-if="row.next_action" class="flex-1 truncate text-gray-500 italic min-w-0">
+                        <span class="font-semibold text-gray-400 not-italic">Next: </span>{{ row.next_action }}
+                    </span>
+                    <span v-if="row.next_action_owner" class="shrink-0 font-semibold text-indigo-600">{{ row.next_action_owner }}</span>
+                </div>
+
+            </div>
+        </div>
     </div>
 
 </div>

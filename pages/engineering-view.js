@@ -15,12 +15,6 @@ export async function enterEngineeringInquiriesView() {
     await loadEngInquiries();
 }
 
-// enterEngineeringFollowupView — navigate to Engineering > Customer Follow Up.
-export function enterEngineeringFollowupView() {
-    store.engView.value     = 'followup';
-    store.currentView.value = 'engineering';
-}
-
 // loadEngInquiries — fetch all inquiries into store.
 export async function loadEngInquiries() {
     store.engInquiriesLoading.value = true;
