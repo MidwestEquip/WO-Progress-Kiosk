@@ -34,6 +34,7 @@ import { openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submi
          openTcAssyCompleteModal, confirmTcWoComplete, tcUnitNextStep,
          toggleTcEntryMode } from './pages/dashboard-tc.js';
 import { markAlereUpdated } from './libs/db.js';
+import { fetchAllWorkOrdersByWoNumber } from './libs/db-inventory.js';
 import { searchOfficeReceive, openReceiveModal, submitReceive,
          openCloseoutModal, submitCloseout, loadReceivingEligible,
          openAlereConfirm, cancelAlereConfirm, submitAlereUpdated,
@@ -70,6 +71,19 @@ function openCompletedWo(order) {
     } else {
         openActionPanel(order, true);
     }
+}
+
+async function openCreatedWoDetail(item) {
+    store.linkedWoRequest.value     = item;
+    store.actionPanelReadOnly.value = true;
+    const woNum = (item?.alere_wo_number || '').trim();
+    if (!woNum) return;
+    const { data } = await fetchAllWorkOrdersByWoNumber(woNum);
+    if (!data || !data.length) return;
+    const order = data.find(r => r.department === 'Trac Vac Assy' || r.department === 'Tru Cut Assy')
+               || data.find(r => r.department === 'Weld')
+               || data[0];
+    openCompletedWo(order);
 }
 
 export function buildCoreExpose() {
@@ -162,6 +176,7 @@ export function buildCoreExpose() {
         actionPanelOpen:      store.actionPanelOpen,
         actionPanelReadOnly:  store.actionPanelReadOnly,
         activeOrder:          store.activeOrder,
+        linkedWoRequest:      store.linkedWoRequest,
         selectedOperator:     store.selectedOperator,
         selectedOperators:    store.selectedOperators,
         fabWeldOperatorReady: store.fabWeldOperatorReady,
@@ -358,7 +373,7 @@ export function buildCoreExpose() {
         enterEngCompletedView, loadEngCompletedInquiries, restoreEngFromCompleted,
 
         // Dashboard
-        openActionPanel, openCompletedWo, openTvAssyEntry, tvSelectMode,
+        openActionPanel, openCompletedWo, openCreatedWoDetail, openTvAssyEntry, tvSelectMode,
         submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
         tvStockDirectAction, saveTvStockNotes,
         tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold,

@@ -68,6 +68,7 @@ export const filteredClosedOutDeptOrders  = computed(() => _completedDeptFilter(
 export const actionPanelOpen     = ref(false);
 export const actionPanelReadOnly = ref(false);
 export const activeOrder         = ref(null);
+export const linkedWoRequest     = ref(null); // WO request row linked to read-only production view
 export const selectedOperator  = ref('');
 export const otherOperator     = ref('');
 export const selectedOperators = ref([]);

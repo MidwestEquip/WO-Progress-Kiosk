@@ -228,11 +228,6 @@ export function closeWoRequestDetail() {
     store.woRequestDefaultsApplied.value = false;
 }
 
-// openCreatedWoDetail — open the WO request detail modal in read-only mode for a created WO.
-export async function openCreatedWoDetail(item) {
-    store.woRequestReadOnly.value = true;
-    await openWoRequestDetail(item);
-}
 
 // _buildDetailUpdates — shared helper to convert the detail form to DB update shape.
 function _buildDetailUpdates(form) {

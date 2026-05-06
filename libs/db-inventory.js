@@ -307,6 +307,16 @@ export async function checkWoNumberExists(woNumber) {
     return (count || 0) > 0;
 }
 
+// fetchAllWorkOrdersByWoNumber — all WOs (any status) matching wo_number, full row for production modals.
+export async function fetchAllWorkOrdersByWoNumber(woNumber) {
+    if (!woNumber) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('work_orders')
+            .select('*')
+            .eq('wo_number', woNumber.trim().toUpperCase())
+    );
+}
+
 // fetchWorkOrdersByWoNumber — active WOs matching a given wo_number (for open order drill-down).
 // Returns key production fields only; excludes completed orders.
 export async function fetchWorkOrdersByWoNumber(woNumber) {
