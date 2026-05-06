@@ -148,6 +148,7 @@ export function buildCoreExpose() {
 
         // Action panel
         actionPanelOpen:      store.actionPanelOpen,
+        actionPanelReadOnly:  store.actionPanelReadOnly,
         activeOrder:          store.activeOrder,
         selectedOperator:     store.selectedOperator,
         selectedOperators:    store.selectedOperators,

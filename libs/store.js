@@ -65,8 +65,9 @@ export const filteredCompletedDeptOrders  = computed(() => _completedDeptFilter(
 export const filteredClosedOutDeptOrders  = computed(() => _completedDeptFilter(closedOutDeptOrders.value));
 
 // ── Action panel ──────────────────────────────────────────────
-export const actionPanelOpen   = ref(false);
-export const activeOrder       = ref(null);
+export const actionPanelOpen     = ref(false);
+export const actionPanelReadOnly = ref(false);
+export const activeOrder         = ref(null);
 export const selectedOperator  = ref('');
 export const otherOperator     = ref('');
 export const selectedOperators = ref([]);

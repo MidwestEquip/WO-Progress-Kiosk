@@ -15,10 +15,11 @@ import { deepClone, sanitizeText, isNonEmpty, isValidQty } from '../libs/utils.j
 import { fetchDeptOrders } from '../libs/db.js';
 import { logError, fetchCompletedWosByDept, fetchArchivedWosByDept } from '../libs/db-shared.js';
 
-// ── openActionPanel ───────────────────────────────────────────
-export function openActionPanel(order) {
-    store.activeOrder.value      = order;
-    store.actionPanelOpen.value  = true;
+// ── openActionPanel — readOnly=true shows info without edit controls ──
+export function openActionPanel(order, readOnly = false) {
+    store.activeOrder.value          = order;
+    store.actionPanelOpen.value      = true;
+    store.actionPanelReadOnly.value  = readOnly;
     store.selectedOperator.value = order.operator || '';
     store.otherOperator.value    = '';
     store.selectedOperators.value = [];
@@ -95,7 +96,6 @@ export async function updateOrderStatus(newStatus, stageKey = null) {
     }
 
     store.loading.value = true;
-
     // Capture undo snapshot BEFORE writing
     const previousSnapshot = deepClone(store.activeOrder.value);
     const undoDesc = `${opName}: ${newStatus}${stageKey ? ' (' + stageKey + ')' : ''} on WO ${store.activeOrder.value.wo_number}`;
