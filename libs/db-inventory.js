@@ -5,7 +5,7 @@
 // ============================================================
 
 import { supabase, withRetry } from './db-shared.js';
-import { detectTcMode } from './utils.js';
+import { detectTcMode, normalizePartNumber } from './utils.js';
 
 // ── Inventory queries ─────────────────────────────────────────
 
@@ -374,4 +374,86 @@ export async function fetchCompletedOrders() {
 export async function deleteCompletedOrder(id) {
     if (!id) return { error: new Error('Missing completed order ID') };
     return withRetry(() => supabase.from('completed_orders').delete().eq('id', id));
+}
+
+// ── Part Approval Defaults ────────────────────────────────────
+
+// fetchPartApprovalDefault — look up routing defaults for a part number.
+// Normalizes the part number before querying. Returns { data: row|null, error }.
+export async function fetchPartApprovalDefault(partNumber) {
+    if (!partNumber) return { data: null, error: null };
+    const normalized = normalizePartNumber(partNumber);
+    if (!normalized) return { data: null, error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.from('part_approval_defaults')
+            .select('*')
+            .eq('part_number_normalized', normalized)
+            .limit(1)
+    );
+    return { data: (data && data[0]) || null, error };
+}
+
+// learnPartApprovalDefaults — save or fill-in routing defaults after an approval.
+// approvedFields: plain object with any subset of the 7 approval columns.
+// Insert if no row exists; otherwise fill only null/blank stored fields.
+// Never overwrites a populated default. Always updates last_used_at.
+export async function learnPartApprovalDefaults(partNumber, approvedFields, updatedBy = null) {
+    if (!partNumber) return { data: null, error: new Error('Part number is required') };
+    const normalized = normalizePartNumber(partNumber);
+    if (!normalized) return { data: null, error: new Error('Part number normalized to empty') };
+
+    const { data: existing, error: fetchErr } = await withRetry(() =>
+        supabase.from('part_approval_defaults')
+            .select('*')
+            .eq('part_number_normalized', normalized)
+            .maybeSingle()
+    );
+    if (fetchErr) return { data: null, error: fetchErr };
+
+    const now    = new Date().toISOString();
+    const FIELDS = ['fab', 'fab_print', 'weld', 'weld_print', 'assy_wo', 'color', 'bent_rolled_part'];
+
+    if (!existing) {
+        const insert = {
+            part_number:            partNumber.trim(),
+            part_number_normalized: normalized,
+            source:                 'manual_or_learned',
+            created_at:             now,
+            updated_at:             now,
+            last_used_at:           now,
+        };
+        if (updatedBy) insert.created_by = updatedBy;
+        FIELDS.forEach(f => {
+            const v = approvedFields[f];
+            if (v !== null && v !== undefined && v !== '') insert[f] = v;
+        });
+        return withRetry(() =>
+            supabase.from('part_approval_defaults').insert([insert]).select()
+        );
+    }
+
+    // Row exists: fill only null/blank stored fields — never overwrite populated ones
+    const updates   = { last_used_at: now };
+    let   anyFilled = false;
+    FIELDS.forEach(f => {
+        const stored   = existing[f];
+        const approved = approvedFields[f];
+        const isEmpty  = stored === null || stored === undefined || stored === '';
+        const hasValue = approved !== null && approved !== undefined && approved !== '';
+        if (isEmpty && hasValue) {
+            updates[f] = approved;
+            anyFilled  = true;
+        }
+    });
+    if (anyFilled) {
+        updates.updated_at = now;
+        if (updatedBy) updates.updated_by = updatedBy;
+    }
+
+    return withRetry(() =>
+        supabase.from('part_approval_defaults')
+            .update(updates)
+            .eq('part_number_normalized', normalized)
+            .select()
+    );
 }

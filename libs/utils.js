@@ -263,3 +263,9 @@ export function detectTcMode(partNumber) {
     if (p.startsWith('TC'))   return 'stock';
     return null;
 }
+
+// normalizePartNumber — trim whitespace and uppercase for case-insensitive part matching.
+export function normalizePartNumber(partNumber) {
+    if (typeof partNumber !== 'string') return '';
+    return partNumber.trim().toUpperCase();
+}

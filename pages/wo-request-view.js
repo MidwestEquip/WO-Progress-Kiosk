@@ -148,11 +148,16 @@ function boolToYesNo(val) {
 // Boolean DB fields (fab, weld, bent_rolled_part) are mapped to 'yes'/'no' strings
 // to support <select> binding. fab_print/weld_print store 'yes'/'no' as text.
 // Also loads any existing part prints into woFiles so they show in the modal.
-export function openWoRequestDetail(req) {
-    store.selectedWoRequest.value   = req;
+// After populating from the request, fetches part_approval_defaults and fills
+// only blank routing fields — never overwrites values already on the request.
+export async function openWoRequestDetail(req) {
+    store.selectedWoRequest.value        = req;
+    store.woRequestDefaultsApplied.value = false;
     store.woRequestDetailForm.value = {
         alere_qty:           req.alere_qty           ?? '',
         qty_sold_used_12mo:  req.qty_sold_used_12mo  ?? '',
+        qty_used_in_mfg:     req.qty_used_in_mfg     ?? '',
+        qty_made_past_12mo:  req.qty_made_past_12mo  ?? '',
         where_used:          req.where_used          || '',
         qty_to_make:         req.qty_to_make         ?? '',
         fab:                 req.fab       || '',   // TEXT 'yes'/'no' after migration
@@ -170,6 +175,27 @@ export function openWoRequestDetail(req) {
         production_notes:    req.production_notes    || ''
     };
     loadWoFilesForRequest(req.part_number);
+
+    // Auto-fill blank routing fields from stored part defaults (fire-and-forget safe)
+    try {
+        const { data: defaults } = await db.fetchPartApprovalDefault(req.part_number);
+        if (defaults) {
+            const form   = store.woRequestDetailForm.value;
+            const FIELDS = ['fab', 'fab_print', 'weld', 'weld_print', 'assy_wo', 'color'];
+            let applied  = false;
+            FIELDS.forEach(f => {
+                if (!form[f] && defaults[f]) { form[f] = defaults[f]; applied = true; }
+            });
+            // bent_rolled_part: stored as BOOLEAN, form uses 'yes'/'no'
+            if (!form.bent_rolled_part && defaults.bent_rolled_part !== null && defaults.bent_rolled_part !== undefined) {
+                form.bent_rolled_part = defaults.bent_rolled_part ? 'yes' : 'no';
+                applied = true;
+            }
+            store.woRequestDefaultsApplied.value = applied;
+        }
+    } catch (err) {
+        logError('openWoRequestDetail:defaults', err, { part: req.part_number });
+    }
 }
 
 // loadWoFilesForRequest — fetch part prints for the given part number into woFiles.
@@ -197,7 +223,8 @@ export async function handleWoFileUploadForRequest(event) {
 }
 
 export function closeWoRequestDetail() {
-    store.selectedWoRequest.value = null;
+    store.selectedWoRequest.value        = null;
+    store.woRequestDefaultsApplied.value = false;
 }
 
 // _buildDetailUpdates — shared helper to convert the detail form to DB update shape.
@@ -205,6 +232,8 @@ function _buildDetailUpdates(form) {
     return {
         alere_qty:           form.alere_qty          !== '' ? parseFloat(form.alere_qty)          : null,
         qty_sold_used_12mo:  form.qty_sold_used_12mo !== '' ? parseFloat(form.qty_sold_used_12mo) : null,
+        qty_used_in_mfg:     form.qty_used_in_mfg    !== '' ? parseFloat(form.qty_used_in_mfg)    : null,
+        qty_made_past_12mo:  form.qty_made_past_12mo !== '' ? parseFloat(form.qty_made_past_12mo) : null,
         where_used:          form.where_used.trim()  || null,
         qty_to_make:         form.qty_to_make        !== '' ? parseFloat(form.qty_to_make)        : null,
         fab:                 form.fab      || null,   // TEXT 'yes'/'no'
@@ -280,6 +309,20 @@ export async function approveWoRequest() {
         const updates = { ..._buildDetailUpdates(form), status: 'approved' };
         const { error } = await db.updateWoRequest(id, updates);
         if (error) throw error;
+
+        // Fire-and-forget: learn routing defaults for this part (never blocks approval)
+        const partNum = (store.selectedWoRequest.value?.part_number || '').trim();
+        if (partNum) {
+            db.learnPartApprovalDefaults(partNum, {
+                fab:              updates.fab,
+                fab_print:        updates.fab_print,
+                weld:             updates.weld,
+                weld_print:       updates.weld_print,
+                assy_wo:          updates.assy_wo,
+                color:            updates.color,
+                bent_rolled_part: updates.bent_rolled_part,
+            }).catch(err => logError('approveWoRequest:learnDefaults', err, { part: partNum }));
+        }
 
         // Sync est. lead time as a date to the matching open order's Est. Leadtime column
         const req      = store.selectedWoRequest.value;

@@ -34,8 +34,9 @@ export const woRequestForm        = ref({
     submitted_by: ''
 });
 export const woRequestFormErrors = ref({ part_number: false, submitted_by: false });
-export const woRequestSearch     = ref('');
-export const selectedWoRequest   = ref(null);
+export const woRequestSearch          = ref('');
+export const selectedWoRequest        = ref(null);
+export const woRequestDefaultsApplied = ref(false); // true when defaults were auto-filled on modal open
 export const woRequestDetailForm = ref({
     alere_qty: '', qty_sold_used_12mo: '', where_used: '', qty_to_make: '',
     fab: '', fab_print: '', weld: '', weld_print: '',
