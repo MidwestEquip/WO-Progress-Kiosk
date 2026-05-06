@@ -4,7 +4,7 @@
 
                 <!-- Top bar -->
                 <div class="shrink-0 bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center gap-4">
-                    <button @click="tvAssyUnitOpen = false" class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded font-bold text-sm">&#10005; CLOSE</button>
+                    <button @click="tvAssyUnitOpen = false; actionPanelReadOnly = false" class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded font-bold text-sm">&#10005; CLOSE</button>
                     <img src="assets/trac-vac-logo.png" alt="Trac Vac" class="h-8 object-contain shrink-0">
                     <div class="flex items-center gap-3 min-w-0 flex-1">
                         <span class="text-xl font-extrabold text-blue-400 shrink-0">WO #{{ activeOrder?.wo_number }}</span>
@@ -14,7 +14,7 @@
                         <span class="text-slate-500 text-xs shrink-0">Qty: {{ activeOrder?.qty_required }}</span>
                         <span class="ml-2 px-2 py-0.5 rounded text-xs font-bold bg-blue-700 text-blue-200">UNIT</span>
                     </div>
-                    <button @click="tvAssyUnitOpen = false; tvAssyStockOpen = true"
+                    <button v-if="!actionPanelReadOnly" @click="tvAssyUnitOpen = false; tvAssyStockOpen = true"
                         class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-xs font-bold">
                         Switch to SUBASSY
                     </button>
@@ -29,7 +29,7 @@
                         <!-- Operator name -->
                         <div class="p-4 border-b border-gray-100">
                             <div class="text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">Operator</div>
-                            <input v-model="tvAssyEntryName" type="text" placeholder="Enter your name..." maxlength="50"
+                            <input v-model="tvAssyEntryName" :readonly="actionPanelReadOnly" type="text" placeholder="Enter your name..." maxlength="50"
                                 class="w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors border-gray-300">
                         </div>
 
@@ -44,7 +44,7 @@
                                             {{ activeOrder?.tv_cart_status === 'started' ? 'Cart Assy' : 'Engine Assy' }}
                                         </span>
                                     </div>
-                                    <button @click="tvUnitOpenHold()"
+                                    <button @click="tvUnitOpenHold()" :disabled="actionPanelReadOnly"
                                         class="w-full px-3 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-sm active:scale-95 transition-all">
                                         &#128722; Put on Hold
                                     </button>
@@ -60,7 +60,7 @@
                                 <div class="flex gap-2">
                                     <button @click="tvUnitHoldOpen = false; tvUnitHoldReason = ''; tvUnitHoldReasonError = false"
                                         class="flex-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded text-xs">Cancel</button>
-                                    <button @click="tvUnitConfirmHold()"
+                                    <button @click="tvUnitConfirmHold()" :disabled="actionPanelReadOnly"
                                         class="flex-1 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded text-xs active:scale-95 transition-all">Confirm &#10003;</button>
                                 </div>
                             </template>
@@ -70,8 +70,9 @@
                         <div class="p-4 border-b border-gray-100">
                             <div class="text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">Notes / Differences / Mods</div>
                             <textarea v-model="tvStockNotes" rows="4" maxlength="2000" placeholder="Log any changes or anything different in this assembled unit/part here."
+                                :readonly="actionPanelReadOnly"
                                 class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500 resize-none transition-colors"></textarea>
-                            <button @click="saveTvStockNotes()"
+                            <button @click="saveTvStockNotes()" :disabled="actionPanelReadOnly"
                                 class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs active:scale-95 transition-all">
                                 Save Notes
                             </button>
@@ -117,7 +118,7 @@
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Unit Serial # <span class="text-red-400">*</span></label>
-                                        <input v-model="tvUnitInfoForm.unitSerial" @blur="saveTvUnitDetails()" @input="tvUnitInfoErrors.unitSerial = false"
+                                        <input v-model="tvUnitInfoForm.unitSerial" @blur="!actionPanelReadOnly && saveTvUnitDetails()" :readonly="actionPanelReadOnly" @input="tvUnitInfoErrors.unitSerial = false"
                                             type="text" placeholder="—" maxlength="40"
                                             class="w-full bg-white p-2 rounded-lg border focus:outline-none focus:border-blue-500 text-blue-700 font-mono text-sm transition-colors"
                                             :class="tvUnitInfoErrors.unitSerial ? 'border-red-500 bg-red-50' : 'border-gray-300'">
@@ -125,7 +126,7 @@
                                     </div>
                                     <div>
                                         <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Engine Model <span class="text-red-400">*</span></label>
-                                        <input v-model="tvUnitInfoForm.engineModel" @blur="saveTvUnitDetails()" @input="tvUnitInfoErrors.engineModel = false"
+                                        <input v-model="tvUnitInfoForm.engineModel" @blur="!actionPanelReadOnly && saveTvUnitDetails()" :readonly="actionPanelReadOnly" @input="tvUnitInfoErrors.engineModel = false"
                                             type="text" placeholder="—" maxlength="40"
                                             class="w-full bg-white p-2 rounded-lg border focus:outline-none focus:border-blue-500 text-gray-800 text-sm transition-colors"
                                             :class="tvUnitInfoErrors.engineModel ? 'border-red-500 bg-red-50' : 'border-gray-300'">
@@ -133,7 +134,7 @@
                                     </div>
                                     <div>
                                         <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Engine Serial # <span class="text-red-400">*</span></label>
-                                        <input v-model="tvUnitInfoForm.engineSerial" @blur="saveTvUnitDetails()" @input="tvUnitInfoErrors.engineSerial = false"
+                                        <input v-model="tvUnitInfoForm.engineSerial" @blur="!actionPanelReadOnly && saveTvUnitDetails()" :readonly="actionPanelReadOnly" @input="tvUnitInfoErrors.engineSerial = false"
                                             type="text" placeholder="—" maxlength="40"
                                             class="w-full bg-white p-2 rounded-lg border focus:outline-none focus:border-blue-500 text-blue-700 font-mono text-sm transition-colors"
                                             :class="tvUnitInfoErrors.engineSerial ? 'border-red-500 bg-red-50' : 'border-gray-300'">
@@ -168,17 +169,17 @@
                                 <div class="mt-auto pt-3 border-t border-gray-200">
                                     <div v-if="tvEngStage.pending === ''" class="flex flex-wrap gap-2">
                                         <template v-if="!activeOrder?.tv_engine_status || activeOrder?.tv_engine_status === 'not_started'">
-                                            <button @click="tvUnitStageDirectAction('engine', 'start')" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Start</button>
-                                            <button @click="tvEngStage.pending = 'cant_start'" class="px-3 py-2 text-xs font-bold bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg active:scale-95 transition-all">&#10007; Can't Start</button>
+                                            <button @click="tvUnitStageDirectAction('engine', 'start')" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Start</button>
+                                            <button @click="tvEngStage.pending = 'cant_start'" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg active:scale-95 transition-all">&#10007; Can't Start</button>
                                         </template>
                                         <template v-else-if="activeOrder?.tv_engine_status === 'started'">
-                                            <button @click="tvEngStage.pending = 'pause'" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-white rounded-lg active:scale-95 transition-all">&#9646;&#9646; Pause</button>
-                                            <button @click="tvEngStage.pending = 'complete'" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg active:scale-95 transition-all">&#10003; Done</button>
-                                            <button @click="tvEngStage.pending = 'hold'" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
+                                            <button @click="tvEngStage.pending = 'pause'" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-white rounded-lg active:scale-95 transition-all">&#9646;&#9646; Pause</button>
+                                            <button @click="tvEngStage.pending = 'complete'" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg active:scale-95 transition-all">&#10003; Done</button>
+                                            <button @click="tvEngStage.pending = 'hold'" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
                                         </template>
                                         <template v-else-if="activeOrder?.tv_engine_status === 'paused' || activeOrder?.tv_engine_status === 'on_hold'">
-                                            <button @click="tvUnitStageDirectAction('engine', 'resume')" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Resume</button>
-                                            <button @click="tvEngStage.pending = 'hold'" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
+                                            <button @click="tvUnitStageDirectAction('engine', 'resume')" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Resume</button>
+                                            <button @click="tvEngStage.pending = 'hold'" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
                                         </template>
                                         <div v-else-if="activeOrder?.tv_engine_status === 'completed'" class="text-emerald-600 text-xs font-bold py-1.5">&#10003; Stage Complete</div>
                                     </div>
@@ -195,7 +196,7 @@
                                         <div class="flex gap-2">
                                             <button @click="tvEngStage.pending = ''; tvEngStage.sessionQty = ''; tvEngStage.reason = ''; tvEngStage.qtyError = false; tvEngStage.reasonError = false"
                                                 class="px-3 py-1.5 text-xs font-bold bg-gray-200 text-gray-700 rounded">Cancel</button>
-                                            <button @click="submitTvUnitStageFromUi('engine')"
+                                            <button @click="submitTvUnitStageFromUi('engine')" :disabled="actionPanelReadOnly"
                                                 class="flex-1 px-3 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded active:scale-95 transition-all">Confirm &#10003;</button>
                                         </div>
                                     </div>
@@ -229,17 +230,17 @@
                                 <div class="mt-auto pt-3 border-t border-gray-200">
                                     <div v-if="tvCrtStage.pending === ''" class="flex flex-wrap gap-2">
                                         <template v-if="!activeOrder?.tv_cart_status || activeOrder?.tv_cart_status === 'not_started'">
-                                            <button @click="tvUnitStageDirectAction('cart', 'start')" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Start</button>
-                                            <button @click="tvCrtStage.pending = 'cant_start'" class="px-3 py-2 text-xs font-bold bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg active:scale-95 transition-all">&#10007; Can't Start</button>
+                                            <button @click="tvUnitStageDirectAction('cart', 'start')" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Start</button>
+                                            <button @click="tvCrtStage.pending = 'cant_start'" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg active:scale-95 transition-all">&#10007; Can't Start</button>
                                         </template>
                                         <template v-else-if="activeOrder?.tv_cart_status === 'started'">
-                                            <button @click="tvCrtStage.pending = 'pause'" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-white rounded-lg active:scale-95 transition-all">&#9646;&#9646; Pause</button>
-                                            <button @click="tvCrtStage.pending = 'complete'" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg active:scale-95 transition-all">&#10003; Done</button>
-                                            <button @click="tvCrtStage.pending = 'hold'" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
+                                            <button @click="tvCrtStage.pending = 'pause'" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-white rounded-lg active:scale-95 transition-all">&#9646;&#9646; Pause</button>
+                                            <button @click="tvCrtStage.pending = 'complete'" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg active:scale-95 transition-all">&#10003; Done</button>
+                                            <button @click="tvCrtStage.pending = 'hold'" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
                                         </template>
                                         <template v-else-if="activeOrder?.tv_cart_status === 'paused' || activeOrder?.tv_cart_status === 'on_hold'">
-                                            <button @click="tvUnitStageDirectAction('cart', 'resume')" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Resume</button>
-                                            <button @click="tvCrtStage.pending = 'hold'" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
+                                            <button @click="tvUnitStageDirectAction('cart', 'resume')" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all">&#9654; Resume</button>
+                                            <button @click="tvCrtStage.pending = 'hold'" :disabled="actionPanelReadOnly" class="px-3 py-2 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg active:scale-95 transition-all">Hold</button>
                                         </template>
                                         <div v-else-if="activeOrder?.tv_cart_status === 'completed'" class="text-emerald-600 text-xs font-bold py-1.5">&#10003; Stage Complete</div>
                                     </div>
@@ -256,7 +257,7 @@
                                         <div class="flex gap-2">
                                             <button @click="tvCrtStage.pending = ''; tvCrtStage.sessionQty = ''; tvCrtStage.reason = ''; tvCrtStage.qtyError = false; tvCrtStage.reasonError = false"
                                                 class="px-3 py-1.5 text-xs font-bold bg-gray-200 text-gray-700 rounded">Cancel</button>
-                                            <button @click="submitTvUnitStageFromUi('cart')"
+                                            <button @click="submitTvUnitStageFromUi('cart')" :disabled="actionPanelReadOnly"
                                                 class="flex-1 px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded active:scale-95 transition-all">Confirm &#10003;</button>
                                         </div>
                                     </div>
@@ -265,7 +266,7 @@
 
                             <!-- Whole WO Complete button -->
                             <div>
-                                <button v-if="activeOrder?.status !== 'completed'" @click="markTvUnitWoComplete()"
+                                <button v-if="activeOrder?.status !== 'completed'" @click="markTvUnitWoComplete()" :disabled="actionPanelReadOnly"
                                     class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-lg rounded-xl active:scale-95 transition-all border border-emerald-400/50 flex items-center justify-center gap-2">
                                     <span>&#9989;</span> Mark Whole WO Complete
                                 </button>
@@ -292,10 +293,10 @@
                                 <div v-else class="space-y-2">
                                     <div v-for="f in woFiles" :key="'tvua-'+f.name" class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                                         <a :href="f.signedUrl" target="_blank" class="text-blue-600 text-xs font-medium truncate hover:underline">{{ f.name }}</a>
-                                        <button @click="handleWoFileDelete(f.name)" class="ml-2 text-red-400 hover:text-red-600 text-xs font-bold shrink-0">&#10005;</button>
+                                        <button v-if="!actionPanelReadOnly" @click="handleWoFileDelete(f.name)" class="ml-2 text-red-400 hover:text-red-600 text-xs font-bold shrink-0">&#10005;</button>
                                     </div>
                                 </div>
-                                <label class="mt-3 flex items-center justify-center gap-2 cursor-pointer w-full py-2.5 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg text-gray-500 hover:text-blue-600 text-xs font-bold transition-colors">
+                                <label v-if="!actionPanelReadOnly" class="mt-3 flex items-center justify-center gap-2 cursor-pointer w-full py-2.5 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg text-gray-500 hover:text-blue-600 text-xs font-bold transition-colors">
                                     + Upload File
                                     <input type="file" accept=".pdf,.dxf,.dwg,.png,.jpg" class="hidden" @change="handleWoFileUpload">
                                 </label>
@@ -307,20 +308,22 @@
                                     <div class="text-xs font-bold text-red-500 uppercase tracking-wide mb-0.5">Open Problem</div>
                                     <div class="text-red-800 text-xs">{{ activeOrder.wo_problem_text }}</div>
                                 </div>
-                                <input v-model="woProblemDraftName" @input="woProblemDraftNameError = false"
-                                    type="text" placeholder="Your name" maxlength="50"
-                                    class="w-full p-2.5 text-sm border rounded-lg focus:outline-none focus:border-red-400 transition-colors"
-                                    :class="woProblemDraftNameError ? 'border-red-500 bg-red-50' : 'border-gray-300'">
-                                <p v-if="woProblemDraftNameError" class="text-red-500 text-xs -mt-2">Name is required</p>
-                                <textarea v-model="woProblemDraftText" @input="woProblemDraftError = false"
-                                    rows="3" maxlength="1000" placeholder="Describe the problem (e.g. machine issue, missing part)…"
-                                    class="w-full p-2.5 text-sm border rounded-lg resize-none focus:outline-none focus:border-red-400 transition-colors"
-                                    :class="woProblemDraftError ? 'border-red-500 bg-red-50' : 'border-gray-300'"></textarea>
-                                <p v-if="woProblemDraftError" class="text-red-500 text-xs -mt-2">Problem description is required</p>
-                                <button @click="submitWoProblemFromUi()"
-                                    class="w-full bg-red-600 hover:bg-red-500 text-white px-3 py-2.5 rounded-lg font-bold text-sm transition-colors active:scale-95">
-                                    Log Problem with WO
-                                </button>
+                                <template v-if="!actionPanelReadOnly">
+                                    <input v-model="woProblemDraftName" @input="woProblemDraftNameError = false"
+                                        type="text" placeholder="Your name" maxlength="50"
+                                        class="w-full p-2.5 text-sm border rounded-lg focus:outline-none focus:border-red-400 transition-colors"
+                                        :class="woProblemDraftNameError ? 'border-red-500 bg-red-50' : 'border-gray-300'">
+                                    <p v-if="woProblemDraftNameError" class="text-red-500 text-xs -mt-2">Name is required</p>
+                                    <textarea v-model="woProblemDraftText" @input="woProblemDraftError = false"
+                                        rows="3" maxlength="1000" placeholder="Describe the problem (e.g. machine issue, missing part)…"
+                                        class="w-full p-2.5 text-sm border rounded-lg resize-none focus:outline-none focus:border-red-400 transition-colors"
+                                        :class="woProblemDraftError ? 'border-red-500 bg-red-50' : 'border-gray-300'"></textarea>
+                                    <p v-if="woProblemDraftError" class="text-red-500 text-xs -mt-2">Problem description is required</p>
+                                    <button @click="submitWoProblemFromUi()"
+                                        class="w-full bg-red-600 hover:bg-red-500 text-white px-3 py-2.5 rounded-lg font-bold text-sm transition-colors active:scale-95">
+                                        Log Problem with WO
+                                    </button>
+                                </template>
                             </div>
                             <!-- Done tab -->
                             <div v-if="woActionTab === 'complete'" class="text-center py-6 text-gray-400 text-sm">

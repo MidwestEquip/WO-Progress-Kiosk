@@ -60,6 +60,18 @@ import { enterEngineeringFollowupView, loadEngFollowups,
          submitFollowupCustomerResponded, onFollowupDateShippedChange,
          closeEngFollowupCase } from './pages/engineering-followup.js';
 
+function openCompletedWo(order) {
+    store.actionPanelReadOnly.value = true;
+    const dept = order?.department;
+    if (dept === 'Tru Cut Assy') {
+        openTcAssyEntry(order);
+    } else if (dept === 'Trac Vac Assy') {
+        openTvAssyEntry(order);
+    } else {
+        openActionPanel(order, true);
+    }
+}
+
 export function buildCoreExpose() {
     return {
         // Navigation state
@@ -346,7 +358,7 @@ export function buildCoreExpose() {
         enterEngCompletedView, loadEngCompletedInquiries, restoreEngFromCompleted,
 
         // Dashboard
-        openActionPanel, openTvAssyEntry, tvSelectMode,
+        openActionPanel, openCompletedWo, openTvAssyEntry, tvSelectMode,
         submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
         tvStockDirectAction, saveTvStockNotes,
         tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold,

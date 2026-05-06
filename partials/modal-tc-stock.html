@@ -4,7 +4,7 @@
 
                 <!-- Top bar -->
                 <div class="shrink-0 bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center gap-4">
-                    <button @click="tcAssyStockOpen = false" class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded font-bold text-sm">&#10005; CLOSE</button>
+                    <button @click="tcAssyStockOpen = false; actionPanelReadOnly = false" class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded font-bold text-sm">&#10005; CLOSE</button>
                     <img src="assets/tru-cut-logo.png" alt="Tru-Cut" class="h-8 object-contain shrink-0">
                     <!-- Operator + mode toggle -->
                     <div class="flex items-center gap-3 shrink-0">
@@ -65,35 +65,35 @@
                                 <!-- Action buttons (idle state) -->
                                 <div v-if="tcStockPending === ''" class="flex flex-wrap gap-3">
                                     <template v-if="!activeOrder?.status || activeOrder?.status === 'not_started'">
-                                        <button @click="tcStockDirectAction('start')"
-                                            class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 transition-all">
+                                        <button @click="tcStockDirectAction('start')" :disabled="actionPanelReadOnly"
+                                            class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                                             &#9654; Start
                                         </button>
-                                        <button @click="tcStockPending = 'cant_start'"
+                                        <button @click="tcStockPending = 'cant_start'" :disabled="actionPanelReadOnly"
                                             class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl active:scale-95 transition-all">
                                             &#10007; Can't Start
                                         </button>
                                     </template>
                                     <template v-else-if="activeOrder?.status === 'started'">
-                                        <button @click="tcStockPending = 'pause'"
+                                        <button @click="tcStockPending = 'pause'" :disabled="actionPanelReadOnly"
                                             class="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-white font-bold rounded-xl active:scale-95 transition-all">
                                             &#9646;&#9646; Pause
                                         </button>
-                                        <button @click="tcStockPending = 'complete'"
+                                        <button @click="tcStockPending = 'complete'" :disabled="actionPanelReadOnly"
                                             class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl active:scale-95 transition-all">
                                             &#10003; Complete
                                         </button>
-                                        <button @click="tcStockPending = 'hold'"
+                                        <button @click="tcStockPending = 'hold'" :disabled="actionPanelReadOnly"
                                             class="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl active:scale-95 transition-all">
                                             &#128722; Hold
                                         </button>
                                     </template>
                                     <template v-else-if="activeOrder?.status === 'paused' || activeOrder?.status === 'on_hold'">
-                                        <button @click="tcStockDirectAction('resume')"
+                                        <button @click="tcStockDirectAction('resume')" :disabled="actionPanelReadOnly"
                                             class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 transition-all">
                                             &#9654; Resume
                                         </button>
-                                        <button @click="tcStockPending = 'hold'"
+                                        <button @click="tcStockPending = 'hold'" :disabled="actionPanelReadOnly"
                                             class="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl active:scale-95 transition-all">
                                             &#128722; Hold
                                         </button>
@@ -130,7 +130,7 @@
                                             class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-xl">
                                             Cancel
                                         </button>
-                                        <button @click="submitTcStockActionFromUi()"
+                                        <button @click="submitTcStockActionFromUi()" :disabled="actionPanelReadOnly"
                                             class="flex-1 py-3 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl active:scale-95 transition-all">
                                             Confirm &#10003;
                                         </button>
@@ -144,7 +144,7 @@
                                 <textarea v-model="tcStockNotes" rows="3" maxlength="2000"
                                     class="w-full p-3 bg-gray-50 rounded-xl border border-gray-300 focus:outline-none focus:border-teal-500 transition-colors text-sm"
                                     placeholder="Any differences, modifications, or notes about this job..."></textarea>
-                                <button @click="saveTcStockNotes()"
+                                <button @click="saveTcStockNotes()" :disabled="actionPanelReadOnly"
                                     class="mt-2 px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm font-bold rounded-lg active:scale-95 transition-all">
                                     &#128190; Save Notes
                                 </button>

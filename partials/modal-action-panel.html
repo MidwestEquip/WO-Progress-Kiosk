@@ -4,7 +4,7 @@
 
                 <!-- ── Top bar ─────────────────────────────────────────── -->
                 <div class="shrink-0 bg-slate-900 border-b border-slate-700 px-5 py-3 flex items-center gap-4">
-                    <button @click="actionPanelOpen = false" class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded font-bold text-sm">✕ CLOSE</button>
+                    <button @click="actionPanelOpen = false; actionPanelReadOnly = false" class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded font-bold text-sm">✕ CLOSE</button>
                     <div class="flex items-center gap-4 min-w-0 flex-1">
                         <span class="text-2xl font-extrabold text-blue-400 shrink-0">WO #{{ activeOrder?.wo_number }}</span>
                         <span class="text-base font-bold text-slate-300 border border-slate-600 px-2 py-0.5 rounded shrink-0">{{ activeOrder?.part_number }}</span>
@@ -33,20 +33,10 @@
                     <div class="w-96 shrink-0 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
                         <div class="p-5">
 
-                    <!-- Read-only: show completed status summary instead of controls -->
-                    <div v-if="actionPanelReadOnly" class="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4">
-                        <div class="text-emerald-700 font-extrabold text-sm uppercase tracking-wide mb-2">&#10003; Completed WO — View Only</div>
-                        <div class="text-sm text-gray-600 space-y-1">
-                            <div><span class="font-semibold text-gray-500">Operator:</span> {{ activeOrder?.assigned_operator || '—' }}</div>
-                            <div><span class="font-semibold text-gray-500">Qty completed:</span> {{ activeOrder?.qty_completed ?? activeOrder?.qty_required }}</div>
-                            <div><span class="font-semibold text-gray-500">Status:</span> {{ activeOrder?.status }}</div>
-                        </div>
-                    </div>
-                    <template v-if="!actionPanelReadOnly">
                     <!-- Operator input + QTY display -->
                     <div v-if="activeOrder?.department !== 'Fab' && activeOrder?.department !== 'Weld'" class="mb-8 border-b border-slate-700 pb-6">
                         <label class="block text-slate-400 font-bold mb-2 uppercase text-sm">Logging As:</label>
-                        <input v-model="selectedOperator" type="text"
+                        <input v-model="selectedOperator" :readonly="actionPanelReadOnly" type="text"
                             placeholder="Type your name..."
                             maxlength="50"
                             class="w-full bg-slate-700 border border-slate-600 rounded p-4 text-xl">
@@ -63,22 +53,22 @@
                             <div>
                                 <h4 class="font-bold text-blue-300">Engine/Subassy</h4>
                                 <div class="text-slate-400 text-sm mb-2">{{ activeOrder.tv_engine_status || 'Not Started' }}</div>
-                                <button @click="updateOrderStatus('completed', 'tv_engine')" :disabled="loading" class="w-full bg-emerald-600 py-2 rounded text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed">Mark Completed</button>
+                                <button @click="updateOrderStatus('completed', 'tv_engine')" :disabled="loading || actionPanelReadOnly" class="w-full bg-emerald-600 py-2 rounded text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed">Mark Completed</button>
                             </div>
                             <div>
                                 <h4 class="font-bold text-amber-300">Cart</h4>
                                 <div class="text-slate-400 text-sm mb-2">{{ activeOrder.tv_cart_status || 'Not Started' }}</div>
-                                <button @click="updateOrderStatus('completed', 'tv_cart')" :disabled="loading" class="w-full bg-emerald-600 py-2 rounded text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed">Mark Completed</button>
+                                <button @click="updateOrderStatus('completed', 'tv_cart')" :disabled="loading || actionPanelReadOnly" class="w-full bg-emerald-600 py-2 rounded text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed">Mark Completed</button>
                             </div>
                             <div>
                                 <h4 class="font-bold text-emerald-300">Final Unit</h4>
                                 <div class="text-slate-400 text-sm mb-2">{{ activeOrder.tv_final_status || 'Not Started' }}</div>
-                                <button @click="updateOrderStatus('completed', 'tv_final')" :disabled="loading" class="w-full bg-emerald-600 py-2 rounded text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed">Mark Completed</button>
+                                <button @click="updateOrderStatus('completed', 'tv_final')" :disabled="loading || actionPanelReadOnly" class="w-full bg-emerald-600 py-2 rounded text-sm font-bold disabled:opacity-40 disabled:cursor-not-allowed">Mark Completed</button>
                             </div>
                         </div>
                         <div class="mt-8">
-                            <button @click="updateOrderStatus('started')" :disabled="loading" class="bg-blue-600 px-6 py-2 rounded font-bold mr-2 disabled:opacity-40 disabled:cursor-not-allowed">START WHOLE WO</button>
-                            <button @click="updateOrderStatus('on_hold')" :disabled="loading" class="bg-red-600 px-6 py-2 rounded font-bold disabled:opacity-40 disabled:cursor-not-allowed">HOLD WO</button>
+                            <button @click="updateOrderStatus('started')" :disabled="loading || actionPanelReadOnly" class="bg-blue-600 px-6 py-2 rounded font-bold mr-2 disabled:opacity-40 disabled:cursor-not-allowed">START WHOLE WO</button>
+                            <button @click="updateOrderStatus('on_hold')" :disabled="loading || actionPanelReadOnly" class="bg-red-600 px-6 py-2 rounded font-bold disabled:opacity-40 disabled:cursor-not-allowed">HOLD WO</button>
                         </div>
                     </div>
 
@@ -87,7 +77,7 @@
                         <!-- Fab/Weld: Operator text input + QTY (hidden for reel WOs — op selected per operation) -->
                         <div v-if="!(isReel && activeOrder?.department === 'Weld')" class="mb-6 border-b border-slate-700 pb-6">
                             <label class="block text-slate-400 font-bold mb-3 uppercase text-sm">Who is doing this? <span class="text-red-400">*</span></label>
-                            <input v-model="selectedOperator" type="text"
+                            <input v-model="selectedOperator" :readonly="actionPanelReadOnly" type="text"
                                 placeholder="Type your name..."
                                 maxlength="50"
                                 class="w-full bg-slate-700 border border-slate-600 rounded p-3 text-lg placeholder:text-slate-500">
@@ -103,7 +93,7 @@
                         <div v-if="!(isReel && activeOrder?.department === 'Weld')">
                         <!-- not_started: START only -->
                         <div v-if="!activeOrder?.status || activeOrder.status === 'not_started'">
-                            <button @click="updateOrderStatus('started')" :disabled="!fabWeldOperatorReady || loading"
+                            <button @click="updateOrderStatus('started')" :disabled="!fabWeldOperatorReady || loading || actionPanelReadOnly"
                                 class="w-full bg-blue-600 hover:bg-blue-500 rounded-xl p-6 font-bold text-2xl active:scale-95 transition-transform flex items-center justify-center gap-4 border border-blue-400/50 disabled:opacity-40 disabled:cursor-not-allowed">
                                 <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
@@ -128,18 +118,18 @@
                         <div v-else-if="activeOrder.status === 'started' || activeOrder.status === 'resumed'" class="grid grid-cols-2 gap-6">
                             <div class="bg-slate-700 p-4 rounded-xl border border-slate-600 flex flex-col items-center">
                                 <div class="text-slate-400 text-xs mb-1">Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}</div>
-                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
-                                <button @click="updateOrderStatus('paused')" :disabled="!fabWeldOperatorReady || loading" class="bg-amber-500 hover:bg-amber-400 text-slate-900 w-full rounded py-3 font-extrabold disabled:opacity-40 disabled:cursor-not-allowed">PAUSE DAY</button>
+                                <input type="number" v-model="actionForm.qtyCompleted" :readonly="actionPanelReadOnly" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
+                                <button @click="updateOrderStatus('paused')" :disabled="!fabWeldOperatorReady || loading || actionPanelReadOnly" class="bg-amber-500 hover:bg-amber-400 text-slate-900 w-full rounded py-3 font-extrabold disabled:opacity-40 disabled:cursor-not-allowed">PAUSE DAY</button>
                             </div>
                             <div class="bg-slate-700 p-4 rounded-xl border border-slate-600 flex flex-col items-center">
                                 <div class="text-slate-400 text-xs mb-1">Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}</div>
-                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
-                                <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady || loading" class="bg-emerald-600 hover:bg-emerald-500 w-full rounded py-3 font-extrabold text-white disabled:opacity-40 disabled:cursor-not-allowed">COMPLETE WO</button>
+                                <input type="number" v-model="actionForm.qtyCompleted" :readonly="actionPanelReadOnly" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
+                                <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady || loading || actionPanelReadOnly" class="bg-emerald-600 hover:bg-emerald-500 w-full rounded py-3 font-extrabold text-white disabled:opacity-40 disabled:cursor-not-allowed">COMPLETE WO</button>
                             </div>
                         </div>
                         <!-- paused / on_hold: RESUME + COMPLETE -->
                         <div v-else class="grid grid-cols-2 gap-6">
-                            <button @click="updateOrderStatus('started')" :disabled="!fabWeldOperatorReady || loading"
+                            <button @click="updateOrderStatus('started')" :disabled="!fabWeldOperatorReady || loading || actionPanelReadOnly"
                                 class="bg-emerald-700 hover:bg-emerald-600 rounded-xl p-6 font-bold text-2xl active:scale-95 transition-transform flex flex-col items-center justify-center border border-emerald-500/50 disabled:opacity-40 disabled:cursor-not-allowed">
                                 <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
@@ -149,8 +139,8 @@
                             </button>
                             <div class="bg-slate-700 p-4 rounded-xl border border-slate-600 flex flex-col items-center">
                                 <div class="text-slate-400 text-xs mb-1">Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}</div>
-                                <input type="number" v-model="actionForm.qtyCompleted" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
-                                <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady || loading" class="bg-emerald-600 hover:bg-emerald-500 w-full rounded py-3 font-extrabold text-white disabled:opacity-40 disabled:cursor-not-allowed">COMPLETE WO</button>
+                                <input type="number" v-model="actionForm.qtyCompleted" :readonly="actionPanelReadOnly" class="w-full bg-slate-900 p-2 text-center text-xl font-bold rounded mb-2" placeholder="Qty this session" min="0">
+                                <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady || loading || actionPanelReadOnly" class="bg-emerald-600 hover:bg-emerald-500 w-full rounded py-3 font-extrabold text-white disabled:opacity-40 disabled:cursor-not-allowed">COMPLETE WO</button>
                             </div>
                         </div>
 
@@ -160,7 +150,7 @@
                             <!-- Reel WO: operator text input for hold/scrap attribution -->
                             <div v-if="isReel && activeOrder?.department === 'Weld'" class="border-b border-slate-700 pb-5">
                                 <label class="block text-slate-400 text-xs font-bold mb-2 uppercase">Who is logging this action?</label>
-                                <input v-model="selectedOperator" type="text"
+                                <input v-model="selectedOperator" :readonly="actionPanelReadOnly" type="text"
                                     placeholder="Type your name..."
                                     maxlength="50"
                                     class="w-full bg-slate-700 border border-slate-600 rounded p-3 text-base placeholder:text-slate-500">
@@ -168,29 +158,28 @@
                             <div>
                                 <label class="block text-slate-400 font-bold mb-2">Put on Hold / Delay</label>
                                 <div class="flex gap-2">
-                                    <select v-if="HOLD_REASONS[activeOrder?.department]" v-model="actionForm.holdReason" class="w-full bg-slate-700 border border-slate-600 p-3 rounded">
+                                    <select v-if="HOLD_REASONS[activeOrder?.department]" v-model="actionForm.holdReason" :disabled="actionPanelReadOnly" class="w-full bg-slate-700 border border-slate-600 p-3 rounded disabled:opacity-40 disabled:cursor-not-allowed">
                                         <option value="">Select Reason...</option>
                                         <option v-for="r in HOLD_REASONS[activeOrder?.department]" :key="r" :value="r">{{ r }}</option>
                                     </select>
-                                    <input v-else v-model="actionForm.holdReason" type="text" maxlength="200" class="w-full bg-slate-700 p-3 rounded" placeholder="Reason...">
-                                    <button @click="updateOrderStatus('on_hold')" :disabled="!fabWeldOperatorReady || !actionForm.holdReason.trim() || loading" class="bg-red-600 font-bold px-4 rounded hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed">HOLD</button>
+                                    <input v-else v-model="actionForm.holdReason" :readonly="actionPanelReadOnly" type="text" maxlength="200" class="w-full bg-slate-700 p-3 rounded" placeholder="Reason...">
+                                    <button @click="updateOrderStatus('on_hold')" :disabled="!fabWeldOperatorReady || !actionForm.holdReason.trim() || loading || actionPanelReadOnly" class="bg-red-600 font-bold px-4 rounded hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed">HOLD</button>
                                 </div>
                             </div>
                             <div>
                                 <label class="block text-slate-400 font-bold mb-2">Log Scrap or Added Notes</label>
                                 <div class="flex gap-2 p-3 bg-red-900/20 border border-red-900 rounded mb-2">
-                                    <input type="number" v-model="actionForm.qtyScrap" :disabled="!fabWeldOperatorReady" placeholder="Scrapped Qty" class="w-1/3 bg-slate-900 p-2 text-red-400 font-bold rounded text-center disabled:opacity-40 disabled:cursor-not-allowed">
-                                    <select v-model="actionForm.scrapReason" :disabled="!fabWeldOperatorReady" class="flex-1 bg-slate-800 p-2 text-xs rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                                    <input type="number" v-model="actionForm.qtyScrap" :disabled="!fabWeldOperatorReady || actionPanelReadOnly" placeholder="Scrapped Qty" class="w-1/3 bg-slate-900 p-2 text-red-400 font-bold rounded text-center disabled:opacity-40 disabled:cursor-not-allowed">
+                                    <select v-model="actionForm.scrapReason" :disabled="!fabWeldOperatorReady || actionPanelReadOnly" class="flex-1 bg-slate-800 p-2 text-xs rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
                                         <option value="">-- Scrap Reason --</option>
                                         <option v-for="r in SCRAP_REASONS" :key="r" :value="r">{{ r }}</option>
                                     </select>
                                 </div>
-                                <input v-model="actionForm.notes" type="text" maxlength="200" :disabled="!fabWeldOperatorReady" placeholder="Add specific notes here" class="w-full bg-slate-700 p-3 rounded text-sm placeholder:text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <input v-model="actionForm.notes" type="text" maxlength="200" :disabled="!fabWeldOperatorReady || actionPanelReadOnly" placeholder="Add specific notes here" class="w-full bg-slate-700 p-3 rounded text-sm placeholder:text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed">
                             </div>
                         </div>
                     </div><!-- /Fab+Weld v-else -->
-                    </template><!-- /v-if="!actionPanelReadOnly" -->
-                        <!-- Action history log (visible in both modes) -->
+                        <!-- Action history log -->
                         <div v-if="activeOrder.notes" class="mt-6 border-t border-slate-700 pt-4">
                             <div class="text-slate-500 font-bold text-xs uppercase mb-2 tracking-widest">&#128196; Action History</div>
                             <div class="bg-slate-900 rounded-lg p-3 max-h-44 overflow-y-auto">
@@ -422,11 +411,8 @@
 
                         <!-- ── COMPLETE tab ────────────────────────── -->
                         <div v-if="woActionTab === 'complete'" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-                            <div v-if="actionPanelReadOnly" class="text-emerald-600 font-bold text-sm text-center py-6">
-                                &#10003; This WO is completed
-                            </div>
                             <!-- Fab / Weld completion (not shown for reel Weld WOs — ops drive completion) -->
-                            <template v-else-if="activeOrder?.department === 'Fab' || (activeOrder?.department === 'Weld' && !isReel)">
+                            <template v-if="activeOrder?.department === 'Fab' || (activeOrder?.department === 'Weld' && !isReel)">
                                 <div>
                                     <div class="text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Qty this session</div>
                                     <input type="number" v-model="actionForm.qtyCompleted" min="0"
@@ -435,7 +421,7 @@
                                         Done so far: {{ activeOrder.qty_completed }} / {{ activeOrder.qty_required }}
                                     </div>
                                 </div>
-                                <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady || loading"
+                                <button @click="updateOrderStatus('completed')" :disabled="!fabWeldOperatorReady || loading || actionPanelReadOnly"
                                     class="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-5 font-extrabold text-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                                     ✓ COMPLETE WO
                                 </button>
