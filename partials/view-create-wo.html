@@ -135,7 +135,8 @@
                                 <span>Created</span>
                             </div>
                             <div v-for="item in createdWoItems" :key="item.id"
-                                class="bg-white border border-gray-200 rounded-xl px-5 py-3 grid grid-cols-[1fr_1fr_auto_auto_1fr] gap-4 items-center">
+                                @click="openCreatedWoDetail(item)"
+                                class="bg-white border border-gray-200 rounded-xl px-5 py-3 grid grid-cols-[1fr_1fr_auto_auto_1fr] gap-4 items-center cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-colors">
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="font-extrabold text-gray-800 text-sm font-mono">{{ item.part_number }}</span>
                                     <span v-if="item.status === 'in production'"

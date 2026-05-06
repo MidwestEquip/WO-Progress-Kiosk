@@ -29,7 +29,8 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0 ml-4">
-                        <button @click="deleteWoRequestItem(selectedWoRequest.id)"
+                        <span v-if="woRequestReadOnly" class="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">View Only</span>
+                        <button v-if="!woRequestReadOnly" @click="deleteWoRequestItem(selectedWoRequest.id)"
                             class="text-gray-400 hover:text-red-500 p-2 rounded-lg transition-colors">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -53,7 +54,7 @@
                     </p>
 
                     <!-- Defaults applied indicator -->
-                    <div v-if="woRequestDefaultsApplied"
+                    <div v-if="!woRequestReadOnly && woRequestDefaultsApplied"
                         class="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 mb-2">
                         <svg class="w-4 h-4 shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -68,7 +69,7 @@
                         <!-- Fab ★ -->
                         <div class="w-24 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Fab <span class="text-green-500">★</span></label>
-                            <select v-model="woRequestDetailForm.fab"
+                            <select v-model="woRequestDetailForm.fab" :disabled="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.fab ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white'">
                                 <option value="">—</option>
@@ -80,7 +81,7 @@
                         <!-- Fab Print ★ -->
                         <div class="w-24 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Fab Print <span class="text-green-500">★</span></label>
-                            <select v-model="woRequestDetailForm.fab_print"
+                            <select v-model="woRequestDetailForm.fab_print" :disabled="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.fab_print ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white'">
                                 <option value="">—</option>
@@ -92,7 +93,7 @@
                         <!-- Weld area ★ -->
                         <div class="w-44 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Weld <span class="text-green-500">★</span></label>
-                            <select v-model="woRequestDetailForm.weld"
+                            <select v-model="woRequestDetailForm.weld" :disabled="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.weld ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white'">
                                 <option value="">— Select —</option>
@@ -112,7 +113,7 @@
                         <!-- Weld Print ★ -->
                         <div class="w-24 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Weld Print <span class="text-green-500">★</span></label>
-                            <select v-model="woRequestDetailForm.weld_print"
+                            <select v-model="woRequestDetailForm.weld_print" :disabled="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.weld_print ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white'">
                                 <option value="">—</option>
@@ -124,7 +125,7 @@
                         <!-- Assy WO ★ -->
                         <div class="w-36 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Assy WO <span class="text-green-500">★</span></label>
-                            <select v-model="woRequestDetailForm.assy_wo"
+                            <select v-model="woRequestDetailForm.assy_wo" :disabled="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.assy_wo ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white'">
                                 <option value="">— Select —</option>
@@ -137,7 +138,7 @@
                         <!-- Color -->
                         <div class="w-28 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Color</label>
-                            <select v-model="woRequestDetailForm.color"
+                            <select v-model="woRequestDetailForm.color" :disabled="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.color ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white'">
                                 <option value="">—</option>
@@ -152,7 +153,7 @@
                         <!-- Bent / Rolled Part ★ -->
                         <div class="w-24 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Bent / Rolled <span class="text-green-500">★</span></label>
-                            <select v-model="woRequestDetailForm.bent_rolled_part"
+                            <select v-model="woRequestDetailForm.bent_rolled_part" :disabled="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.bent_rolled_part ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white'">
                                 <option value="">—</option>
@@ -170,7 +171,7 @@
                         <!-- Qty to Make ★ -->
                         <div class="w-24 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty to Make <span class="text-green-500">★</span></label>
-                            <input v-model="woRequestDetailForm.qty_to_make" type="number" min="0"
+                            <input v-model="woRequestDetailForm.qty_to_make" type="number" min="0" :readonly="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.qty_to_make !== '' && woRequestDetailForm.qty_to_make != null ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                         </div>
@@ -178,7 +179,7 @@
                         <!-- Est. Lead Time ★ -->
                         <div class="w-36 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Lead Time (days) <span class="text-green-500">★</span></label>
-                            <input v-model="woRequestDetailForm.estimated_lead_time" type="number" min="0"
+                            <input v-model="woRequestDetailForm.estimated_lead_time" type="number" min="0" :readonly="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.estimated_lead_time !== '' && woRequestDetailForm.estimated_lead_time != null ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                         </div>
@@ -186,7 +187,7 @@
                         <!-- Date to Start ★ -->
                         <div class="w-36 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Date to Start <span class="text-green-500">★</span></label>
-                            <input v-model="woRequestDetailForm.date_to_start" type="date"
+                            <input v-model="woRequestDetailForm.date_to_start" type="date" :readonly="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.date_to_start ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                         </div>
@@ -194,7 +195,7 @@
                         <!-- Set Up Time ★ -->
                         <div class="w-24 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Setup (hrs) <span class="text-green-500">★</span></label>
-                            <input v-model="woRequestDetailForm.set_up_time" type="number" min="0" step="0.5"
+                            <input v-model="woRequestDetailForm.set_up_time" type="number" min="0" step="0.5" :readonly="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.set_up_time !== '' && woRequestDetailForm.set_up_time != null ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                         </div>
@@ -208,7 +209,7 @@
                         <!-- Qty Sold this part 12mo -->
                         <div class="w-44 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Sold (this part) 12 mo</label>
-                            <input v-model="woRequestDetailForm.qty_sold_used_12mo" type="number" min="0"
+                            <input v-model="woRequestDetailForm.qty_sold_used_12mo" type="number" min="0" :readonly="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.qty_sold_used_12mo !== '' && woRequestDetailForm.qty_sold_used_12mo != null ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                         </div>
@@ -216,7 +217,7 @@
                         <!-- Qty Used In MFG -->
                         <div class="w-36 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Used In MFG</label>
-                            <input v-model="woRequestDetailForm.qty_used_in_mfg" type="number" min="0"
+                            <input v-model="woRequestDetailForm.qty_used_in_mfg" type="number" min="0" :readonly="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.qty_used_in_mfg !== '' && woRequestDetailForm.qty_used_in_mfg != null ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                         </div>
@@ -224,7 +225,7 @@
                         <!-- Qty Made Past 12mo -->
                         <div class="w-36 shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Made Past 12 mo</label>
-                            <input v-model="woRequestDetailForm.qty_made_past_12mo" type="number" min="0"
+                            <input v-model="woRequestDetailForm.qty_made_past_12mo" type="number" min="0" :readonly="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.qty_made_past_12mo !== '' && woRequestDetailForm.qty_made_past_12mo != null ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                         </div>
@@ -238,6 +239,7 @@
                             <span class="normal-case font-normal text-gray-400 ml-1">(shown on production card)</span>
                         </label>
                         <textarea v-model="woRequestDetailForm.production_notes" rows="2" maxlength="300"
+                            :readonly="woRequestReadOnly"
                             placeholder="e.g. Use jig #4, check weld spec sheet..."
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm resize-none"></textarea>
                     </div>
@@ -258,7 +260,7 @@
                                     </div>
                                 </template>
                             </div>
-                            <label class="cursor-pointer shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition-colors">
+                            <label v-if="!woRequestReadOnly" class="cursor-pointer shrink-0 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 transition-colors">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                                 Attach File
                                 <input type="file" class="sr-only" accept=".pdf,.dxf,.dwg,.png,.jpg" @change="handleWoFileUploadForRequest($event)">
@@ -267,7 +269,7 @@
                     </div>
 
                     <!-- Save / Approve / Forecast row -->
-                    <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                    <div v-if="!woRequestReadOnly" class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                         <button @click="openSendToForecast(selectedWoRequest)" :disabled="loading"
                             class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-5 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
