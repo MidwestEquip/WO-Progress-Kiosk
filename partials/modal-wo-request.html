@@ -4,7 +4,7 @@
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
             @click.self="closeWoRequestDetail">
 
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-[75vw] max-h-[90vh] overflow-y-auto flex flex-col">
 
                 <!-- Modal header -->
                 <div class="flex items-start justify-between px-6 py-3 border-b border-gray-200 shrink-0">
@@ -151,7 +151,7 @@
                         </div>
 
                         <!-- Bent / Rolled Part ★ -->
-                        <div class="w-24 shrink-0">
+                        <div class="w-[6.6rem] shrink-0">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Bent / Rolled <span class="text-green-500">★</span></label>
                             <select v-model="woRequestDetailForm.bent_rolled_part" :disabled="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
@@ -203,33 +203,58 @@
                     </div>
 
                     <!-- ── Data ── -->
-                    <p class="text-base font-extrabold text-gray-700 uppercase tracking-wide mt-3 mb-1.5">Data</p>
+                    <div class="flex items-center gap-2 mt-3 mb-0.5">
+                        <p class="text-base font-extrabold text-gray-700 uppercase tracking-wide">Data: 1/1/25–12/31/25</p>
+                        <svg v-if="woRequestHistoryLoading" class="w-4 h-4 animate-spin text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-1.5 italic">Auto-filled from transaction history &mdash; saved as approval snapshot. You may override.</p>
                     <div class="flex flex-wrap gap-5 items-start">
 
-                        <!-- Qty Sold this part 12mo -->
+                        <!-- Qty Sold -->
                         <div class="w-44 shrink-0">
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Sold (this part) 12 mo</label>
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Sold</label>
                             <input v-model="woRequestDetailForm.qty_sold_used_12mo" type="number" min="0" :readonly="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.qty_sold_used_12mo !== '' && woRequestDetailForm.qty_sold_used_12mo != null ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                         </div>
 
-                        <!-- Qty Used In MFG -->
-                        <div class="w-36 shrink-0">
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Used In MFG</label>
+                        <!-- Qty Used in MFG -->
+                        <div class="w-44 shrink-0">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Used in MFG</label>
                             <input v-model="woRequestDetailForm.qty_used_in_mfg" type="number" min="0" :readonly="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.qty_used_in_mfg !== '' && woRequestDetailForm.qty_used_in_mfg != null ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                         </div>
 
-                        <!-- Qty Made Past 12mo -->
-                        <div class="w-36 shrink-0">
-                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Made Past 12 mo</label>
+                        <!-- Qty Made -->
+                        <div class="w-44 shrink-0">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Made</label>
                             <input v-model="woRequestDetailForm.qty_made_past_12mo" type="number" min="0" :readonly="woRequestReadOnly"
                                 class="w-full px-2 py-1.5 border rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm"
                                 :class="woRequestDetailForm.qty_made_past_12mo !== '' && woRequestDetailForm.qty_made_past_12mo != null ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                         </div>
 
+                        <!-- Suggested Qty to Make -->
+                        <div v-if="woRequestSuggestedQty !== null" class="w-44 shrink-0">
+                            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Suggested Qty to Make</label>
+                            <div class="w-full px-2 py-1.5 border border-blue-300 bg-blue-50 rounded-lg text-blue-800 font-bold text-sm">
+                                {{ woRequestSuggestedQty }}
+                                <span class="font-normal text-blue-500 text-xs ml-1">(sold + used + 5%)</span>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Stock warning -->
+                    <div v-if="woRequestStockWarning"
+                        class="flex items-center gap-3 mt-3 px-5 py-4 bg-amber-400 border-2 border-amber-500 rounded-xl text-white font-extrabold text-lg shadow-md">
+                        <svg class="w-7 h-7 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                        </svg>
+                        Should have stock of this part # &mdash; double check before making more.
                     </div>
 
                     <!-- Production Notes -->

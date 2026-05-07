@@ -317,3 +317,10 @@ No active series.
 - Patch 4: Action buttons — `addBusinessDays` in utils.js; `engFollowupActionPanel/ResponseNote/ResponseType` refs; `applyFollowupNoAnswer`, `applyFollowupFitConfirmed`, `applyFollowupFitFailed`, `submitFollowupCustomerResponded`, `onFollowupDateShippedChange` in engineering-followup.js; action bar + customer-responded inline panel in modal.
 - Patch 5: Close Case — `engFollowupChecklistCount` computed; `closeEngFollowupCase()` validates fit_status ≠ pending then patches status=closed + closes modal; checklist tab badge showing X/9 count (emerald when complete).
 - Patch 6: Nav badge — `enterEngineeringMenu()` in splash-view.js preloads follow-up counts on Engineering sub-menu entry; red/amber count badge on "Customer Follow Up" splash button when overdue/due-today cases exist.
+
+### WO Request part history auto-fill
+- Patch 1: Schema — `issues_receipts` table (18 columns, 4 indexes including unique dedup index on source_file_name+source_row_number); `get_part_usage_summary_12mo(p_part TEXT)` Postgres RPC with SECURITY DEFINER returning three sums (SO+O, MO+O, MO+I); RLS enabled on table.
+- Patch 2: Data import — Google Sheets exported as CSV, headers renamed to match DB columns, `part_number_normalized` column added via `=UPPER(TRIM(...))` formula, dates formatted YYYY-MM-DD, imported via Supabase Table Editor CSV import.
+- Patch 3: `fetchPartUsageSummary12Mo(partNumber)` in db-inventory.js — calls RPC, returns `{ qty_sold_used_12mo, qty_used_in_mfg, qty_made_past_12mo }`, defaults all to 0 on no match or error.
+- Patch 4: `woRequestHistoryLoading` ref in store-inventory.js + exposed in expose-ops.js; `openWoRequestDetail()` fires non-blocking `.then()` to auto-fill three form fields; toast+log on failure.
+- Patch 5: modal-wo-request.html — heading "DATA: 1/1/25–12/31/25", spinner on loading, italic subtitle, simplified field labels; blue "Suggested Qty to Make" tile = ceil((sold+used)×1.05); amber stock warning banner when qty_made ≥ (used+sold)×1.25; modal widened to 75vw; `woRequestSuggestedQty` + `woRequestStockWarning` computeds in store-inventory.js.

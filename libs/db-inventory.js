@@ -467,3 +467,29 @@ export async function learnPartApprovalDefaults(partNumber, approvedFields, upda
             .select()
     );
 }
+
+// ── Part usage history ────────────────────────────────────────
+
+// fetchPartUsageSummary12Mo — calls the get_part_usage_summary_12mo RPC to return
+// three 12-month sums from issues_receipts for a given part number.
+// Returns { data: { qty_sold_used_12mo, qty_used_in_mfg, qty_made_past_12mo }, error }.
+// All three values default to 0 when no matching rows exist.
+export async function fetchPartUsageSummary12Mo(partNumber) {
+    const normalized = normalizePartNumber(partNumber);
+    if (!normalized) return { data: { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0 }, error: null };
+
+    const { data, error } = await withRetry(() =>
+        supabase.rpc('get_part_usage_summary_12mo', { p_part: normalized })
+    );
+    if (error) return { data: { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0 }, error };
+
+    const row = (data && data[0]) || {};
+    return {
+        data: {
+            qty_sold_used_12mo: Number(row.qty_sold_12mo     ?? 0),
+            qty_used_in_mfg:    Number(row.qty_used_mfg_12mo ?? 0),
+            qty_made_past_12mo: Number(row.qty_made_12mo     ?? 0),
+        },
+        error: null,
+    };
+}

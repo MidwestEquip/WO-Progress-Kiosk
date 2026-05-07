@@ -176,6 +176,20 @@ export async function openWoRequestDetail(req) {
     };
     loadWoFilesForRequest(req.part_number);
 
+    // Auto-fill 12-mo usage summary from issues_receipts (non-blocking)
+    store.woRequestHistoryLoading.value = true;
+    db.fetchPartUsageSummary12Mo(req.part_number).then(({ data, error }) => {
+        store.woRequestHistoryLoading.value = false;
+        if (error) {
+            store.showToast('Could not load part history: ' + error.message, 'error');
+            logError('openWoRequestDetail:history', error, { part: req.part_number });
+            return;
+        }
+        store.woRequestDetailForm.value.qty_sold_used_12mo = data.qty_sold_used_12mo;
+        store.woRequestDetailForm.value.qty_used_in_mfg    = data.qty_used_in_mfg;
+        store.woRequestDetailForm.value.qty_made_past_12mo = data.qty_made_past_12mo;
+    });
+
     // Auto-fill blank routing fields from stored part defaults (fire-and-forget safe)
     try {
         const { data: defaults } = await db.fetchPartApprovalDefault(req.part_number);

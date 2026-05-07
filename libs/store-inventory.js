@@ -37,7 +37,8 @@ export const woRequestFormErrors = ref({ part_number: false, submitted_by: false
 export const woRequestSearch          = ref('');
 export const selectedWoRequest        = ref(null);
 export const woRequestReadOnly        = ref(false);
-export const woRequestDefaultsApplied = ref(false); // true when defaults were auto-filled on modal open
+export const woRequestDefaultsApplied  = ref(false); // true when defaults were auto-filled on modal open
+export const woRequestHistoryLoading   = ref(false); // true while fetching 12-mo usage summary
 export const woRequestDetailForm = ref({
     alere_qty: '', qty_sold_used_12mo: '', where_used: '', qty_to_make: '',
     fab: '', fab_print: '', weld: '', weld_print: '',
@@ -54,6 +55,26 @@ export const filteredWoRequests = computed(() => {
         (r.sales_order_number || '').toLowerCase().includes(q) ||
         (r.submitted_by       || '').toLowerCase().includes(q)
     );
+});
+
+// woRequestSuggestedQty — (qty sold + qty used in MFG) × 1.05, rounded up.
+export const woRequestSuggestedQty = computed(() => {
+    const form = woRequestDetailForm.value;
+    const sold = parseFloat(form.qty_sold_used_12mo) || 0;
+    const used = parseFloat(form.qty_used_in_mfg)    || 0;
+    if (sold === 0 && used === 0) return null;
+    return Math.ceil((sold + used) * 1.05);
+});
+
+// woRequestStockWarning — true when qty made is ≥25% more than qty used in MFG,
+// suggesting existing stock may cover this WO.
+export const woRequestStockWarning = computed(() => {
+    const form = woRequestDetailForm.value;
+    const made = parseFloat(form.qty_made_past_12mo)  || 0;
+    const used = parseFloat(form.qty_used_in_mfg)     || 0;
+    const sold = parseFloat(form.qty_sold_used_12mo)  || 0;
+    if (made === 0 || (used === 0 && sold === 0)) return false;
+    return made >= (used + sold) * 1.25;
 });
 
 // ── WO Forecasting ────────────────────────────────────────────
