@@ -1,0 +1,249 @@
+<!-- ============================================================
+     view-engineering-prints.html — Engineering > Prints / Files Update
+     Search by part #, confirm folder, upload/delete files.
+     ============================================================ -->
+<div v-if="currentView === 'engineering' && engView === 'prints'"
+    class="h-full w-full flex flex-col bg-gray-50">
+
+    <!-- Top bar -->
+    <div class="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+        <button @click="goBack"
+            class="bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg p-2 active:scale-95 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <div class="flex-1">
+            <h1 class="text-xl font-extrabold text-gray-800">Prints / Files Update</h1>
+            <p class="text-xs text-gray-400">Search a part # to view, upload, or delete its files</p>
+        </div>
+    </div>
+
+    <!-- Search bar -->
+    <div class="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex flex-col gap-2">
+        <div class="flex items-center gap-3">
+            <div class="relative flex-1 max-w-md">
+                <input v-model="engPrintsSearch"
+                    @keyup.enter="searchEngPrintFiles"
+                    type="text"
+                    placeholder="Enter part number (e.g. TC11490)"
+                    class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:border-indigo-400 transition-colors uppercase"
+                    :disabled="engPrintsLoading">
+                <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+                </svg>
+            </div>
+            <button @click="searchEngPrintFiles"
+                :disabled="engPrintsLoading || !engPrintsSearch.trim()"
+                class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-lg text-sm active:scale-95 transition-all">
+                Search
+            </button>
+        </div>
+        <!-- Live folder preview -->
+        <div v-if="engPrintsSearch.trim()" class="flex items-center gap-2 pl-1">
+            <span class="text-xs text-gray-400">Will search folder:</span>
+            <span class="text-xs font-extrabold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-mono">
+                {{ sanitizePartKey(engPrintsSearch) }}
+            </span>
+            <span v-if="sanitizePartKey(engPrintsSearch) !== engPrintsSearch.trim().toUpperCase()"
+                class="text-xs text-amber-600 font-semibold">
+                ← normalized from "{{ engPrintsSearch.trim().toUpperCase() }}"
+            </span>
+        </div>
+    </div>
+
+    <!-- Body -->
+    <div class="flex-1 overflow-y-auto px-6 py-6">
+
+        <!-- Loading -->
+        <div v-if="engPrintsLoading" class="flex items-center justify-center py-20">
+            <div class="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+            <span class="ml-3 text-gray-500 text-sm">Loading...</span>
+        </div>
+
+        <!-- No search yet -->
+        <div v-else-if="!engPrintsSearchedPart"
+            class="flex flex-col items-center justify-center py-20 text-gray-400">
+            <svg class="w-16 h-16 mb-4 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <p class="text-lg font-semibold">Enter a part number to get started</p>
+        </div>
+
+        <template v-else>
+            <!-- Folder banner -->
+            <div class="mb-4 flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-3">
+                <svg class="w-5 h-5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+                </svg>
+                <span class="text-sm text-indigo-700">
+                    Showing files in folder:
+                    <span class="font-extrabold font-mono text-indigo-900">{{ engPrintsSearchedPart }}</span>
+                </span>
+                <span class="ml-auto text-xs text-indigo-400">
+                    Files show up in any WO with this part # automatically
+                </span>
+            </div>
+
+            <!-- No files found -->
+            <div v-if="!engPrintsFiles.length"
+                class="flex flex-col items-center justify-center py-14 text-gray-400 bg-white rounded-2xl border border-gray-200">
+                <svg class="w-14 h-14 mb-4 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h4a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                </svg>
+                <p class="text-lg font-semibold">No files yet for <span class="font-extrabold text-gray-600">{{ engPrintsSearchedPart }}</span></p>
+                <p class="text-sm mt-1">Use "Upload Files" below to add the first file.</p>
+            </div>
+
+            <!-- File list -->
+            <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-5 py-3 bg-gray-50 border-b border-gray-200">
+                    <span class="text-sm font-bold text-gray-600 uppercase tracking-wide">
+                        {{ engPrintsFiles.length }} file{{ engPrintsFiles.length === 1 ? '' : 's' }}
+                    </span>
+                </div>
+                <div class="divide-y divide-gray-100">
+                    <div v-for="file in engPrintsFiles" :key="file.name"
+                        class="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition-colors">
+                        <!-- File type badge -->
+                        <span class="shrink-0 w-12 text-center text-xs font-extrabold uppercase px-1.5 py-1 rounded"
+                            :class="{
+                                'bg-red-100 text-red-700':     file.name.match(/\.pdf$/i),
+                                'bg-blue-100 text-blue-700':   file.name.match(/\.(dxf|dwg)$/i),
+                                'bg-green-100 text-green-700': file.name.match(/\.(stp|step|iges|igs)$/i),
+                                'bg-amber-100 text-amber-700': file.name.match(/\.(png|jpg|jpeg|gif|bmp|tif|tiff)$/i),
+                                'bg-gray-100 text-gray-600':   !file.name.match(/\.(pdf|dxf|dwg|stp|step|iges|igs|png|jpg|jpeg|gif|bmp|tif|tiff)$/i),
+                            }">
+                            {{ file.name.split('.').pop().toUpperCase().slice(0,4) }}
+                        </span>
+                        <!-- Filename -->
+                        <span class="flex-1 text-sm text-gray-800 font-medium truncate" :title="file.name">{{ file.name }}</span>
+                        <!-- Size -->
+                        <span class="shrink-0 text-xs text-gray-400 w-20 text-right">
+                            <template v-if="file.metadata?.size >= 1048576">{{ (file.metadata.size / 1048576).toFixed(1) }} MB</template>
+                            <template v-else-if="file.metadata?.size >= 1024">{{ Math.round(file.metadata.size / 1024) }} KB</template>
+                            <template v-else-if="file.metadata?.size">{{ file.metadata.size }} B</template>
+                        </span>
+                        <!-- Open link -->
+                        <a v-if="file.signedUrl" :href="file.signedUrl" target="_blank"
+                            class="shrink-0 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-lg transition-colors">
+                            Open
+                        </a>
+                        <!-- Delete button -->
+                        <button @click="openEngPrintDeleteConfirm(file)"
+                            class="shrink-0 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-xs rounded-lg transition-colors">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="mt-5 flex items-center gap-3">
+                <!-- Upload Files -->
+                <button @click="openEngPrintsUploadConfirm"
+                    class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-sm active:scale-95 transition-all flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                    </svg>
+                    Upload Files
+                </button>
+                <!-- Replace All (only when files exist) -->
+                <button v-if="engPrintsFiles.length"
+                    @click="openEngPrintsReplaceConfirm"
+                    class="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-sm active:scale-95 transition-all flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Replace All Files
+                </button>
+            </div>
+        </template>
+
+        <!-- Hidden file inputs -->
+        <input type="file" multiple id="eng-prints-upload-input" class="hidden" @change="handleEngPrintUpload">
+        <input type="file" multiple id="eng-prints-replace-input" class="hidden" @change="doEngPrintsReplaceAll">
+
+    </div>
+
+    <!-- ── Upload confirm modal ─────────────────────────────────── -->
+    <div v-if="engPrintsUploadConfirmOpen"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-7 flex flex-col gap-5">
+            <div class="flex flex-col gap-2">
+                <h2 class="text-lg font-extrabold text-gray-800">Upload Files</h2>
+                <p class="text-sm text-gray-500">Files will be added to folder:</p>
+                <div class="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2.5 text-center">
+                    <span class="text-lg font-extrabold font-mono text-indigo-800">{{ engPrintsSearchedPart }}</span>
+                </div>
+                <p class="text-xs text-gray-400 text-center">
+                    Any WO with this part # will automatically show these files.
+                    File names don't need to match.
+                </p>
+            </div>
+            <div class="flex gap-3">
+                <button @click="closeEngPrintsUploadConfirm"
+                    class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm active:scale-95 transition-all">
+                    Cancel
+                </button>
+                <button @click="proceedEngPrintsUpload"
+                    class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-sm active:scale-95 transition-all">
+                    Yes, Upload Here
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Delete confirm modal ─────────────────────────────────── -->
+    <div v-if="engPrintsDeleteConfirmOpen"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-7 flex flex-col gap-5">
+            <div class="flex flex-col gap-1">
+                <h2 class="text-lg font-extrabold text-gray-800">Delete File?</h2>
+                <p class="text-sm text-gray-500">
+                    Permanently delete
+                    <span class="font-bold text-gray-700">{{ engPrintsDeleteTarget?.name }}</span>
+                    from folder <span class="font-bold font-mono text-indigo-700">{{ engPrintsSearchedPart }}</span>?
+                </p>
+            </div>
+            <div class="flex gap-3">
+                <button @click="closeEngPrintDeleteConfirm"
+                    class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm active:scale-95 transition-all">
+                    No, Cancel
+                </button>
+                <button @click="confirmEngPrintDelete"
+                    class="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-sm active:scale-95 transition-all">
+                    Yes, Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Replace-all confirm modal ───────────────────────────── -->
+    <div v-if="engPrintsReplaceConfirmOpen"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-7 flex flex-col gap-5">
+            <div class="flex flex-col gap-2">
+                <h2 class="text-lg font-extrabold text-gray-800">Replace All Files?</h2>
+                <p class="text-sm text-gray-500">
+                    This will delete all <span class="font-bold text-gray-700">{{ engPrintsFiles.length }}</span>
+                    existing file{{ engPrintsFiles.length === 1 ? '' : 's' }} in folder
+                    <span class="font-bold font-mono text-indigo-700">{{ engPrintsSearchedPart }}</span>
+                    and replace them with your new selection.
+                </p>
+                <p class="text-xs text-red-600 font-semibold">This cannot be undone.</p>
+            </div>
+            <div class="flex gap-3">
+                <button @click="closeEngPrintsReplaceConfirm"
+                    class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm active:scale-95 transition-all">
+                    No, Cancel
+                </button>
+                <button @click="proceedEngPrintsReplaceAll"
+                    class="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl text-sm active:scale-95 transition-all">
+                    Yes, Replace
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>

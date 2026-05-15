@@ -115,10 +115,16 @@ export async function fetchPullHistory(table, inventoryId) {
 // ── WO Request → work_orders routing ─────────────────────────
 
 // insertWorkOrdersFromRequest — creates work_order rows from an approved WO request.
-export async function insertWorkOrdersFromRequest(req, woNumber) {
+// wo_number is intentionally null — it stays null until the official Alere WO# is entered.
+// job_number is the internal tracking number assigned on approval.
+export async function insertWorkOrdersFromRequest(req) {
     const inserts = [];
     const base = {
-        wo_number:        (woNumber || req.alere_wo_number || '').trim().toUpperCase(),
+        wo_number:        null,
+        job_number:       req.job_number    || null,
+        wo_request_id:    req.id            || null,
+        staging_area:     req.staging_area  || null,
+        alere_bin:        req.alere_bin     || null,
         part_number:      (req.part_number  || '').trim().toUpperCase(),
         description:      (req.description  || ''),
         qty_required:     parseInt(req.qty_to_make, 10) || 1,
@@ -127,6 +133,7 @@ export async function insertWorkOrdersFromRequest(req, woNumber) {
         qty_completed:    0,
         priority:         0,
         production_notes: req.production_notes || null,
+        traveller_id:     req.traveller_id    || null,
     };
     if (req.sales_order_number) base.sales_order = req.sales_order_number.trim();
 
@@ -171,18 +178,21 @@ export async function fetchApprovedWoRequests() {
     return withRetry(() =>
         supabase.from('wo_requests')
             .select('*')
-            .eq('status', 'approved')
+            .in('status', ['approved', 'in production'])
+            .is('alere_wo_number', null)
+            .eq('forecasted', false)
             .order('request_date', { ascending: true })
             .order('created_at',   { ascending: true })
     );
 }
 
-// fetchCreatedWoRequests — all wo_requests with status 'created', 'in production', or 'completed', newest first.
+// fetchCreatedWoRequests — all wo_requests that have an official alere_wo_number, newest first.
 export async function fetchCreatedWoRequests() {
     return withRetry(() =>
         supabase.from('wo_requests')
             .select('*')
-            .in('status', ['created', 'in production', 'completed'])
+            .not('alere_wo_number', 'is', null)
+            .in('status', ['approved', 'in production', 'created', 'completed'])
             .order('created_date', { ascending: false })
             .order('created_at',   { ascending: false })
     );
@@ -259,6 +269,41 @@ export async function deleteWoRequest(id) {
     );
 }
 
+// updateAlereWoNumber — attach the official Alere/ERP WO# to an in-production request.
+// Only updates wo_requests.alere_wo_number; work_orders.wo_number reconciled in a future patch.
+export async function updateAlereWoNumber(id, woNumber) {
+    if (!id)       return { data: null, error: new Error('Missing request ID') };
+    if (!woNumber) return { data: null, error: new Error('WO number is required') };
+    return withRetry(() =>
+        supabase.from('wo_requests')
+            .update({ alere_wo_number: woNumber.trim().toUpperCase() })
+            .eq('id', id)
+            .select()
+    );
+}
+
+// updateWorkOrdersWoNumberByJobNumber — replaces the JOB- placeholder wo_number on all
+// work_orders rows sharing this job_number once the official WO# is known.
+export async function updateWorkOrdersWoNumberByJobNumber(jobNumber, woNumber) {
+    if (!jobNumber) return { data: null, error: new Error('Missing job number') };
+    if (!woNumber)  return { data: null, error: new Error('Missing WO number') };
+    return withRetry(() =>
+        supabase.from('work_orders')
+            .update({ wo_number: woNumber.trim().toUpperCase() })
+            .eq('job_number', jobNumber)
+            .select('id, wo_number')
+    );
+}
+
+// assignJobNumberIfMissing — calls RPC to assign job_number via sequence if not yet set.
+// Race-safe (handled in Postgres). Returns { data: jobNumber (integer), error }.
+export async function assignJobNumberIfMissing(id) {
+    if (!id) return { data: null, error: new Error('Missing request ID') };
+    return withRetry(() =>
+        supabase.rpc('assign_job_number_if_missing', { p_request_id: id })
+    );
+}
+
 // ── Open Orders queries ───────────────────────────────────────
 
 // findOpenOrderBySoAndPart — find a single open_orders row matching both SO# and part number.
@@ -305,6 +350,17 @@ export async function checkWoNumberExists(woNumber) {
     );
     if (error) return false;
     return (count || 0) > 0;
+}
+
+// fetchAllWorkOrdersByJobNumber — all WOs sharing a job_number (pending official WO#).
+// Used by openCreatedWoDetail before alere_wo_number is set.
+export async function fetchAllWorkOrdersByJobNumber(jobNumber) {
+    if (!jobNumber) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('work_orders')
+            .select('*')
+            .eq('job_number', jobNumber)
+    );
 }
 
 // fetchAllWorkOrdersByWoNumber — all WOs (any status) matching wo_number, full row for production modals.
@@ -386,110 +442,13 @@ export async function deleteCompletedOrder(id) {
     return withRetry(() => supabase.from('completed_orders').delete().eq('id', id));
 }
 
-// ── Part Approval Defaults ────────────────────────────────────
-
-// fetchPartApprovalDefault — look up routing defaults for a part number.
-// Normalizes the part number before querying. Returns { data: row|null, error }.
-export async function fetchPartApprovalDefault(partNumber) {
-    if (!partNumber) return { data: null, error: null };
-    const normalized = normalizePartNumber(partNumber);
-    if (!normalized) return { data: null, error: null };
-    const { data, error } = await withRetry(() =>
-        supabase.from('part_approval_defaults')
-            .select('*')
-            .eq('part_number_normalized', normalized)
-            .limit(1)
-    );
-    return { data: (data && data[0]) || null, error };
+// insertTraveller — creates a new traveller group record and returns its ID.
+export async function insertTraveller() {
+    return withRetry(() => supabase.from('travellers').insert([{}]).select().single());
 }
 
-// learnPartApprovalDefaults — save or fill-in routing defaults after an approval.
-// approvedFields: plain object with any subset of the 7 approval columns.
-// Insert if no row exists; otherwise fill only null/blank stored fields.
-// Never overwrites a populated default. Always updates last_used_at.
-export async function learnPartApprovalDefaults(partNumber, approvedFields, updatedBy = null) {
-    if (!partNumber) return { data: null, error: new Error('Part number is required') };
-    const normalized = normalizePartNumber(partNumber);
-    if (!normalized) return { data: null, error: new Error('Part number normalized to empty') };
-
-    const { data: existing, error: fetchErr } = await withRetry(() =>
-        supabase.from('part_approval_defaults')
-            .select('*')
-            .eq('part_number_normalized', normalized)
-            .maybeSingle()
-    );
-    if (fetchErr) return { data: null, error: fetchErr };
-
-    const now    = new Date().toISOString();
-    const FIELDS = ['fab', 'fab_print', 'weld', 'weld_print', 'assy_wo', 'color', 'bent_rolled_part'];
-
-    if (!existing) {
-        const insert = {
-            part_number:            partNumber.trim(),
-            part_number_normalized: normalized,
-            source:                 'manual_or_learned',
-            created_at:             now,
-            updated_at:             now,
-            last_used_at:           now,
-        };
-        if (updatedBy) insert.created_by = updatedBy;
-        FIELDS.forEach(f => {
-            const v = approvedFields[f];
-            if (v !== null && v !== undefined && v !== '') insert[f] = v;
-        });
-        return withRetry(() =>
-            supabase.from('part_approval_defaults').insert([insert]).select()
-        );
-    }
-
-    // Row exists: fill only null/blank stored fields — never overwrite populated ones
-    const updates   = { last_used_at: now };
-    let   anyFilled = false;
-    FIELDS.forEach(f => {
-        const stored   = existing[f];
-        const approved = approvedFields[f];
-        const isEmpty  = stored === null || stored === undefined || stored === '';
-        const hasValue = approved !== null && approved !== undefined && approved !== '';
-        if (isEmpty && hasValue) {
-            updates[f] = approved;
-            anyFilled  = true;
-        }
-    });
-    if (anyFilled) {
-        updates.updated_at = now;
-        if (updatedBy) updates.updated_by = updatedBy;
-    }
-
-    return withRetry(() =>
-        supabase.from('part_approval_defaults')
-            .update(updates)
-            .eq('part_number_normalized', normalized)
-            .select()
-    );
-}
-
-// ── Part usage history ────────────────────────────────────────
-
-// fetchPartUsageSummary12Mo — calls the get_part_usage_summary_12mo RPC to return
-// three 12-month sums from issues_receipts for a given part number.
-// Returns { data: { qty_sold_used_12mo, qty_used_in_mfg, qty_made_past_12mo }, error }.
-// All three values default to 0 when no matching rows exist.
-export async function fetchPartUsageSummary12Mo(partNumber) {
-    const normalized = normalizePartNumber(partNumber);
-    if (!normalized) return { data: { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0 }, error: null };
-
-    const { data, error } = await withRetry(() =>
-        supabase.rpc('get_part_usage_summary_12mo', { p_part: normalized })
-    );
-    if (error) return { data: { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0 }, error };
-
-    const row = (data && data[0]) || {};
-    return {
-        data: {
-            qty_sold_used_12mo: Number(row.qty_sold_12mo     ?? 0),
-            qty_used_in_mfg:    Number(row.qty_used_mfg_12mo ?? 0),
-            qty_made_past_12mo: Number(row.qty_made_12mo     ?? 0),
-        },
-        error: null,
-    };
+// batchInsertWoRequests — inserts multiple wo_requests rows (subpart WOs on traveller approval).
+export async function batchInsertWoRequests(rows) {
+    if (!rows || !rows.length) return { data: [], error: null };
+    return withRetry(() => supabase.from('wo_requests').insert(rows).select());
 }

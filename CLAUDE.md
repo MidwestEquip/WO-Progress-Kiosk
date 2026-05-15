@@ -272,6 +272,12 @@ No active series.
 
 ## Completed Patch Series
 
+### Purchasing section (ordering workflow)
+- Patch 1: Schema (`purchasing_orders` + `purchasing_order_events` tables, RLS enabled with open anon policies); `libs/db-purchasing.js` (6 CRUD functions re-exported by db.js); `libs/store-purchasing.js` (all reactive state); `pages/purchasing-view.js` (business logic); `partials/view-purchasing.html` shell; `partials/modal-purchasing-request.html` (new request form); navigation wired in splash sub-menu (PO Requests → modal, Ordering → purchasing view); `enterPurchasingView` in splash-view.js; `isPurchasingOrderLate` in utils.js; all state + functions exposed in expose-ops.js / expose-core.js; PARTIAL_NAMES + purchasing constants in config.js.
+- Patch 2: Full create-request modal with type selector (Part/Supply/Steel) and dynamic field sets; active order list views per tab with late/overdue indicators; Completed tab with date range filter.
+- Patch 3: Detail/edit modal with Ordering tab (status, supplier, PO, lead time, expected date, qty, notes), Receiving tab (qty received, received by, auto-status to received/partially_received), Request Info tab (read-only requester fields).
+- Patch 4: History tab in detail modal showing `purchasing_order_events` timeline (type badge, old→new status arrow, note, created-by, timestamp); `loadOrderEvents()` triggered on tab click; overdue indicators on order rows; Completed tab fully implemented with date range filter.
+
 ### TC Assy workflow improvements
 - Patch 1: detectTcMode() utility in libs/utils.js
 - Patch 2: Auto-detect mode in manual WO form; optional WO #; remove Job Type picker

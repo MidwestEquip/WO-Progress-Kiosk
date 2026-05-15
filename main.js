@@ -27,6 +27,8 @@ import { loadForecastedItems } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems } from './pages/create-wo-view.js';
 import { loadOpenOrders, loadReminderEmail } from './pages/open-orders-view.js';
 import { loadCompletedOrders } from './pages/completed-orders-view.js';
+import { loadPurchasingOrders } from './pages/purchasing-view.js';
+import { loadAllQuotes } from './pages/purchasing-quotes-view.js';
 
 import { buildCoreExpose } from './expose-core.js';
 import { buildOpsExpose } from './expose-ops.js';
@@ -117,6 +119,8 @@ try {
                 if (v === 'create_wo')       loadCreateWoItems();
                 if (v === 'open_orders')     { loadOpenOrders(); loadReminderEmail(); }
                 if (v === 'completed_orders') loadCompletedOrders();
+                if (v === 'purchasing')       loadPurchasingOrders();
+                if (v === 'po_request')       loadPurchasingOrders();
             });
             watch(store.managerSubView, (v) => {
                 if (v === 'home' && store.currentView.value === 'manager') loadManagerAlerts();

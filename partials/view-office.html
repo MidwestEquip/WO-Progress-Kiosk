@@ -75,6 +75,7 @@
                                     <div>
                                         <div class="flex items-center gap-3 mb-1">
                                             <span class="font-bold text-xl text-white">WO #{{ r.wo_number }}</span>
+                                            <span v-if="r.job_number" class="text-xs text-slate-400 font-mono">Job #{{ r.job_number }}</span>
                                             <span v-if="r.sales_order" class="text-xs text-emerald-400 border border-emerald-600/40 px-2 py-0.5 rounded">SO# {{ r.sales_order }}</span>
                                             <span class="text-xs px-2 py-0.5 rounded font-bold"
                                                 :class="r.department==='Weld'?'bg-red-700/50 text-red-300':r.department==='Fab'?'bg-amber-700/50 text-amber-300':'bg-emerald-700/50 text-emerald-300'">
@@ -131,7 +132,10 @@
                                     <tbody>
                                         <tr v-for="o in filteredCloseoutOrders" :key="o.id"
                                             class="border-b border-slate-800 hover:bg-slate-800/60 transition-colors">
-                                            <td class="px-5 py-4 font-bold text-white">WO #{{ o.wo_number }}</td>
+                                            <td class="px-5 py-4">
+                                                <div class="font-bold text-white">WO #{{ o.wo_number }}</div>
+                                                <div v-if="o.job_number" class="text-xs text-slate-400 font-mono">Job #{{ o.job_number }}</div>
+                                            </td>
                                             <td class="px-5 py-4 text-blue-400 font-medium">Part #{{ o.part_number }}</td>
                                             <td class="px-5 py-4 text-slate-400 text-sm max-w-[140px] truncate">{{ o.description }}</td>
                                             <td class="px-5 py-4 text-center font-bold text-emerald-400 text-lg">{{ o.qty_received || o.qty_completed_fallback || o.qty_required }}</td>
@@ -143,8 +147,13 @@
                                                     class="w-full min-w-[140px] p-1.5 bg-slate-700 border border-slate-600 rounded text-slate-200 text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500">
                                             </td>
                                             <td class="px-5 py-4 text-right">
-                                                <button @click="openCloseoutModal(o)"
-                                                    class="bg-emerald-700 hover:bg-emerald-600 px-4 py-2 rounded-lg text-sm font-bold active:scale-95 transition-transform">Close Out</button>
+                                                <button @click="o.wo_number ? openCloseoutModal(o) : null"
+                                                    :disabled="!o.wo_number"
+                                                    :title="!o.wo_number ? 'Enter a WO # in Create WO tab first' : ''"
+                                                    class="px-4 py-2 rounded-lg text-sm font-bold transition-transform"
+                                                    :class="o.wo_number ? 'bg-emerald-700 hover:bg-emerald-600 text-white active:scale-95 cursor-pointer' : 'bg-slate-700 text-slate-500 cursor-not-allowed'">
+                                                    Close Out
+                                                </button>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -168,6 +177,7 @@
                                         <!-- Row info -->
                                         <div v-if="alereConfirmId !== row.id">
                                             <div class="font-bold text-white text-sm">WO #{{ row.wo_number }}</div>
+                                            <div v-if="row.job_number" class="text-xs text-slate-400 font-mono">Job #{{ row.job_number }}</div>
                                             <div class="text-slate-400 text-xs mb-1">{{ row.part_number }}</div>
                                             <div class="text-amber-300 text-sm mb-3">Bin: <span class="font-bold">{{ row.location || '—' }}</span></div>
                                             <button @click="openAlereConfirm(row)"
@@ -244,7 +254,10 @@
                             <tbody>
                                 <tr v-for="o in filteredClosedOutOrders" :key="o.id"
                                     class="border-b border-slate-800 hover:bg-slate-800/60 transition-colors">
-                                    <td class="px-5 py-4 font-bold text-white">WO #{{ o.wo_number }}</td>
+                                    <td class="px-5 py-4">
+                                        <div class="font-bold text-white">WO #{{ o.wo_number }}</div>
+                                        <div v-if="o.job_number" class="text-xs text-slate-400 font-mono">Job #{{ o.job_number }}</div>
+                                    </td>
                                     <td class="px-5 py-4 text-blue-400 font-medium">{{ o.part_number || '&#8212;' }}</td>
                                     <td class="px-5 py-4 text-slate-400 text-sm max-w-[160px] truncate">{{ o.description || '&#8212;' }}</td>
                                     <td class="px-5 py-4 text-center font-bold text-emerald-400 text-lg">{{ o.qty_received || o.qty_required || '&#8212;' }}</td>

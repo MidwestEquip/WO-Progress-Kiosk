@@ -348,6 +348,141 @@ export async function confirmEngDelete() {
     await loadEngInquiries();
 }
 
+// ── Prints / Files Update ─────────────────────────────────────
+
+// enterEngPrintsView — navigate to the Prints/Files Update sub-view.
+export function enterEngPrintsView() {
+    store.engView.value               = 'prints';
+    store.currentView.value           = 'engineering';
+    store.engPrintsSearch.value       = '';
+    store.engPrintsFiles.value        = [];
+    store.engPrintsSearchedPart.value = '';
+}
+
+// _refreshEngPrintFiles — reload files for the currently searched part (internal helper).
+async function _refreshEngPrintFiles() {
+    const part = store.engPrintsSearchedPart.value;
+    if (!part) return;
+    store.engPrintsLoading.value = true;
+    const { data, error } = await db.listWoFiles(part);
+    store.engPrintsLoading.value = false;
+    if (error) { store.showToast('Could not load files: ' + error.message); return; }
+    store.engPrintsFiles.value = data || [];
+}
+
+// searchEngPrintFiles — read part from input, store it, then load its files.
+export async function searchEngPrintFiles() {
+    const part = store.engPrintsSearch.value.trim().toUpperCase();
+    if (!part) return;
+    store.engPrintsSearchedPart.value = part;
+    await _refreshEngPrintFiles();
+}
+
+// handleEngPrintUpload — upload selected files then refresh.
+export async function handleEngPrintUpload(event) {
+    const files = Array.from(event.target.files || []);
+    const part  = store.engPrintsSearchedPart.value;
+    if (!files.length || !part) return;
+    event.target.value = '';
+    store.engPrintsLoading.value = true;
+    let errCount = 0;
+    for (const file of files) {
+        const { error } = await db.uploadWoFile(part, file);
+        if (error) {
+            errCount++;
+            console.error('[prints upload]', file.name, error);
+            store.showToast('Upload failed: ' + file.name + ' — ' + (error.message || JSON.stringify(error)));
+        }
+    }
+    store.engPrintsLoading.value = false;
+    if (!errCount) store.showToast('Files uploaded.', 'success');
+    await _refreshEngPrintFiles();
+}
+
+// openEngPrintDeleteConfirm — set delete target and open confirmation.
+export function openEngPrintDeleteConfirm(file) {
+    store.engPrintsDeleteTarget.value      = file;
+    store.engPrintsDeleteConfirmOpen.value = true;
+}
+
+// closeEngPrintDeleteConfirm — cancel without deleting.
+export function closeEngPrintDeleteConfirm() {
+    store.engPrintsDeleteConfirmOpen.value = false;
+    store.engPrintsDeleteTarget.value      = null;
+}
+
+// confirmEngPrintDelete — delete the targeted file then refresh.
+export async function confirmEngPrintDelete() {
+    const file = store.engPrintsDeleteTarget.value;
+    const part = store.engPrintsSearchedPart.value;
+    if (!file || !part) return;
+    store.engPrintsLoading.value = true;
+    const { error } = await db.deleteWoFile(part, file.name);
+    store.engPrintsLoading.value = false;
+    if (error) { store.showToast('Delete failed: ' + error.message); return; }
+    store.engPrintsDeleteConfirmOpen.value = false;
+    store.engPrintsDeleteTarget.value      = null;
+    store.showToast('File deleted.', 'success');
+    await _refreshEngPrintFiles();
+}
+
+// openEngPrintsUploadConfirm — show "upload to folder X?" confirmation.
+export function openEngPrintsUploadConfirm() {
+    store.engPrintsUploadConfirmOpen.value = true;
+}
+
+// closeEngPrintsUploadConfirm — cancel the upload confirmation.
+export function closeEngPrintsUploadConfirm() {
+    store.engPrintsUploadConfirmOpen.value = false;
+}
+
+// proceedEngPrintsUpload — confirmed: open the file picker.
+export function proceedEngPrintsUpload() {
+    store.engPrintsUploadConfirmOpen.value = false;
+    document.getElementById('eng-prints-upload-input')?.click();
+}
+
+// openEngPrintsReplaceConfirm — show the replace-all confirmation dialog.
+export function openEngPrintsReplaceConfirm() {
+    store.engPrintsReplaceConfirmOpen.value = true;
+}
+
+// closeEngPrintsReplaceConfirm — cancel the replace-all dialog.
+export function closeEngPrintsReplaceConfirm() {
+    store.engPrintsReplaceConfirmOpen.value = false;
+}
+
+// proceedEngPrintsReplaceAll — confirmed: open file picker for replacement files.
+export function proceedEngPrintsReplaceAll() {
+    store.engPrintsReplaceConfirmOpen.value = false;
+    document.getElementById('eng-prints-replace-input')?.click();
+}
+
+// doEngPrintsReplaceAll — delete all existing files then upload the new selection.
+export async function doEngPrintsReplaceAll(event) {
+    const files = Array.from(event.target.files || []);
+    const part  = store.engPrintsSearchedPart.value;
+    if (!files.length || !part) return;
+    event.target.value = '';
+    store.engPrintsLoading.value = true;
+    for (const file of store.engPrintsFiles.value) {
+        const { error } = await db.deleteWoFile(part, file.name);
+        if (error) console.error('[prints replace-all delete]', file.name, error);
+    }
+    let errCount = 0;
+    for (const file of files) {
+        const { error } = await db.uploadWoFile(part, file);
+        if (error) {
+            errCount++;
+            console.error('[prints replace-all upload]', file.name, error);
+            store.showToast('Upload failed: ' + file.name + ' — ' + (error.message || JSON.stringify(error)));
+        }
+    }
+    store.engPrintsLoading.value = false;
+    if (!errCount) store.showToast('Files replaced.', 'success');
+    await _refreshEngPrintFiles();
+}
+
 // handleEngImageUpload — upload a file for the selected inquiry then refresh.
 export async function handleEngImageUpload(event) {
     const file = event.target.files[0];

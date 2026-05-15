@@ -144,6 +144,41 @@ function boolToYesNo(val) {
     return '';
 }
 
+const SUBPART_FORM_BLANK = () => ({ expanded: false, defaultsLoaded: false, qty_to_make: '', fab: '', fab_print: '', weld: '', weld_print: '', assy_wo: '', color: '', bent_rolled_part: '', date_to_start: '', estimated_lead_time: '', set_up_time: '' });
+
+// openSubpartWoForm — toggle inline WO form for a subpart row; auto-fills defaults on first open.
+export async function openSubpartWoForm(sub) {
+    const n = sub.item_child_normalized;
+    const forms = store.woRequestSubpartForms.value;
+    if (!forms[n]) forms[n] = SUBPART_FORM_BLANK();
+    forms[n].expanded = !forms[n].expanded;
+    store.woRequestSubpartForms.value = { ...forms };
+    if (forms[n].expanded && !forms[n].defaultsLoaded) {
+        forms[n].defaultsLoaded = true;
+        const { data: d } = await db.fetchPartApprovalDefault(sub.item_child);
+        if (d) {
+            const F = ['fab','fab_print','weld','weld_print','assy_wo','color','bent_rolled_part'];
+            F.forEach(f => { if (!forms[n][f] && d[f]) forms[n][f] = d[f]; });
+            store.woRequestSubpartForms.value = { ...forms };
+        }
+    }
+}
+
+// calcSubpartStats — batch-fetch made/sold/parent demand for all BOM children concurrently.
+async function calcSubpartStats(subparts) {
+    const norms = subparts.map(s => s.item_child_normalized);
+    const [[{ data: madeMap }, { data: sales }], demands] = await Promise.all([
+        Promise.all([db.fetchPartsMadeAllTime(norms), db.fetchQtySoldFromSalesAnalysis(norms)]),
+        Promise.all(norms.map(n => db.calculateRecursiveParentUsageDemand(n).then(r => r.data?.totalDemand || 0))),
+    ]);
+    const stats = {};
+    subparts.forEach((s, i) => {
+        const n = s.item_child_normalized;
+        stats[n] = { made: (madeMap || {})[n] || 0, sold: +(sales || {})[n] || 0, parent: demands[i] };
+    });
+    return stats;
+}
+
 // openWoRequestDetail — select a request and populate the manager detail form.
 // Boolean DB fields (fab, weld, bent_rolled_part) are mapped to 'yes'/'no' strings
 // to support <select> binding. fab_print/weld_print store 'yes'/'no' as text.
@@ -154,11 +189,12 @@ export async function openWoRequestDetail(req) {
     store.selectedWoRequest.value        = req;
     store.woRequestDefaultsApplied.value = false;
     store.woRequestDetailForm.value = {
-        alere_qty:           req.alere_qty           ?? '',
-        qty_sold_used_12mo:  req.qty_sold_used_12mo  ?? '',
-        qty_used_in_mfg:     req.qty_used_in_mfg     ?? '',
-        qty_made_past_12mo:  req.qty_made_past_12mo  ?? '',
-        where_used:          req.where_used          || '',
+        alere_qty:                     req.alere_qty                     ?? '',
+        qty_sold_used_12mo:            req.qty_sold_used_12mo            ?? '',
+        qty_sold_parent_usage_period:  req.qty_sold_parent_usage_period  ?? '',
+        qty_used_in_mfg:               req.qty_used_in_mfg               ?? '',
+        qty_made_past_12mo:            req.qty_made_past_12mo            ?? '',
+        where_used:                    req.where_used                    || '',
         qty_to_make:         req.qty_to_make         ?? '',
         fab:                 req.fab       || '',   // TEXT 'yes'/'no' after migration
         fab_print:           req.fab_print === 'yes' ? 'yes' : req.fab_print === 'no' ? 'no' : '',
@@ -172,12 +208,25 @@ export async function openWoRequestDetail(req) {
         estimated_lead_time: req.estimated_lead_time ?? '',
         sent_to_production:  req.sent_to_production  ?? false,
         date_to_start:       req.date_to_start       || '',
-        production_notes:    req.production_notes    || ''
+        production_notes:    req.production_notes    || '',
+        staging_area:        req.staging_area        || ''
     };
     loadWoFilesForRequest(req.part_number);
 
-    // Auto-fill 12-mo usage summary from issues_receipts (non-blocking)
+    // Auto-fill usage summary + last 2 made (non-blocking)
     store.woRequestHistoryLoading.value = true;
+    store.woRequestParentUsageLoading.value = true;
+    store.woRequestLastMade.value = [];
+    store.woRequestSubparts.value = [];
+    store.woRequestSubpartsLoading.value = true;
+    store.woRequestSubpartsExpanded.value = false;
+    if (req.subpart_plans) {
+        const r = {};
+        Object.entries(req.subpart_plans).forEach(([n, v]) => { r[n] = { ...v, expanded: false, defaultsLoaded: true }; });
+        store.woRequestSubpartForms.value = r;
+    }
+
+    // qty_used_in_mfg + qty_made_past_12mo from issues_receipts (manufacturing data)
     db.fetchPartUsageSummary12Mo(req.part_number).then(({ data, error }) => {
         store.woRequestHistoryLoading.value = false;
         if (error) {
@@ -185,9 +234,50 @@ export async function openWoRequestDetail(req) {
             logError('openWoRequestDetail:history', error, { part: req.part_number });
             return;
         }
-        store.woRequestDetailForm.value.qty_sold_used_12mo = data.qty_sold_used_12mo;
         store.woRequestDetailForm.value.qty_used_in_mfg    = data.qty_used_in_mfg;
         store.woRequestDetailForm.value.qty_made_past_12mo = data.qty_made_past_12mo;
+    });
+
+    // qty_sold_used_12mo from sales_analysis_lines (sales data)
+    db.fetchQtySoldFromSalesAnalysis([req.part_number]).then(({ data: salesMap, error }) => {
+        if (error) {
+            logError('openWoRequestDetail:qtySold', error, { part: req.part_number });
+            return;
+        }
+        const norm = (req.part_number || '').trim().toUpperCase();
+        store.woRequestDetailForm.value.qty_sold_used_12mo = salesMap[norm] || 0;
+    });
+    db.fetchPartLastMade(req.part_number).then(({ data }) => {
+        store.woRequestLastMade.value = data || [];
+    });
+    db.calculateRecursiveParentUsageDemand(req.part_number).then(({ data, error }) => {
+        store.woRequestParentUsageLoading.value = false;
+        if (error) {
+            logError('openWoRequestDetail:parentUsage', error, { part: req.part_number });
+            return;
+        }
+        store.woRequestDetailForm.value.qty_sold_parent_usage_period = data.totalDemand;
+        console.debug('[BOM rollup]', req.part_number, data);
+    });
+    db.fetchBomChildrenForParent(req.part_number).then(({ data, error }) => {
+        store.woRequestSubpartsLoading.value = false;
+        if (error) {
+            logError('openWoRequestDetail:subparts', error, { part: req.part_number });
+            return;
+        }
+        const subparts = data || [];
+        store.woRequestSubparts.value = subparts;
+        if (subparts.length > 0) {
+            const normalized = subparts.map(s => s.item_child_normalized);
+            db.fetchBinAndDescForParts(normalized).then(({ data: bd, error: bdErr }) => {
+                if (bdErr) { logError('openWoRequestDetail:bins', bdErr); return; }
+                store.woRequestSubpartBins.value  = bd.bins;
+                store.woRequestSubpartDescs.value = bd.descs;
+            });
+            calcSubpartStats(subparts)
+                .then(s => { store.woRequestSubpartStats.value = s; })
+                .catch(err => logError('openWoRequestDetail:subpartStats', err));
+        }
     });
 
     // Auto-fill blank routing fields from stored part defaults (fire-and-forget safe)
@@ -240,16 +330,24 @@ export function closeWoRequestDetail() {
     store.selectedWoRequest.value        = null;
     store.woRequestReadOnly.value        = false;
     store.woRequestDefaultsApplied.value = false;
+    store.woRequestSubparts.value         = [];
+    store.woRequestSubpartsLoading.value  = false;
+    store.woRequestSubpartsExpanded.value = false;
+    store.woRequestSubpartBins.value      = {};
+    store.woRequestSubpartDescs.value     = {};
+    store.woRequestSubpartStats.value     = {};
+    store.woRequestSubpartForms.value     = {};
 }
 
 
 // _buildDetailUpdates — shared helper to convert the detail form to DB update shape.
 function _buildDetailUpdates(form) {
     return {
-        alere_qty:           form.alere_qty          !== '' ? parseFloat(form.alere_qty)          : null,
-        qty_sold_used_12mo:  form.qty_sold_used_12mo !== '' ? parseFloat(form.qty_sold_used_12mo) : null,
-        qty_used_in_mfg:     form.qty_used_in_mfg    !== '' ? parseFloat(form.qty_used_in_mfg)    : null,
-        qty_made_past_12mo:  form.qty_made_past_12mo !== '' ? parseFloat(form.qty_made_past_12mo) : null,
+        alere_qty:                    form.alere_qty                     !== '' ? parseFloat(form.alere_qty)                     : null,
+        qty_sold_used_12mo:           form.qty_sold_used_12mo            !== '' ? parseFloat(form.qty_sold_used_12mo)            : null,
+        qty_sold_parent_usage_period: form.qty_sold_parent_usage_period  !== '' ? parseFloat(form.qty_sold_parent_usage_period)  : null,
+        qty_used_in_mfg:              form.qty_used_in_mfg               !== '' ? parseFloat(form.qty_used_in_mfg)               : null,
+        qty_made_past_12mo:           form.qty_made_past_12mo            !== '' ? parseFloat(form.qty_made_past_12mo)            : null,
         where_used:          form.where_used.trim()  || null,
         qty_to_make:         form.qty_to_make        !== '' ? parseFloat(form.qty_to_make)        : null,
         fab:                 form.fab      || null,   // TEXT 'yes'/'no'
@@ -265,6 +363,7 @@ function _buildDetailUpdates(form) {
         sent_to_production:  form.sent_to_production,
         date_to_start:       form.date_to_start       || null,
         production_notes:    form.production_notes.trim() || null,
+        staging_area:        form.staging_area         || null,
     };
 }
 
@@ -283,7 +382,9 @@ export async function saveWoRequestDetail() {
 
     store.loading.value = true;
     try {
-        const { error } = await db.updateWoRequest(id, _buildDetailUpdates(form));
+        const plans = {};
+        Object.entries(store.woRequestSubpartForms.value).forEach(([n, { expanded, defaultsLoaded, ...d }]) => { plans[n] = d; });
+        const { error } = await db.updateWoRequest(id, { ..._buildDetailUpdates(form), subpart_plans: Object.keys(plans).length ? plans : null });
         if (error) throw error;
         store.showToast('Saved.', 'success');
         await _syncAfterSave(id);
@@ -295,7 +396,8 @@ export async function saveWoRequestDetail() {
     }
 }
 
-// approveWoRequest — validate all 10 required production fields, then save + set status='approved'.
+// approveWoRequest — validate all 10 required production fields, assign job #, set status='in production',
+// and create work_orders immediately using JOB-{n} as the internal wo_number placeholder.
 // Required: qty_to_make, estimated_lead_time, date_to_start, weld, weld_print,
 //           fab, fab_print, bent_rolled_part, set_up_time, assy_wo.
 export async function approveWoRequest() {
@@ -314,6 +416,7 @@ export async function approveWoRequest() {
     if (!form.bent_rolled_part)                                             missing.push('Bent / Rolled Part');
     if (form.set_up_time        === '' || form.set_up_time        == null) missing.push('Set Up Time');
     if (!form.assy_wo)                                                      missing.push('Assy WO');
+    if (!form.staging_area)                                                 missing.push('Staging Area');
 
     if (missing.length > 0) {
         store.showToast('Missing required: ' + missing.join(', '), 'error', 7000);
@@ -322,9 +425,35 @@ export async function approveWoRequest() {
 
     store.loading.value = true;
     try {
-        const updates = { ..._buildDetailUpdates(form), status: 'approved' };
+        // Assign job number before saving — RPC is idempotent; safe to retry on re-approve
+        const { data: jobNumber, error: jobErr } = await db.assignJobNumberIfMissing(id);
+        if (jobErr) throw jobErr;
+
+        const today   = new Date().toISOString().slice(0, 10);
+        const updates = { ..._buildDetailUpdates(form), status: 'in production', created_date: today };
         const { error } = await db.updateWoRequest(id, updates);
         if (error) throw error;
+
+        // Create work_orders immediately — JOB-{n} is the internal placeholder until official WO# is set
+        const req = store.selectedWoRequest.value;
+        const approvalReq = {
+            id:                 req.id,
+            part_number:        req.part_number,
+            description:        req.description,
+            sales_order_number: req.sales_order_number,
+            traveller_id:       req.traveller_id,
+            job_number:         jobNumber,
+            qty_to_make:        updates.qty_to_make,
+            fab:                updates.fab,
+            fab_print:          updates.fab_print,
+            weld:               updates.weld,
+            weld_print:         updates.weld_print,
+            assy_wo:            updates.assy_wo,
+            production_notes:   updates.production_notes,
+            staging_area:       updates.staging_area,
+        };
+        const { error: routeErr } = await db.insertWorkOrdersFromRequest(approvalReq);
+        if (routeErr) throw routeErr;
 
         // Fire-and-forget: learn routing defaults for this part (never blocks approval)
         const partNum = (store.selectedWoRequest.value?.part_number || '').trim();
@@ -341,7 +470,6 @@ export async function approveWoRequest() {
         }
 
         // Sync est. lead time as a date to the matching open order's Est. Leadtime column
-        const req      = store.selectedWoRequest.value;
         const leadDays = parseFloat(form.estimated_lead_time);
         const soNum    = (req.sales_order_number || '').trim();
         const part     = (req.part_number        || '').trim().toUpperCase();
@@ -354,7 +482,51 @@ export async function approveWoRequest() {
             }
         }
 
-        store.showToast('Approved — ready to create WO.', 'success');
+        // Traveller: create group + subpart requests for weld WOs with filled subpart forms
+        const subpartEntries = Object.entries(store.woRequestSubpartForms.value)
+            .filter(([, f]) => parseFloat(f.qty_to_make) > 0);
+        if (store.woRequestSubpartMode.value === 'weld' && subpartEntries.length > 0) {
+            const { data: trav, error: tErr } = await db.insertTraveller();
+            if (tErr) throw tErr;
+            await db.updateWoRequest(id, { traveller_id: trav.id });
+            const descs = store.woRequestSubpartDescs.value;
+            const today = new Date().toISOString().split('T')[0];
+            const subRows = subpartEntries.map(([n, f]) => {
+                const sub = store.woRequestSubparts.value.find(s => s.item_child_normalized === n);
+                return {
+                    part_number:         (sub?.item_child || n).trim().toUpperCase(),
+                    description:         descs[n] || '',
+                    qty_to_make:         parseFloat(f.qty_to_make),
+                    fab:                 f.fab          || null,
+                    fab_print:           f.fab_print     || null,
+                    weld:                f.weld          || null,
+                    weld_print:          f.weld_print    || null,
+                    assy_wo:             f.assy_wo       || null,
+                    color:               f.color         || null,
+                    bent_rolled_part:    f.bent_rolled_part === 'yes' ? true : f.bent_rolled_part === 'no' ? false : null,
+                    date_to_start:       f.date_to_start || null,
+                    estimated_lead_time: f.estimated_lead_time !== '' ? parseFloat(f.estimated_lead_time) : null,
+                    set_up_time:         f.set_up_time   !== '' ? parseFloat(f.set_up_time) : null,
+                    traveller_id:        trav.id,
+                    parent_request_id:   id,
+                    status:              'approved',
+                    submitted_by:        'System',
+                    request_date:        today,
+                };
+            });
+            const { data: subData, error: subErr } = await db.batchInsertWoRequests(subRows);
+            if (subErr) throw subErr;
+
+            // Assign job numbers and create work_orders for each subpart immediately
+            await Promise.all((subData || []).map(async sub => {
+                const { data: subJobNum, error: sjErr } = await db.assignJobNumberIfMissing(sub.id);
+                if (sjErr) { logError('approveWoRequest:subJobNum', sjErr, { id: sub.id }); return; }
+                const { error: swErr } = await db.insertWorkOrdersFromRequest({ ...sub, job_number: subJobNum });
+                if (swErr) logError('approveWoRequest:subWorkOrders', swErr, { id: sub.id });
+            }));
+        }
+
+        store.showToast('Approved — Job #' + jobNumber + ' in production.', 'success');
         await _syncAfterSave(id);
     } catch (err) {
         store.showToast('Failed to approve: ' + err.message, 'error');

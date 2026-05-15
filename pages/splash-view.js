@@ -198,6 +198,36 @@ export async function selectDept(dept) {
     await _loadDeptOrders(dept);
 }
 
+// ── enterPurchasingView ───────────────────────────────────────
+// Navigate to the Purchasing ordering view. tab controls which tab is active on entry.
+// Preserves purchasing sub-menu as the Back destination.
+export function enterPurchasingView(tab = 'parts') {
+    store.splashLevel.value    = 1;
+    store.splashCategory.value = 'purchasing';
+    store.purchasingTab.value  = tab;
+    store.currentView.value    = 'purchasing';
+}
+
+// ── enterPoRequestView ────────────────────────────────────────
+// Navigate to the PO Requests split-panel view (submit form + open request list).
+// Resets the request form and preserves purchasing sub-menu as Back destination.
+export function enterPoRequestView() {
+    store.splashLevel.value              = 1;
+    store.splashCategory.value           = 'purchasing';
+    store.purchasingRequestForm.value    = {
+        request_type: '', requested_by: '', needed_by: '', qty_needed: '',
+        requester_notes: '', part_number: '', description: '', sales_order: '',
+        estimated_qty_in_stock: '', request_location: '', bin_location: '',
+        current_production_run: '',
+        supply_item_name: '', supply_category: '',
+        material_type: '', material_type_other: '',
+        steel_shape: '', steel_shape_other: '',
+        material_size: '', material_thickness: '', material_grade: '', material_finish: '',
+    };
+    store.purchasingRequestFormErrors.value = {};
+    store.currentView.value              = 'po_request';
+}
+
 // ── enterWoRequestView ────────────────────────────────────────
 // Navigate to the WO Request view. Sets splash state so Back returns
 // to the Production sub-menu regardless of which entry point was used.
@@ -271,8 +301,9 @@ async function _loadDeptOrders(dept) {
             db.fetchPartsWithFiles()
         ]);
         if (error) throw error;
-        store.orders.value        = data || [];
+        store.orders.value         = data || [];
         store.partsWithFiles.value = partsSet;
+        _loadTravellerLinkedWos(data || []);
     } catch (err) {
         store.showToast('Failed to load orders: ' + err.message);
         logError('_loadDeptOrders', err, { dept });
@@ -280,6 +311,20 @@ async function _loadDeptOrders(dept) {
     } finally {
         store.loading.value = false;
     }
+}
+
+// Non-blocking: given the loaded orders, fetch all WOs sharing the same traveller IDs.
+function _loadTravellerLinkedWos(orders) {
+    const ids = [...new Set(orders.map(o => o.traveller_id).filter(Boolean))];
+    if (!ids.length) { store.travellerLinkedWos.value = {}; return; }
+    db.fetchWosByTravellerIds(ids).then(({ data }) => {
+        const map = {};
+        (data || []).forEach(w => {
+            if (!map[w.traveller_id]) map[w.traveller_id] = [];
+            map[w.traveller_id].push(w);
+        });
+        store.travellerLinkedWos.value = map;
+    });
 }
 
 async function _loadWoStatusData() {

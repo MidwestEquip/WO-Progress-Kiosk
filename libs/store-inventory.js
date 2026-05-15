@@ -38,13 +38,41 @@ export const woRequestSearch          = ref('');
 export const selectedWoRequest        = ref(null);
 export const woRequestReadOnly        = ref(false);
 export const woRequestDefaultsApplied  = ref(false); // true when defaults were auto-filled on modal open
-export const woRequestHistoryLoading   = ref(false); // true while fetching 12-mo usage summary
+export const woRequestHistoryLoading       = ref(false); // true while fetching usage summary
+export const woRequestParentUsageLoading   = ref(false); // true while calculating BOM parent demand
+export const woRequestLastMade             = ref([]);    // last 2 MO-I rows [{ txn_date, qty }]
+export const woRequestSubparts             = ref([]);    // BOM children [{ item_child, item_child_normalized, qty_per_assy }]
+export const woRequestSubpartsLoading      = ref(false);
+export const woRequestSubpartsExpanded     = ref(false);
+export const woRequestSubpartBins          = ref({});   // { [part_normalized]: bin_location }
+export const woRequestSubpartDescs         = ref({});   // { [part_normalized]: description }
+export const woRequestSubpartForms         = ref({});   // { [part_normalized]: { expanded, defaultsLoaded, qty_to_make, routing... } }
+export const woRequestSubpartStats        = ref({});   // { [part_normalized]: { made, sold, parent } }
+// woRequestSubpartMode — determines which subparts panel variant to show based on routing fields.
+// 'weld': weld_print=yes → full columns + WO creation; 'assy': assy WO → simplified;
+// 'fab': fab only → hide panel; 'none': nothing selected yet → hide panel.
+export const woRequestSubpartMode = computed(() => {
+    const f = woRequestDetailForm.value;
+    if ((f.weld_print || '').toLowerCase() === 'yes') return 'weld';
+    if (f.assy_wo === 'Trac Vac Assy' || f.assy_wo === 'Tru Cut Assy') return 'assy';
+    if ((f.fab || '').toLowerCase() === 'yes') return 'fab';
+    return 'none';
+});
+
+export const woRequestSubpartEstHave = computed(() => {
+    const map = {};
+    for (const [n, s] of Object.entries(woRequestSubpartStats.value)) {
+        if (s.made === 0 && s.sold === 0 && s.parent === 0) continue;
+        map[n] = s.made - s.sold - s.parent;
+    }
+    return map;
+});
 export const woRequestDetailForm = ref({
-    alere_qty: '', qty_sold_used_12mo: '', where_used: '', qty_to_make: '',
+    alere_qty: '', qty_sold_used_12mo: '', qty_sold_parent_usage_period: '', where_used: '', qty_to_make: '',
     fab: '', fab_print: '', weld: '', weld_print: '',
     assy_wo: '', color: '', bent_rolled_part: '', set_up_time: '',
     alere_bin: '', estimated_lead_time: '', sent_to_production: false, date_to_start: '',
-    production_notes: ''
+    production_notes: '', staging_area: ''
 });
 export const filteredWoRequests = computed(() => {
     const q = woRequestSearch.value.trim().toLowerCase();
@@ -57,13 +85,31 @@ export const filteredWoRequests = computed(() => {
     );
 });
 
-// woRequestSuggestedQty — (qty sold + qty used in MFG) × 1.05, rounded up.
+// woRequestEstQtyInStock — estimated parts on hand or embedded in assemblies.
+// Formula: qty_used_in_mfg − (direct_sold + parent_demand) + qty_made
+// Returns null when all inputs are zero (nothing to show yet).
+export const woRequestEstQtyInStock = computed(() => {
+    const form   = woRequestDetailForm.value;
+    const sold   = parseFloat(form.qty_sold_used_12mo)           || 0;
+    const parent = parseFloat(form.qty_sold_parent_usage_period) || 0;
+    const mfg    = parseFloat(form.qty_used_in_mfg)              || 0;
+    const made   = parseFloat(form.qty_made_past_12mo)           || 0;
+    if (sold === 0 && parent === 0 && mfg === 0 && made === 0) return null;
+    return mfg - (sold + parent) + (made - mfg);
+});
+
+// woRequestSuggestedQty — how many to make: total demand minus est. stock, + 5%.
+// Hidden when demand is zero or est. stock already covers demand.
 export const woRequestSuggestedQty = computed(() => {
-    const form = woRequestDetailForm.value;
-    const sold = parseFloat(form.qty_sold_used_12mo) || 0;
-    const used = parseFloat(form.qty_used_in_mfg)    || 0;
-    if (sold === 0 && used === 0) return null;
-    return Math.ceil((sold + used) * 1.05);
+    const form   = woRequestDetailForm.value;
+    const sold   = parseFloat(form.qty_sold_used_12mo)           || 0;
+    const parent = parseFloat(form.qty_sold_parent_usage_period) || 0;
+    const est    = woRequestEstQtyInStock.value;
+    const total  = sold + parent;
+    if (total === 0 || est === null) return null;
+    const needed = total - est;
+    if (needed <= 0) return null;
+    return Math.ceil(needed * 1.05);
 });
 
 // woRequestStockWarning — true when qty made is ≥25% more than qty used in MFG,
@@ -93,6 +139,51 @@ export const createWoLoading     = ref(false);
 export const createWoInlineState = ref({});
 export const createWoTab         = ref('pending'); // 'pending' | 'created'
 export const createdWoItems      = ref([]);
+
+// createWoItemsGrouped — groups approved WO requests by traveller_id for display.
+// Standalone items (no traveller) appear as single-item groups.
+// Traveller groups share a header and are sorted so the parent (no parent_request_id) comes first.
+export const createWoItemsGrouped = computed(() => {
+    const groups = [];
+    const byTraveller = {};
+    for (const item of createWoItems.value) {
+        if (!item.traveller_id) {
+            groups.push({ travellerId: null, items: [item] });
+        } else {
+            if (!byTraveller[item.traveller_id]) {
+                byTraveller[item.traveller_id] = { travellerId: item.traveller_id, items: [] };
+                groups.push(byTraveller[item.traveller_id]);
+            }
+            byTraveller[item.traveller_id].items.push(item);
+        }
+    }
+    // Sort each traveller group: parent (no parent_request_id) first
+    for (const g of groups) {
+        if (g.travellerId) g.items.sort((a, b) => (a.parent_request_id ? 1 : -1) - (b.parent_request_id ? 1 : -1));
+    }
+    return groups;
+});
+
+// createdWoItemsGrouped — same grouping logic as createWoItemsGrouped but for the Created tab.
+export const createdWoItemsGrouped = computed(() => {
+    const groups = [];
+    const byTraveller = {};
+    for (const item of createdWoItems.value) {
+        if (!item.traveller_id) {
+            groups.push({ travellerId: null, items: [item] });
+        } else {
+            if (!byTraveller[item.traveller_id]) {
+                byTraveller[item.traveller_id] = { travellerId: item.traveller_id, items: [] };
+                groups.push(byTraveller[item.traveller_id]);
+            }
+            byTraveller[item.traveller_id].items.push(item);
+        }
+    }
+    for (const g of groups) {
+        if (g.travellerId) g.items.sort((a, b) => (a.parent_request_id ? 1 : -1) - (b.parent_request_id ? 1 : -1));
+    }
+    return groups;
+});
 
 // ── Inventory ─────────────────────────────────────────────────
 export const inventoryTab     = ref('chute');

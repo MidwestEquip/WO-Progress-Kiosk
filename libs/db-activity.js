@@ -9,10 +9,11 @@ import { supabase } from './config.js';
 
 // openTimeSession — opens a new row in wo_time_sessions.
 // stage: 'weld'|'grind'|'tv_engine'|'tc_pre_lap'|'stock'|null, etc.
-export function openTimeSession({ woId, woNumber, department, operator, stage = null }) {
+export function openTimeSession({ woId, woNumber, jobNumber = null, department, operator, stage = null }) {
     supabase.from('wo_time_sessions').insert({
         wo_id:      woId,
         wo_number:  woNumber   || '',
+        job_number: jobNumber  || null,
         department: department || '',
         operator:   operator   || '',
         stage:      stage      || null,
@@ -78,11 +79,12 @@ export function closeAllOpenSessions({ woId, endStatus, sessionQty = 0 }) {
 
 // insertProgressEvent — inserts one row into wo_progress_events (fire-and-forget).
 // Failures are logged to console only — never blocks the main action.
-export async function insertProgressEvent({ workOrderId, woNumber, department, stage, operatorName, action, sessionQty, cumulativeQtyAfter, reason }) {
+export async function insertProgressEvent({ workOrderId, woNumber, jobNumber = null, department, stage, operatorName, action, sessionQty, cumulativeQtyAfter, reason }) {
     try {
         await supabase.from('wo_progress_events').insert([{
             work_order_id:        workOrderId  || null,
             wo_number:            woNumber     || '',
+            job_number:           jobNumber    || null,
             department:           department   || '',
             stage:                stage        || null,
             operator_name:        operatorName || '',

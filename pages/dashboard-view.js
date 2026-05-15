@@ -348,10 +348,28 @@ async function _refreshDeptOrders() {
         const { data, error } = await fetchDeptOrders(dept);
         if (error) throw error;
         store.orders.value = data || [];
+        // Refresh traveller linked WOs non-blocking
+        const ids = [...new Set((data || []).map(o => o.traveller_id).filter(Boolean))];
+        if (ids.length) {
+            db.fetchWosByTravellerIds(ids).then(({ data: wos }) => {
+                const map = {};
+                (wos || []).forEach(w => {
+                    if (!map[w.traveller_id]) map[w.traveller_id] = [];
+                    map[w.traveller_id].push(w);
+                });
+                store.travellerLinkedWos.value = map;
+            });
+        }
     } catch (err) {
         store.showToast('Failed to refresh orders: ' + err.message);
         logError('_refreshDeptOrders', err, { dept: store.selectedDept.value });
     }
+}
+
+// toggleTravellerPanel — expand or collapse the linked-WO panel on a dashboard card.
+export function toggleTravellerPanel(woId) {
+    const cur = store.expandedTravellerWoIds.value;
+    store.expandedTravellerWoIds.value = { ...cur, [woId]: !cur[woId] };
 }
 
 

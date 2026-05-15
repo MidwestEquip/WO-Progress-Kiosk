@@ -77,6 +77,7 @@ export async function submitTcUnitStageAction({ id, currentOrder, stageKey, stag
         insertProgressEvent({
             workOrderId:         id,
             woNumber:            currentOrder.wo_number || '',
+            jobNumber:           currentOrder.job_number || null,
             department:          'Tru Cut Assy',
             stage:               stageKey,
             operatorName:        opName,
@@ -90,6 +91,7 @@ export async function submitTcUnitStageAction({ id, currentOrder, stageKey, stag
             if (newStatus === 'started') {
                 openTimeSession({
                     woId: id, woNumber: currentOrder.wo_number || '',
+                    jobNumber: currentOrder.job_number || null,
                     department: 'Tru Cut Assy', operator: opName, stage: stageKey,
                 });
             } else if (newStatus === 'paused' || newStatus === 'on_hold' || newStatus === 'completed') {
@@ -139,6 +141,7 @@ export async function completeTcWo({ id, currentOrder, opName, unitFields, notes
         insertProgressEvent({
             workOrderId:         id,
             woNumber:            currentOrder.wo_number || '',
+            jobNumber:           currentOrder.job_number || null,
             department:          'Tru Cut Assy',
             stage:               null,
             operatorName:        opName,
@@ -223,6 +226,7 @@ export async function submitTcStockAction({ id, currentOrder, newStatus, opName,
         insertProgressEvent({
             workOrderId:         id,
             woNumber:            currentOrder.wo_number || '',
+            jobNumber:           currentOrder.job_number || null,
             department:          'Tru Cut Assy',
             stage:               'stock',
             operatorName:        opName,
@@ -236,6 +240,7 @@ export async function submitTcStockAction({ id, currentOrder, newStatus, opName,
             if (newStatus === 'started') {
                 openTimeSession({
                     woId: id, woNumber: currentOrder.wo_number || '',
+                    jobNumber: currentOrder.job_number || null,
                     department: 'Tru Cut Assy', operator: opName, stage: 'stock',
                 });
             } else if (newStatus === 'paused' || newStatus === 'on_hold' || newStatus === 'completed') {
@@ -251,12 +256,13 @@ export async function submitTcStockAction({ id, currentOrder, newStatus, opName,
 
 // recordUnitCompletion — inserts one row into wo_unit_completions for a single unit.
 // unitData: { unitSerial, engineModel, engineSerial, numBlades, operator }
-export async function recordUnitCompletion(woId, woNumber, dept, unitNumber, unitData) {
+export async function recordUnitCompletion(woId, woNumber, dept, unitNumber, unitData, jobNumber = null) {
     if (!woNumber) return { data: null, error: new Error('Missing WO number') };
     return withRetry(() =>
         supabase.from('wo_unit_completions').insert([{
-            wo_id:                woId   || null,
+            wo_id:                woId      || null,
             wo_number:            woNumber.trim().toUpperCase(),
+            job_number:           jobNumber || null,
             department:           dept,
             unit_number:          unitNumber,
             unit_serial_number:   (unitData.unitSerial   || '').trim() || null,

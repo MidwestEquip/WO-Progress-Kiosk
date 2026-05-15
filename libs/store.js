@@ -13,7 +13,7 @@
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
 import { REEL_PART_NUMBERS } from './config.js';
-import { detectTcMode, detectReelWeld } from './utils.js';
+import { detectTcMode, detectReelWeld, computePrintRoutingChain } from './utils.js';
 
 // Bring inventoryTab into scope for appTitle computed (one-way, no circular dep)
 import { inventoryTab } from './store-inventory.js';
@@ -23,6 +23,7 @@ export * from './store-manager.js';
 export * from './store-assy.js';
 export * from './store-inventory.js';
 export * from './store-engineering.js';
+export * from './store-purchasing.js';
 
 // ── Version update banner ─────────────────────────────────────
 export const versionUpdateAvailable = ref(false);
@@ -43,6 +44,16 @@ export const dashSearch      = ref('');
 export const allOrders       = ref([]);
 export const woStatusOrders  = ref([]);
 export const closeoutOrders  = ref([]);
+
+// travellerLinkedWos — map of traveller_id → all work_orders rows sharing that traveller.
+// Populated non-blocking after dept orders load. Used by dashboard WO cards.
+export const travellerLinkedWos     = ref({}); // { [traveller_id]: [{ id, wo_number, part_number, department, status, qty_completed, qty_required }] }
+export const expandedTravellerWoIds = ref({}); // { [wo_id]: true } — which cards have the panel open
+
+// printRoutingChain — ordered routing steps for the currently open WO, used by the print traveller.
+export const printRoutingChain = computed(() =>
+    computePrintRoutingChain(activeOrder.value, travellerLinkedWos.value)
+);
 
 // ── Dept completed WOs view ───────────────────────────────────
 export const completedDeptOrders  = ref([]);
@@ -224,7 +235,9 @@ export const appTitle = computed(() => {
         const labels = { chute: 'Chutes', hitch: 'Hitches', engine: 'Engines', hardware: 'Hardware', hoses: 'Hoses' };
         return `Inventory — ${labels[inventoryTab.value] || ''}`;
     }
-    if (currentView.value === 'open_orders') return 'Open Orders — Shipping';
+    if (currentView.value === 'open_orders')  return 'Open Orders — Shipping';
+    if (currentView.value === 'purchasing')   return 'Purchasing';
+    if (currentView.value === 'po_request')   return 'PO Requests';
     if (currentView.value === 'manager') {
         if (managerSubView.value === 'kpi')        return 'Manager Hub — KPIs';
         if (managerSubView.value === 'priorities') return 'Manager Hub — Priorities';

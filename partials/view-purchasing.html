@@ -1,0 +1,339 @@
+<!-- ============================================================
+     view-purchasing.html — Purchasing: Ordering workflow
+     Tabs: Requests · Parts · Supplies · Steel · Completed
+     ============================================================ -->
+<div v-if="currentView === 'purchasing'"
+    class="h-full w-full flex flex-col bg-gray-50">
+
+    <!-- ── Top bar ─────────────────────────────────────────── -->
+    <div class="shrink-0 bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-4">
+        <button @click="goBack"
+            class="bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg p-2 active:scale-95 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <div class="flex-1">
+            <h1 class="text-xl font-extrabold text-gray-800">Purchasing</h1>
+            <p class="text-xs text-gray-400">Parts · Supplies · Steel ordering</p>
+        </div>
+        <button @click="loadPurchasingOrders" :disabled="purchasingLoading"
+            class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50">
+            <svg class="w-4 h-4" :class="{ 'animate-spin': purchasingLoading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Refresh
+        </button>
+    </div>
+
+    <!-- ── Tab bar ─────────────────────────────────────────── -->
+    <div class="shrink-0 bg-white border-b border-gray-200 px-6 flex items-center gap-1">
+        <button v-for="tab in [
+                { key: 'parts',      label: 'Parts Ordering'    },
+                { key: 'supplies',   label: 'Supplies Ordering' },
+                { key: 'steel',      label: 'Steel Ordering'    },
+                { key: 'all_quotes', label: 'All Quotes'        },
+                { key: 'completed',  label: 'Completed'         },
+            ]"
+            :key="tab.key"
+            @click="switchPurchasingTab(tab.key); tab.key === 'all_quotes' && loadAllQuotes()"
+            class="px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap"
+            :class="purchasingTab === tab.key
+                ? 'border-amber-500 text-amber-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'">
+            {{ tab.label }}
+            <span v-if="purchasingTabCounts[tab.key] > 0"
+                class="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-xs font-bold"
+                :class="purchasingTab === tab.key ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'">
+                {{ purchasingTabCounts[tab.key] }}
+            </span>
+        </button>
+        <!-- New Quote button — visible on ordering tabs only -->
+        <button v-if="['parts','supplies','steel'].includes(purchasingTab)"
+            @click="openQuoteBuilder"
+            class="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+            </svg>
+            New Quote
+        </button>
+    </div>
+
+    <!-- ── Tab body ────────────────────────────────────────── -->
+    <div class="flex-1 overflow-y-auto p-6">
+
+        <!-- Loading spinner -->
+        <div v-if="purchasingLoading" class="flex items-center justify-center h-48">
+            <svg class="animate-spin w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+        </div>
+
+        <!-- Completed tab -->
+        <div v-else-if="purchasingTab === 'completed'" class="flex flex-col gap-4">
+
+            <!-- Date range filter -->
+            <div class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3">
+                <span class="text-xs font-semibold text-gray-500 shrink-0">Date range:</span>
+                <input v-model="purchasingCompletedFrom" type="date"
+                    class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-amber-400">
+                <span class="text-gray-400 text-sm">to</span>
+                <input v-model="purchasingCompletedTo" type="date"
+                    class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-amber-400">
+                <button @click="loadPurchasingCompleted" :disabled="purchasingCompletedLoading"
+                    class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors">
+                    {{ purchasingCompletedLoading ? 'Loading…' : 'Apply' }}
+                </button>
+                <button v-if="purchasingCompletedFrom || purchasingCompletedTo"
+                    @click="purchasingCompletedFrom = ''; purchasingCompletedTo = ''; loadPurchasingCompleted()"
+                    class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-semibold rounded-lg transition-colors">
+                    Clear
+                </button>
+            </div>
+
+            <!-- Loading -->
+            <div v-if="purchasingCompletedLoading" class="flex items-center justify-center h-32">
+                <svg class="animate-spin w-7 h-7 text-amber-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+            </div>
+
+            <!-- Empty -->
+            <div v-else-if="purchasingCompletedOrders.length === 0"
+                class="flex flex-col items-center justify-center h-32 text-gray-400 gap-2">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <p class="text-sm">No completed orders in this range</p>
+            </div>
+
+            <!-- Completed rows -->
+            <div v-else class="flex flex-col gap-2">
+                <div v-for="order in purchasingCompletedOrders" :key="order.id"
+                    @click="openOrderDetail(order)"
+                    class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-3 flex items-center gap-4 hover:border-amber-300 cursor-pointer transition-all">
+
+                    <!-- Type badge -->
+                    <span class="shrink-0 w-16 text-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide"
+                        :class="order.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
+                                order.request_type === 'supply' ? 'bg-green-100 text-green-700' :
+                                                                  'bg-orange-100 text-orange-700'">
+                        {{ order.request_type }}
+                    </span>
+
+                    <!-- Identifier -->
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-gray-700 truncate text-sm">
+                            <template v-if="order.request_type === 'steel'">
+                                {{ [order.material_grade, order.material_type, order.steel_shape, order.material_size, order.material_thickness].filter(Boolean).join(' · ') || '—' }}
+                            </template>
+                            <template v-else>{{ order.part_number || order.supply_item_name || '—' }}</template>
+                        </p>
+                        <p class="text-xs text-gray-400 truncate">
+                            {{ order.request_type !== 'steel' ? (order.description || order.supply_category || '') : '' }}
+                        </p>
+                    </div>
+
+                    <!-- Qty received -->
+                    <div class="shrink-0 text-center w-20">
+                        <p class="text-sm font-semibold text-emerald-600">{{ order.qty_received ?? '—' }}</p>
+                        <p class="text-xs text-gray-400">received</p>
+                    </div>
+
+                    <!-- Received by / date -->
+                    <div class="shrink-0 text-right w-32">
+                        <p class="text-xs font-semibold text-gray-600">{{ order.received_by || '—' }}</p>
+                        <p class="text-xs text-gray-400">{{ order.received_at ? order.received_at.slice(0,10) : order.completed_at?.slice(0,10) || '' }}</p>
+                    </div>
+
+                    <!-- Status badge -->
+                    <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
+                        :class="order.status === 'received' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'">
+                        {{ order.status }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- All Quotes tab -->
+        <div v-else-if="purchasingTab === 'all_quotes'" class="flex flex-col gap-4">
+            <div v-if="allQuotesLoading" class="flex items-center justify-center h-48">
+                <svg class="animate-spin w-8 h-8 text-purple-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+            </div>
+            <div v-else-if="allQuotes.length === 0"
+                class="flex flex-col items-center justify-center h-48 text-gray-400 gap-2">
+                <p class="text-sm">No quotes yet</p>
+            </div>
+            <div v-else class="flex flex-col gap-3">
+                <div v-for="quote in allQuotes" :key="quote.id"
+                    class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <!-- Quote header -->
+                    <div class="px-5 py-3 flex items-center gap-4 border-b border-gray-100">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-gray-800 text-sm">{{ quote.supplier_name || '—' }}</p>
+                            <p class="text-xs text-gray-400">
+                                <span v-if="quote.quote_ref">Quote #{{ quote.quote_ref }} · </span>
+                                <span v-if="quote.terms">{{ quote.terms }} · </span>
+                                {{ quote.created_at?.slice(0,10) }}
+                            </p>
+                        </div>
+                        <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
+                            :class="quote.status === 'active'  ? 'bg-purple-100 text-purple-700' :
+                                    quote.status === 'ordered' ? 'bg-violet-100 text-violet-700' :
+                                                                 'bg-gray-100 text-gray-500'">
+                            {{ quote.status }}
+                        </span>
+                        <div class="shrink-0 text-right">
+                            <p class="text-xs text-gray-400">Shipping</p>
+                            <p class="text-sm font-semibold text-gray-700">${{ quote.shipping_price ?? '—' }}</p>
+                        </div>
+                        <button v-if="quote.status === 'active' && quoteOrderingId !== quote.id"
+                            @click="openQuoteOrder(quote.id)"
+                            class="shrink-0 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold rounded-lg transition-colors">
+                            Place Order
+                        </button>
+                    </div>
+                    <!-- Inline PO# entry -->
+                    <div v-if="quoteOrderingId === quote.id"
+                        class="px-5 py-3 bg-violet-50 border-b border-violet-200 flex items-center gap-3">
+                        <span class="text-xs font-bold text-violet-700">Enter PO #</span>
+                        <input v-model="quoteOrderPoNum" type="text"
+                            class="flex-1 border border-violet-300 rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:border-violet-500"
+                            placeholder="PO number">
+                        <button @click="submitQuoteOrder(quote)" :disabled="quoteOrderSaving"
+                            class="px-4 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors">
+                            {{ quoteOrderSaving ? 'Saving…' : 'Confirm Order' }}
+                        </button>
+                        <button @click="cancelQuoteOrder"
+                            class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                    <!-- Line items -->
+                    <div class="divide-y divide-gray-50">
+                        <div v-for="item in quote.purchasing_quote_items" :key="item.id"
+                            class="px-5 py-2.5 flex items-center gap-4">
+                            <span class="shrink-0 w-14 text-center px-1.5 py-0.5 rounded text-xs font-bold uppercase"
+                                :class="item.purchasing_orders?.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
+                                        item.purchasing_orders?.request_type === 'supply' ? 'bg-green-100 text-green-700' :
+                                                                                             'bg-orange-100 text-orange-700'">
+                                {{ item.purchasing_orders?.request_type }}
+                            </span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 truncate">
+                                    <template v-if="item.purchasing_orders?.request_type === 'steel'">
+                                        {{ [item.purchasing_orders?.material_grade, item.purchasing_orders?.material_type, item.purchasing_orders?.steel_shape, item.purchasing_orders?.material_size, item.purchasing_orders?.material_thickness].filter(Boolean).join(' · ') || '—' }}
+                                    </template>
+                                    <template v-else>
+                                        {{ item.purchasing_orders?.part_number || item.purchasing_orders?.supply_item_name || '—' }}
+                                    </template>
+                                </p>
+                                <p class="text-xs text-gray-400 truncate">{{ item.purchasing_orders?.description || '' }}</p>
+                            </div>
+                            <div class="shrink-0 text-center w-16">
+                                <p class="text-sm font-semibold text-gray-700">{{ item.qty ?? '—' }}</p>
+                                <p class="text-xs text-gray-400">qty</p>
+                            </div>
+                            <div class="shrink-0 text-center w-20">
+                                <p class="text-sm font-semibold text-gray-700">${{ item.price ?? '—' }}</p>
+                                <p class="text-xs text-gray-400">unit price</p>
+                            </div>
+                            <div class="shrink-0 text-center w-20">
+                                <p class="text-sm font-semibold text-gray-700">{{ item.lead_time || '—' }}</p>
+                                <p class="text-xs text-gray-400">lead time</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="filteredPurchasingOrders.length === 0"
+            class="flex flex-col items-center justify-center h-48 text-gray-400 gap-3">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <p class="text-sm font-medium">No open orders here</p>
+        </div>
+
+        <!-- Order list -->
+        <div v-else class="flex flex-col gap-2">
+            <div v-for="order in filteredPurchasingOrders" :key="order.id"
+                @click="openOrderDetail(order)"
+                class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4 hover:border-amber-300 hover:shadow-md cursor-pointer transition-all">
+
+                <!-- Type badge -->
+                <span class="shrink-0 w-16 text-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide"
+                    :class="order.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
+                            order.request_type === 'supply' ? 'bg-green-100 text-green-700' :
+                                                              'bg-orange-100 text-orange-700'">
+                    {{ order.request_type }}
+                </span>
+
+                <!-- Primary identifier -->
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-gray-800 truncate text-sm">
+                        <template v-if="order.request_type === 'steel'">
+                            {{ [order.material_grade, order.material_type, order.steel_shape, order.material_size, order.material_thickness].filter(Boolean).join(' · ') || '—' }}
+                        </template>
+                        <template v-else>{{ order.part_number || order.supply_item_name || '—' }}</template>
+                    </p>
+                    <p class="text-xs text-gray-400 truncate">
+                        {{ order.request_type !== 'steel' ? (order.description || order.supply_category || '') : '' }}
+                    </p>
+                </div>
+
+                <!-- SO / WO context (parts only) -->
+                <div v-if="order.request_type === 'part' && (order.sales_order || order.wo_number)"
+                    class="shrink-0 text-xs text-gray-500 text-right leading-5">
+                    <div v-if="order.sales_order">SO: {{ order.sales_order }}</div>
+                    <div v-if="order.wo_number">WO: {{ order.wo_number }}</div>
+                </div>
+
+                <!-- Qty -->
+                <div class="shrink-0 text-center w-16">
+                    <p class="text-sm font-semibold text-gray-700">{{ order.qty_needed ?? '—' }}</p>
+                    <p class="text-xs text-gray-400">qty</p>
+                </div>
+
+                <!-- Expected / needed date + late indicator -->
+                <div class="shrink-0 text-center w-24">
+                    <template v-if="order.expected_date">
+                        <p class="text-xs font-semibold" :class="isPurchasingOrderLate(order) ? 'text-red-600' : 'text-gray-600'">
+                            {{ order.expected_date }}
+                        </p>
+                        <p class="text-xs" :class="isPurchasingOrderLate(order) ? 'text-red-500 font-bold' : 'text-gray-400'">
+                            {{ isPurchasingOrderLate(order) ? 'OVERDUE' : 'expected' }}
+                        </p>
+                    </template>
+                    <template v-else-if="order.needed_by">
+                        <p class="text-xs font-semibold text-gray-600">{{ order.needed_by }}</p>
+                        <p class="text-xs text-gray-400">needed by</p>
+                    </template>
+                </div>
+
+                <!-- Status badge -->
+                <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
+                    :class="order.status === 'requested'          ? 'bg-gray-100 text-gray-600'     :
+                            order.status === 'needs_review'       ? 'bg-amber-100 text-amber-700'   :
+                            order.status === 'approved'           ? 'bg-blue-100 text-blue-700'     :
+                            order.status === 'researching'        ? 'bg-indigo-100 text-indigo-700' :
+                            order.status === 'ordered'            ? 'bg-violet-100 text-violet-700' :
+                            order.status === 'partially_received' ? 'bg-orange-100 text-orange-700' :
+                                                                    'bg-gray-100 text-gray-500'">
+                    {{ order.status.replace(/_/g, ' ') }}
+                </span>
+
+                <!-- Requested by -->
+                <span class="shrink-0 text-xs text-gray-400 w-20 text-right truncate">{{ order.requested_by || '' }}</span>
+            </div>
+        </div>
+
+    </div>
+</div>

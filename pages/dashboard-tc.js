@@ -421,7 +421,7 @@ export async function confirmTcWoComplete() {
                     engineSerial: uf.engineSerial,
                     numBlades:    uf.numBlades,
                     operator,
-                });
+                }, updated.job_number || null);
             });
         }
 

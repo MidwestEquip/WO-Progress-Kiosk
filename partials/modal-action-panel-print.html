@@ -5,11 +5,19 @@
             <hr>
             <table>
                 <tr>
-                    <td style="width:33%">
+                    <td style="width:18%">
                         <div style="font-size:8pt;font-weight:bold;text-transform:uppercase;color:#555;padding-bottom:2pt">WO #</div>
-                        <div style="font-size:18pt;font-weight:bold">{{ activeOrder?.wo_number }}</div>
+                        <div style="font-size:18pt;font-weight:bold">{{ activeOrder?.wo_number || 'PENDING' }}</div>
                     </td>
-                    <td style="width:33%">
+                    <td style="width:14%">
+                        <div style="font-size:8pt;font-weight:bold;text-transform:uppercase;color:#555;padding-bottom:2pt">Job #</div>
+                        <div style="font-size:14pt;font-weight:bold">{{ activeOrder?.job_number || '—' }}</div>
+                    </td>
+                    <td style="width:14%">
+                        <div style="font-size:8pt;font-weight:bold;text-transform:uppercase;color:#555;padding-bottom:2pt">Traveller #</div>
+                        <div style="font-size:14pt;font-weight:bold">{{ activeOrder?.traveller_id || '—' }}</div>
+                    </td>
+                    <td style="width:20%">
                         <div style="font-size:8pt;font-weight:bold;text-transform:uppercase;color:#555;padding-bottom:2pt">Part #</div>
                         <div style="font-size:14pt;font-weight:bold;font-family:monospace">{{ activeOrder?.part_number }}</div>
                     </td>
@@ -55,6 +63,48 @@
                     </tr>
                 </tbody>
             </table>
+            <!-- Routing chain -->
+            <template v-if="printRoutingChain.length">
+                <h2>Routing</h2>
+                <div style="font-size:13pt;font-weight:bold;letter-spacing:1pt;padding:4pt 0">
+                    {{ printRoutingChain.join(' → ') }}
+                </div>
+                <h2>Store</h2>
+                <div style="font-size:13pt;font-weight:bold;letter-spacing:1pt;padding:4pt 0">
+                    {{ activeOrder?.alere_bin || '' }}
+                </div>
+            </template>
+            <!-- Traveller parts — all WOs sharing this traveller (when group has >1 part) -->
+            <template v-if="activeOrder?.traveller_id && (travellerLinkedWos[activeOrder.traveller_id] || []).length > 1">
+                <h2>Traveller #{{ activeOrder.traveller_id }} — All Parts</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Part #</th>
+                            <th>Department</th>
+                            <th>Job #</th>
+                            <th>WO #</th>
+                            <th>Qty</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="linked in (travellerLinkedWos[activeOrder.traveller_id] || [])"
+                            :key="linked.id"
+                            :style="linked.id === activeOrder.id ? 'background:#eef2ff' : ''">
+                            <td style="font-family:monospace">
+                                {{ linked.part_number }}
+                                <span v-if="linked.id === activeOrder.id" style="font-size:7pt;font-weight:normal;color:#555"> ← this WO</span>
+                            </td>
+                            <td>{{ linked.department }}</td>
+                            <td style="font-family:monospace">{{ linked.job_number || '—' }}</td>
+                            <td style="font-family:monospace">{{ linked.wo_number || 'Pending' }}</td>
+                            <td>{{ linked.qty_completed }}/{{ linked.qty_required }}</td>
+                            <td style="text-transform:uppercase;font-size:9pt">{{ (linked.status || '').replace(/_/g,' ') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </template>
             <!-- TC Unit details (only when tc_job_mode = unit) -->
             <template v-if="activeOrder?.tc_job_mode === 'unit'">
                 <h2>Unit Details</h2>

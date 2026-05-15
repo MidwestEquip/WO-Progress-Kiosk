@@ -1,0 +1,544 @@
+<!-- ============================================================
+     modal-purchasing-detail.html — Purchasing order detail / edit
+     Ordering section: status, supplier, PO, dates, notes
+     Receiving section: qty received, received by
+     ============================================================ -->
+<div v-if="purchasingDetailOpen && purchasingDetailOrder"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    @click.self="closeOrderDetail">
+
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
+
+        <!-- ── Header ──────────────────────────────────────── -->
+        <div class="shrink-0 px-6 py-4 border-b border-gray-200">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="shrink-0 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide"
+                        :class="purchasingDetailOrder.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
+                                purchasingDetailOrder.request_type === 'supply' ? 'bg-green-100 text-green-700' :
+                                                                                  'bg-orange-100 text-orange-700'">
+                        {{ purchasingDetailOrder.request_type }}
+                    </span>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-bold text-gray-800 truncate">
+                            {{ purchasingDetailOrder.part_number || purchasingDetailOrder.supply_item_name || purchasingDetailOrder.material_type || '—' }}
+                        </h2>
+                        <p class="text-xs text-gray-400">
+                            Requested by {{ purchasingDetailOrder.requested_by || '—' }}
+                            on {{ purchasingDetailOrder.date_requested || purchasingDetailOrder.created_at?.slice(0, 10) || '—' }}
+                        </p>
+                    </div>
+                </div>
+                <button @click="closeOrderDetail" class="shrink-0 text-gray-400 hover:text-gray-600 text-2xl leading-none p-1">&times;</button>
+            </div>
+        </div>
+
+        <!-- ── Section tabs ────────────────────────────────── -->
+        <div class="shrink-0 flex border-b border-gray-200 px-6">
+            <button @click="purchasingDetailSection = 'quoting'; loadOrderQuotes()"
+                class="px-4 py-3 text-sm font-semibold border-b-2 transition-colors"
+                :class="purchasingDetailSection === 'quoting'
+                    ? 'border-amber-500 text-amber-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'">
+                Quoting
+            </button>
+            <button @click="purchasingDetailSection = 'ordering'"
+                class="px-4 py-3 text-sm font-semibold border-b-2 transition-colors"
+                :class="purchasingDetailSection === 'ordering'
+                    ? 'border-amber-500 text-amber-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'">
+                Ordering
+            </button>
+            <button @click="purchasingDetailSection = 'receiving'"
+                class="px-4 py-3 text-sm font-semibold border-b-2 transition-colors"
+                :class="purchasingDetailSection === 'receiving'
+                    ? 'border-amber-500 text-amber-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'">
+                Receiving
+            </button>
+            <button @click="purchasingDetailSection = 'request'; purchasingDetailOrder.request_type === 'part' && loadPartUsageForOrder()"
+                class="px-4 py-3 text-sm font-semibold border-b-2 transition-colors"
+                :class="purchasingDetailSection === 'request'
+                    ? 'border-amber-500 text-amber-700'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'">
+                Request Info
+            </button>
+        </div>
+
+        <!-- ── Scrollable body ──────────────────────────────── -->
+        <div class="overflow-y-auto p-6 flex-1">
+
+            <!-- ── Quoting section ───────────────────────── -->
+            <div v-if="purchasingDetailSection === 'quoting'" class="flex flex-col gap-4">
+
+                <!-- Loading -->
+                <div v-if="purchasingDetailQuotesLoading" class="flex items-center justify-center h-32">
+                    <svg class="animate-spin w-7 h-7 text-amber-500" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                    </svg>
+                </div>
+
+                <template v-else>
+                    <!-- Quote cards -->
+                    <div v-for="(quote, index) in purchasingDetailQuotes" :key="index"
+                        class="border border-gray-200 rounded-xl p-4 flex flex-col gap-3 bg-gray-50">
+
+                        <!-- Card header -->
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                                Quote {{ index + 1 }}
+                                <span v-if="quote.id" class="ml-1.5 text-emerald-600">✓ Saved</span>
+                            </span>
+                            <button @click="removeQuoteRow(index)" :disabled="quote._saving"
+                                class="text-xs text-red-500 hover:text-red-700 font-semibold disabled:opacity-40 transition-colors">
+                                Remove
+                            </button>
+                        </div>
+
+                        <!-- Row 1: Supplier + Quote # -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Supplier</label>
+                                <input v-model="quote.supplier_name" type="text"
+                                    class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Quote #</label>
+                                <input v-model="quote.quote_ref" type="text"
+                                    class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Qty + Price + Shipping -->
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Qty</label>
+                                <input v-model="quote.qty" type="number" min="0"
+                                    class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Price</label>
+                                <input v-model="quote.price" type="number" min="0" step="0.01"
+                                    class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Shipping</label>
+                                <input v-model="quote.shipping_price" type="number" min="0" step="0.01"
+                                    class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Lead Time + Terms -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Lead Time</label>
+                                <input v-model="quote.lead_time" type="text" placeholder="e.g. 7 days"
+                                    class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 mb-1">Terms</label>
+                                <input v-model="quote.terms" type="text" placeholder="e.g. Net 30"
+                                    class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
+                            </div>
+                        </div>
+
+                        <!-- Save button -->
+                        <button @click="saveQuote(quote)" :disabled="quote._saving"
+                            class="w-full py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors">
+                            {{ quote._saving ? 'Saving…' : (quote.id ? 'Update Quote' : 'Save Quote') }}
+                        </button>
+                    </div>
+
+                    <!-- Add another quote -->
+                    <button @click="addQuoteRow"
+                        class="w-full py-2.5 border-2 border-dashed border-gray-300 hover:border-amber-400 text-gray-500 hover:text-amber-600 text-sm font-semibold rounded-xl transition-colors">
+                        + Add Another Quote
+                    </button>
+                </template>
+            </div>
+
+            <!-- ── Ordering section ──────────────────────── -->
+            <div v-if="purchasingDetailSection === 'ordering'" class="flex flex-col gap-4">
+
+                <!-- Status -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Status</label>
+                    <select v-model="purchasingDetailForm.status"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
+                        <option value="requested">Requested</option>
+                        <option value="needs_review">Needs Review</option>
+                        <option value="approved">Approved</option>
+                        <option value="quoted">Quoted — Needs Approval</option>
+                        <option value="ordered">Ordered</option>
+                        <option value="partially_received">Partially Received</option>
+                        <option value="received">Received</option>
+                        <option value="canceled">Canceled</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Supplier Name -->
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Supplier Name</label>
+                        <input v-model="purchasingDetailForm.supplier_name" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="Supplier / vendor name">
+                    </div>
+
+                    <!-- Supplier Part # -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Supplier Part #</label>
+                        <input v-model="purchasingDetailForm.supplier_part_number" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="Vendor's part number">
+                    </div>
+
+                    <!-- PO # -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">PO #</label>
+                        <input v-model="purchasingDetailForm.po_number" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="Purchase order number">
+                    </div>
+
+                    <!-- Qty Ordered -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Qty Ordered</label>
+                        <input v-model="purchasingDetailForm.qty_ordered" type="number" min="0"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="0">
+                    </div>
+
+                    <!-- Est. Lead Time -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Est. Lead Time (days)</label>
+                        <input v-model="purchasingDetailForm.estimated_lead_time" type="number" min="0"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="e.g. 7">
+                    </div>
+
+                    <!-- Expected Date -->
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">
+                            Expected Date
+                            <span class="text-gray-400 font-normal ml-1">— auto-calculated from lead time if left blank</span>
+                        </label>
+                        <input v-model="purchasingDetailForm.expected_date" type="date"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400">
+                    </div>
+
+                    <!-- Purchaser Notes -->
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Purchaser Notes</label>
+                        <textarea v-model="purchasingDetailForm.purchaser_notes" rows="2"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400 resize-none"
+                            placeholder="Internal notes for purchasing team…"></textarea>
+                    </div>
+
+                    <!-- Questions for Requester -->
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Questions for Requester</label>
+                        <textarea v-model="purchasingDetailForm.purchaser_questions" rows="2"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400 resize-none"
+                            placeholder="Any questions back to the person who submitted this request…"></textarea>
+                    </div>
+
+                    <!-- Production Notes -->
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Production Notes</label>
+                        <textarea v-model="purchasingDetailForm.production_notes" rows="2"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400 resize-none"
+                            placeholder="Notes for production team…"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Receiving section ────────────────────── -->
+            <div v-if="purchasingDetailSection === 'receiving'" class="flex flex-col gap-5">
+
+                <!-- Order summary -->
+                <div class="bg-gray-50 rounded-xl px-5 py-4 grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <p class="text-xs text-gray-400 mb-1">Qty Needed</p>
+                        <p class="text-xl font-bold text-gray-700">{{ purchasingDetailOrder.qty_needed ?? '—' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 mb-1">Qty Ordered</p>
+                        <p class="text-xl font-bold text-gray-700">{{ purchasingDetailOrder.qty_ordered ?? '—' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 mb-1">Already Received</p>
+                        <p class="text-xl font-bold"
+                            :class="(purchasingDetailOrder.qty_received || 0) > 0 ? 'text-emerald-600' : 'text-gray-400'">
+                            {{ purchasingDetailOrder.qty_received || 0 }}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- PO # display if set -->
+                <div v-if="purchasingDetailOrder.po_number"
+                    class="text-sm text-gray-600 text-center">
+                    PO # <span class="font-bold text-gray-800">{{ purchasingDetailOrder.po_number }}</span>
+                </div>
+
+                <!-- Receive inputs -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Qty Received Now</label>
+                        <input v-model="purchasingReceiveForm.qty_received" type="number" min="1"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400 text-center text-lg font-bold"
+                            placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Received By</label>
+                        <input v-model="purchasingReceiveForm.received_by" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="Your name">
+                    </div>
+                </div>
+
+                <!-- Auto-status note -->
+                <p class="text-xs text-gray-400 text-center">
+                    If qty received ≥ qty ordered, status is set to <strong>Received</strong> and order moves to Completed.
+                    Otherwise it is marked <strong>Partially Received</strong>.
+                </p>
+
+                <button @click="submitReceiving" :disabled="purchasingReceiveSaving"
+                    class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
+                    {{ purchasingReceiveSaving ? 'Saving…' : 'Record Receipt' }}
+                </button>
+            </div>
+
+            <!-- ── Request Info section (read-only) ────────── -->
+            <div v-if="purchasingDetailSection === 'request'" class="flex flex-col gap-3 text-sm">
+
+                <div class="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <!-- Common -->
+                    <div v-if="purchasingDetailOrder.requested_by">
+                        <p class="text-xs text-gray-400">Requested By</p>
+                        <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.requested_by }}</p>
+                    </div>
+                    <div v-if="purchasingDetailOrder.needed_by">
+                        <p class="text-xs text-gray-400">Needed By</p>
+                        <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.needed_by }}</p>
+                    </div>
+                    <div v-if="purchasingDetailOrder.qty_needed">
+                        <p class="text-xs text-gray-400">Qty Needed</p>
+                        <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.qty_needed }}</p>
+                    </div>
+
+                    <!-- Part fields -->
+                    <template v-if="purchasingDetailOrder.request_type === 'part'">
+                        <div v-if="purchasingDetailOrder.part_number">
+                            <p class="text-xs text-gray-400">Part #</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.part_number }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.description">
+                            <p class="text-xs text-gray-400">Description</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.description }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.sales_order">
+                            <p class="text-xs text-gray-400">Sales Order</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.sales_order }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.wo_number">
+                            <p class="text-xs text-gray-400">WO #</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.wo_number }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.job_number">
+                            <p class="text-xs text-gray-400">Job #</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.job_number }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.estimated_qty_in_stock != null">
+                            <p class="text-xs text-gray-400">Est. Qty in Stock</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.estimated_qty_in_stock }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.request_location">
+                            <p class="text-xs text-gray-400">Location</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.request_location }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.bin_location">
+                            <p class="text-xs text-gray-400">Bin</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.bin_location }}</p>
+                        </div>
+                    </template>
+
+                    <!-- Supply fields -->
+                    <template v-if="purchasingDetailOrder.request_type === 'supply'">
+                        <div v-if="purchasingDetailOrder.supply_item_name">
+                            <p class="text-xs text-gray-400">Item Name</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.supply_item_name }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.supply_category">
+                            <p class="text-xs text-gray-400">Category</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.supply_category }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.description">
+                            <p class="text-xs text-gray-400">Description</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.description }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.request_location">
+                            <p class="text-xs text-gray-400">Location</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.request_location }}</p>
+                        </div>
+                    </template>
+
+                    <!-- Steel fields -->
+                    <template v-if="purchasingDetailOrder.request_type === 'steel'">
+                        <div v-if="purchasingDetailOrder.material_type">
+                            <p class="text-xs text-gray-400">Material Type</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.material_type }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.steel_shape">
+                            <p class="text-xs text-gray-400">Shape</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.steel_shape }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.material_size">
+                            <p class="text-xs text-gray-400">Size</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.material_size }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.material_thickness">
+                            <p class="text-xs text-gray-400">Thickness / Gauge</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.material_thickness }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.material_length">
+                            <p class="text-xs text-gray-400">Length</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.material_length }}</p>
+                        </div>
+                        <div v-if="purchasingDetailOrder.material_grade">
+                            <p class="text-xs text-gray-400">Grade / Spec</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.material_grade }}</p>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Requester notes -->
+                <div v-if="purchasingDetailOrder.requester_notes"
+                    class="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                    <p class="text-xs font-semibold text-amber-700 mb-1">Requester Notes</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ purchasingDetailOrder.requester_notes }}</p>
+                </div>
+
+                <!-- Questions from purchasing -->
+                <div v-if="purchasingDetailOrder.purchaser_questions"
+                    class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                    <p class="text-xs font-semibold text-blue-700 mb-1">Questions from Purchasing</p>
+                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ purchasingDetailOrder.purchaser_questions }}</p>
+                </div>
+
+                <!-- ── Usage data panel (parts only) ───────── -->
+                <template v-if="purchasingDetailOrder.request_type === 'part'">
+                    <div class="mt-1 pt-3 border-t border-gray-100">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <p class="text-xs font-bold text-gray-600 uppercase tracking-wide">Data: 1/1/25–12/31/25</p>
+                            <svg v-if="purchasingPartUsageLoading || purchasingPartParentUsageLoading"
+                                class="w-3.5 h-3.5 animate-spin text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                            </svg>
+                        </div>
+                        <p class="text-xs text-gray-400 italic mb-2">Auto-filled from transaction history</p>
+
+                        <!-- 4-col stats row -->
+                        <div class="grid grid-cols-2 gap-2 mb-2">
+                            <div class="bg-gray-50 rounded-lg px-3 py-2">
+                                <p class="text-xs text-gray-400 mb-0.5">Qty Sold</p>
+                                <p class="text-sm font-bold text-gray-800">{{ purchasingPartUsage ? purchasingPartUsage.qty_sold : '—' }}</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg px-3 py-2">
+                                <p class="text-xs text-gray-400 mb-0.5">Qty Sold of Used On</p>
+                                <p class="text-sm font-bold text-gray-800">
+                                    <span v-if="purchasingPartParentUsageLoading" class="text-gray-400 italic text-xs">Loading…</span>
+                                    <span v-else>{{ purchasingPartParentUsage ?? '—' }}</span>
+                                </p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg px-3 py-2">
+                                <p class="text-xs text-gray-400 mb-0.5">Qty Purchased (12mo)</p>
+                                <p class="text-sm font-bold text-gray-800">{{ purchasingPartUsage ? purchasingPartUsage.qty_purchased_12mo : '—' }}</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg px-3 py-2">
+                                <p class="text-xs text-gray-400 mb-0.5">Qty Used in MFG</p>
+                                <p class="text-sm font-bold text-gray-800">{{ purchasingPartUsage ? purchasingPartUsage.qty_used_mfg : '—' }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Last 2 purchased (enriched) -->
+                        <div class="mb-2">
+                            <div class="flex items-center gap-2 mb-1">
+                                <p class="text-xs font-semibold text-gray-500">Last 2 Times Purchased</p>
+                                <svg v-if="purchasingPartPurchaseHistoryLoading"
+                                    class="w-3 h-3 animate-spin text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                </svg>
+                            </div>
+                            <div v-if="!purchasingPartPurchaseHistoryLoading && purchasingPartPurchaseHistoryError"
+                                class="text-xs text-red-500 italic">Could not load purchase history</div>
+                            <div v-else-if="!purchasingPartPurchaseHistoryLoading && purchasingPartPurchaseHistory.length === 0"
+                                class="text-xs text-gray-400 italic">No previous purchases found</div>
+                            <div v-else class="flex flex-col gap-2">
+                                <div v-for="(row, idx) in purchasingPartPurchaseHistory" :key="idx"
+                                    class="bg-gray-50 rounded-lg px-3 py-2 text-xs flex flex-col gap-0.5">
+                                    <p class="font-bold text-gray-800">{{ row.txn_date }} · Qty {{ row.qty }}<span v-if="row.cost != null"> · ${{ Number(row.cost).toFixed(2) }}</span></p>
+                                    <p v-if="row.company_name" class="text-gray-700 font-semibold">{{ row.company_name }}</p>
+                                    <p v-else class="text-gray-400 italic">Supplier not found</p>
+                                    <p v-if="row.contact || row.phone" class="text-gray-600">
+                                        <span v-if="row.contact">{{ row.contact }}</span><span v-if="row.contact && row.phone"> · </span><span v-if="row.phone">{{ row.phone }}</span>
+                                    </p>
+                                    <p v-if="row.email" class="text-gray-600">{{ row.email }}</p>
+                                    <p v-if="row.our_account_number" class="text-gray-600">Acct #: {{ row.our_account_number }}</p>
+                                    <p v-if="row.street" class="text-gray-500">{{ row.street }}<span v-if="row.city">, {{ row.city }}</span><span v-if="row.state">, {{ row.state }}</span><span v-if="row.zip"> {{ row.zip }}</span></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bottom row: Est. Stock · In Stock (requester) · Suggested -->
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="bg-gray-50 rounded-lg px-3 py-2">
+                                <p class="text-xs text-gray-400 mb-0.5">Est. Qty in Stock</p>
+                                <p v-if="purchasingPartUsageLoading || purchasingPartParentUsageLoading"
+                                    class="text-xs text-gray-400 italic">Calculating…</p>
+                                <p v-else-if="purchasingPartEstQtyInStock !== null"
+                                    class="text-sm font-bold"
+                                    :class="purchasingPartEstQtyInStock >= 0 ? 'text-slate-700' : 'text-amber-600'">
+                                    {{ purchasingPartEstQtyInStock }}
+                                </p>
+                                <p v-else class="text-sm font-bold text-gray-400">—</p>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg px-3 py-2">
+                                <p class="text-xs text-gray-400 mb-0.5">In Stock (requester)</p>
+                                <p class="text-sm font-bold text-gray-700">{{ purchasingDetailOrder.estimated_qty_in_stock ?? '—' }}</p>
+                            </div>
+                            <div class="rounded-lg px-3 py-2"
+                                :class="purchasingPartSuggestedQty !== null ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'">
+                                <p class="text-xs text-gray-400 mb-0.5">Suggested Qty to Make</p>
+                                <p v-if="purchasingPartUsageLoading || purchasingPartParentUsageLoading"
+                                    class="text-xs text-gray-400 italic">Calculating…</p>
+                                <p v-else-if="purchasingPartSuggestedQty !== null"
+                                    class="text-sm font-bold text-blue-800">{{ purchasingPartSuggestedQty }}</p>
+                                <p v-else class="text-sm font-bold text-gray-400">—</p>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+            </div>
+
+        </div>
+
+        <!-- ── Footer ───────────────────────────────────────── -->
+        <div class="shrink-0 flex gap-3 px-6 py-4 border-t border-gray-100">
+            <button @click="closeOrderDetail"
+                class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm transition-colors">
+                Close
+            </button>
+            <button v-if="purchasingDetailSection === 'ordering'"
+                @click="saveOrderDetail" :disabled="purchasingDetailSaving"
+                class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
+                {{ purchasingDetailSaving ? 'Saving…' : 'Save Changes' }}
+            </button>
+        </div>
+
+    </div>
+</div>

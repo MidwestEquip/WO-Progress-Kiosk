@@ -95,6 +95,45 @@ export const INVENTORY_TABS = [
     { key: 'hoses',    label: 'Hoses'    },
 ];
 
+export const PURCHASING_STATUSES = [
+    'requested',
+    'needs_review',
+    'approved',
+    'quoted',
+    'ordered',
+    'partially_received',
+    'received',
+    'canceled',
+];
+
+export const PURCHASING_TYPES = [
+    { value: 'part',   label: 'Part'   },
+    { value: 'supply', label: 'Supply' },
+    { value: 'steel',  label: 'Steel'  },
+];
+
+export const PURCHASING_STATUS_LABELS = {
+    requested:          'Requested',
+    needs_review:       'Needs Review',
+    approved:           'Approved',
+    quoted:             'Quoted — Needs Approval',
+    ordered:            'Ordered',
+    partially_received: 'Partially Received',
+    received:           'Received',
+    canceled:           'Canceled',
+};
+
+export const PURCHASING_STATUS_COLORS = {
+    requested:          'bg-gray-100 text-gray-600',
+    needs_review:       'bg-amber-100 text-amber-700',
+    approved:           'bg-blue-100 text-blue-700',
+    quoted:             'bg-purple-100 text-purple-700',
+    ordered:            'bg-violet-100 text-violet-700',
+    partially_received: 'bg-orange-100 text-orange-700',
+    received:           'bg-emerald-100 text-emerald-700',
+    canceled:           'bg-gray-100 text-gray-400',
+};
+
 export const PARTIAL_NAMES = [
     'header', 'main-open',
     'view-splash', 'view-dashboard', 'view-office',
@@ -102,6 +141,11 @@ export const PARTIAL_NAMES = [
     'view-manager-ai', 'view-manager-problems', 'view-manager-delayed',
     'view-cs', 'view-inventory', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-completed-orders',
     'view-engineering-inquiries', 'view-engineering-followup', 'view-engineering-completed',
+    'view-engineering-prints',
+    'view-purchasing',
+    'view-po-request',
+    'modal-purchasing-detail',
+    'modal-purchasing-quote',
     'main-close',
     'modal-pin', 'modal-action-panel',
     'modal-tc-unit', 'modal-tc-stock',
@@ -182,3 +226,17 @@ export const ENG_FOLLOWUP_STATUS_COLORS = {
     finalization_needed:      'bg-violet-100 text-violet-700',
     closed:                   'bg-gray-100 text-gray-500',
 };
+
+// ----- Post-paint staging areas -----
+export const STAGING_AREAS = [
+    'W1 Staging',
+    'W2 Staging',
+    'W3 Staging',
+    'W4 Staging',
+    'W5 Staging',
+    'Shipping Staging',
+];
+
+// ----- WO Request BOM demand period (fixed; update here to change everywhere) -----
+export const BOM_PERIOD_START = '2025-01-01';
+export const BOM_PERIOD_END   = '2025-12-31';

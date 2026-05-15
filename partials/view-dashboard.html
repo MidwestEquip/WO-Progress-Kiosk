@@ -171,7 +171,13 @@
                                     class="bg-slate-700/80 p-5 rounded-lg border-t-[6px] cursor-pointer hover:bg-slate-600 relative"
                                     :class="cat.cardBorderTop">
                                     <div class="flex justify-between items-start">
-                                        <div class="font-bold border px-1 text-slate-300 text-2xl tracking-tight">WO #{{ order.wo_number }}</div>
+                                        <div>
+                                            <div v-if="order.wo_number"
+                                                class="font-bold border px-1 text-slate-300 text-2xl tracking-tight">WO #{{ order.wo_number }}</div>
+                                            <div v-else
+                                                class="font-bold border border-amber-500/40 px-1 text-amber-400/80 text-2xl tracking-tight italic">WO # Pending</div>
+                                            <div v-if="order.job_number" class="text-xs text-slate-400 font-mono mt-0.5 px-1">Job #{{ order.job_number }}</div>
+                                        </div>
                                         <div v-if="order.priority > 0"
                                             class="text-xs px-2 py-1 rounded font-bold"
                                             :class="order.priority===5 ? 'bg-red-600 text-white animate-pulse' : order.priority===4 ? 'bg-orange-500 text-white' : order.priority===3 ? 'bg-yellow-500 text-black' : order.priority===2 ? 'bg-blue-600 text-white' : 'bg-slate-500 text-white'">
@@ -186,6 +192,42 @@
                                         class="mt-1 flex items-start gap-1 text-xs text-red-300 font-semibold leading-snug">
                                         <span class="text-red-400 shrink-0">&#9733;</span>
                                         <span class="line-clamp-2">{{ order.production_notes }}</span>
+                                    </div>
+                                    <!-- Subpart / traveller link panel -->
+                                    <div v-if="order.traveller_id" class="mt-2">
+                                        <button @click.stop="toggleTravellerPanel(order.id)"
+                                            class="flex items-center gap-1.5 text-xs text-blue-300 hover:text-white font-bold transition-colors">
+                                            <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                                            </svg>
+                                            <span v-if="order.department === 'Weld'">Subparts</span>
+                                            <span v-else>Traveller #{{ order.traveller_id }}</span>
+                                            <span v-if="travellerLinkedWos[order.traveller_id]">· {{ (travellerLinkedWos[order.traveller_id] || []).filter(w => w.id !== order.id).length }}</span>
+                                            <span class="ml-0.5 opacity-60">{{ (expandedTravellerWoIds[order.id] ?? order.department === 'Weld') ? '▲' : '▼' }}</span>
+                                        </button>
+                                        <div v-if="expandedTravellerWoIds[order.id] ?? order.department === 'Weld'"
+                                            class="mt-1.5 space-y-1.5 pl-3 border-l border-blue-600/40">
+                                            <template v-if="(travellerLinkedWos[order.traveller_id] || []).filter(w => w.id !== order.id).length">
+                                                <div v-for="linked in (travellerLinkedWos[order.traveller_id] || []).filter(w => w.id !== order.id)"
+                                                    :key="linked.id"
+                                                    class="text-xs">
+                                                    <div class="flex items-center gap-2 flex-wrap">
+                                                        <span class="font-mono text-slate-200 font-semibold">{{ linked.part_number }}</span>
+                                                        <span class="px-1.5 py-0.5 rounded font-bold bg-slate-600/80 text-slate-300">{{ linked.department }}</span>
+                                                        <span class="px-1.5 py-0.5 rounded font-bold"
+                                                            :class="linked.status==='completed'?'bg-emerald-900/60 text-emerald-400':linked.status==='started'?'bg-blue-900/60 text-blue-300':linked.status==='paused'?'bg-amber-900/60 text-amber-300':linked.status==='on_hold'?'bg-red-900/60 text-red-400':'bg-slate-700/60 text-slate-400'">
+                                                            {{ (linked.status || '').replace(/_/g,' ') }}
+                                                        </span>
+                                                        <span class="text-emerald-400 font-bold">{{ linked.qty_completed }}/{{ linked.qty_required }}</span>
+                                                    </div>
+                                                    <div class="text-slate-500 mt-0.5 pl-0.5">
+                                                        <span v-if="linked.wo_number">WO #{{ linked.wo_number }}</span>
+                                                        <span v-else-if="linked.job_number">Job #{{ linked.job_number }} · WO # Pending</span>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            <div v-else class="text-xs text-slate-500 italic">No linked WOs yet</div>
+                                        </div>
                                     </div>
                                     <div class="flex justify-between mt-4">
                                         <span class="text-emerald-400 font-bold border rounded px-1">{{ order.qty_completed }} / {{ order.qty_required }}</span>
@@ -292,7 +334,11 @@
                                 @click="o.department === 'Trac Vac Assy' ? openTvAssyEntry(o) : o.department === 'Tru Cut Assy' ? openTcAssyEntry(o) : openActionPanel(o)"
                                 class="bg-slate-700 hover:bg-slate-600 rounded-lg p-3 cursor-pointer border border-slate-600 transition-colors">
                                 <div class="flex items-start justify-between gap-1 mb-1">
-                                    <span class="font-bold text-white text-sm leading-tight">WO #{{ o.wo_number }}</span>
+                                    <div class="leading-tight">
+                                        <div v-if="o.wo_number" class="font-bold text-white text-sm">WO #{{ o.wo_number }}</div>
+                                        <div v-else class="font-bold text-amber-400/80 text-sm italic">WO # Pending</div>
+                                        <div v-if="o.job_number" class="text-slate-400 font-mono text-xs">Job #{{ o.job_number }}</div>
+                                    </div>
                                     <span v-if="o.priority > 0"
                                         class="text-xs px-1.5 py-0.5 rounded font-bold shrink-0"
                                         :class="o.priority===5?'bg-red-600 text-white animate-pulse':o.priority===4?'bg-orange-500 text-white':o.priority===3?'bg-yellow-500 text-black':o.priority===2?'bg-blue-600 text-white':'bg-slate-500 text-white'">

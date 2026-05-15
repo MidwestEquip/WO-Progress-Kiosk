@@ -7,9 +7,10 @@ import * as store from './libs/store.js';
 import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS,
          ENG_STATUSES, ENG_PRIORITIES, ENG_ASSIGNEES,
          ENG_FOLLOWUP_STATUSES, ENG_FOLLOWUP_PRIORITIES, ENG_FOLLOWUP_FIT_STATUSES,
-         ENG_FOLLOWUP_STATUS_LABELS, ENG_FOLLOWUP_STATUS_COLORS } from './libs/config.js';
+         ENG_FOLLOWUP_STATUS_LABELS, ENG_FOLLOWUP_STATUS_COLORS,
+         STAGING_AREAS } from './libs/config.js';
 import { formatDateLocal, formatTimestamp, getStageCum, detectTcMode,
-         sanitizePartKey, isChutePart } from './libs/utils.js';
+         sanitizePartKey, isChutePart, isPurchasingOrderLate } from './libs/utils.js';
 import { selectDept, promptPin, submitPin, goBack,
          selectCategory, selectSubCategory, splashBack,
          enterEngineeringMenu,
@@ -22,7 +23,8 @@ import { openActionPanel, holdSince,
          loadWoFiles, handleWoFileUpload, handleWoFileDelete,
          startReelOperation, pauseReelOperation, completeReelOperation,
          reviseReelOperation, completeReelWo,
-         toggleCompletedDeptView } from './pages/dashboard-view.js';
+         toggleCompletedDeptView,
+         toggleTravellerPanel } from './pages/dashboard-view.js';
 import { openTvAssyEntry, tvSelectMode,
          submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
          tvStockDirectAction, saveTvStockNotes,
@@ -34,7 +36,7 @@ import { openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submi
          openTcAssyCompleteModal, confirmTcWoComplete, tcUnitNextStep,
          toggleTcEntryMode } from './pages/dashboard-tc.js';
 import { markAlereUpdated } from './libs/db.js';
-import { fetchAllWorkOrdersByWoNumber } from './libs/db-inventory.js';
+import { fetchAllWorkOrdersByWoNumber, fetchAllWorkOrdersByJobNumber } from './libs/db-inventory.js';
 import { searchOfficeReceive, openReceiveModal, submitReceive,
          openCloseoutModal, submitCloseout, loadReceivingEligible,
          openAlereConfirm, cancelAlereConfirm, submitAlereUpdated,
@@ -52,7 +54,14 @@ import { enterEngineeringInquiriesView,
          openEngDeleteConfirm, closeEngDeleteConfirm, confirmEngDelete,
          onEngStatusChange,
          enterEngCompletedView, loadEngCompletedInquiries,
-         restoreEngFromCompleted } from './pages/engineering-view.js';
+         restoreEngFromCompleted,
+         enterEngPrintsView, searchEngPrintFiles,
+         handleEngPrintUpload,
+         openEngPrintDeleteConfirm, closeEngPrintDeleteConfirm, confirmEngPrintDelete,
+         openEngPrintsReplaceConfirm, closeEngPrintsReplaceConfirm,
+         proceedEngPrintsReplaceAll, doEngPrintsReplaceAll,
+         openEngPrintsUploadConfirm, closeEngPrintsUploadConfirm,
+         proceedEngPrintsUpload } from './pages/engineering-view.js';
 import { enterEngineeringFollowupView, loadEngFollowups,
          openEngFollowupCreate, openEngFollowupDetail, closeEngFollowupModal,
          submitEngFollowupCreate, saveEngFollowupDetail,
@@ -76,9 +85,13 @@ function openCompletedWo(order) {
 async function openCreatedWoDetail(item) {
     store.linkedWoRequest.value     = item;
     store.actionPanelReadOnly.value = true;
-    const woNum = (item?.alere_wo_number || '').trim();
-    if (!woNum) return;
-    const { data } = await fetchAllWorkOrdersByWoNumber(woNum);
+    // Use official WO# if set; otherwise fall back to job_number lookup (wo_number still pending)
+    let data;
+    if (item?.alere_wo_number) {
+        ({ data } = await fetchAllWorkOrdersByWoNumber(item.alere_wo_number));
+    } else if (item?.job_number) {
+        ({ data } = await fetchAllWorkOrdersByJobNumber(item.job_number));
+    }
     if (!data || !data.length) return;
     const order = data.find(r => r.department === 'Trac Vac Assy' || r.department === 'Tru Cut Assy')
                || data.find(r => r.department === 'Weld')
@@ -168,7 +181,12 @@ export function buildCoreExpose() {
         dashSearch:               store.dashSearch,
         filteredOrders:           store.filteredOrders,
         isReel:                   store.isReel,
+        travellerLinkedWos:       store.travellerLinkedWos,
+        expandedTravellerWoIds:   store.expandedTravellerWoIds,
+        toggleTravellerPanel,
+        printRoutingChain:        store.printRoutingChain,
         OPERATORS_BY_DEPT,
+        STAGING_AREAS,
         HOLD_REASONS,
         SCRAP_REASONS,
 
@@ -372,6 +390,22 @@ export function buildCoreExpose() {
         filteredEngCompleted:  store.filteredEngCompleted,
         enterEngCompletedView, loadEngCompletedInquiries, restoreEngFromCompleted,
 
+        // Engineering Prints / Files Update
+        engPrintsSearch:             store.engPrintsSearch,
+        engPrintsFiles:              store.engPrintsFiles,
+        engPrintsLoading:            store.engPrintsLoading,
+        engPrintsSearchedPart:       store.engPrintsSearchedPart,
+        engPrintsDeleteConfirmOpen:  store.engPrintsDeleteConfirmOpen,
+        engPrintsDeleteTarget:       store.engPrintsDeleteTarget,
+        engPrintsReplaceConfirmOpen: store.engPrintsReplaceConfirmOpen,
+        engPrintsUploadConfirmOpen:  store.engPrintsUploadConfirmOpen,
+        enterEngPrintsView, searchEngPrintFiles,
+        handleEngPrintUpload,
+        openEngPrintDeleteConfirm, closeEngPrintDeleteConfirm, confirmEngPrintDelete,
+        openEngPrintsReplaceConfirm, closeEngPrintsReplaceConfirm,
+        proceedEngPrintsReplaceAll, doEngPrintsReplaceAll,
+        openEngPrintsUploadConfirm, closeEngPrintsUploadConfirm, proceedEngPrintsUpload,
+
         // Dashboard
         openActionPanel, openCompletedWo, openCreatedWoDetail, openTvAssyEntry, tvSelectMode,
         submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
@@ -412,6 +446,6 @@ export function buildCoreExpose() {
         toggleCompletedDeptView,
 
         // Utilities
-        formatDateLocal, detectTcMode, sanitizePartKey, isChutePart,
+        formatDateLocal, detectTcMode, sanitizePartKey, isChutePart, isPurchasingOrderLate,
     };
 }

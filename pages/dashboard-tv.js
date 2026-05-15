@@ -316,7 +316,7 @@ export async function markTvUnitWoComplete() {
             engineModel:  form.engineModel,
             engineSerial: form.engineSerial,
             operator,
-        });
+        }, updated.job_number || null);
         await db.autoReceiveAssyWo(updated, operator);
     } catch (err) {
         store.showToast('Failed: ' + err.message);

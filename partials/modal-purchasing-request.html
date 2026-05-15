@@ -1,0 +1,259 @@
+<!-- ============================================================
+     modal-purchasing-request.html — New PO Request form
+     Type-based dynamic fields: Part / Supply / Steel
+     ============================================================ -->
+<div v-if="purchasingRequestModalOpen"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    @click.self="closeNewRequestForm">
+
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+            <div>
+                <h2 class="text-lg font-bold text-gray-800">New PO Request</h2>
+                <p class="text-xs text-gray-400">Fill in the details — purchasing will review and order</p>
+            </div>
+            <button @click="closeNewRequestForm" class="text-gray-400 hover:text-gray-600 p-1 text-2xl leading-none">&times;</button>
+        </div>
+
+        <!-- Scrollable body -->
+        <div class="overflow-y-auto p-6 flex flex-col gap-5">
+
+            <!-- ── Type selector (always shown) ──────────────── -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    Request Type <span class="text-red-500">*</span>
+                </label>
+                <div class="grid grid-cols-3 gap-3">
+                    <button v-for="t in [
+                            { value: 'part',   label: 'Part',   sub: 'Parts & components' },
+                            { value: 'supply', label: 'Supply', sub: 'Shop supplies'       },
+                            { value: 'steel',  label: 'Steel',  sub: 'Raw material'        },
+                        ]"
+                        :key="t.value"
+                        type="button"
+                        @click="purchasingRequestForm.request_type = t.value"
+                        class="py-3 px-4 rounded-xl border-2 text-left transition-all"
+                        :class="purchasingRequestForm.request_type === t.value
+                            ? 'border-amber-500 bg-amber-50'
+                            : purchasingRequestFormErrors.request_type
+                                ? 'border-red-300 bg-red-50'
+                                : 'border-gray-200 hover:border-amber-300'">
+                        <p class="font-bold text-gray-800 text-sm">{{ t.label }}</p>
+                        <p class="text-xs text-gray-400">{{ t.sub }}</p>
+                    </button>
+                </div>
+                <p v-if="purchasingRequestFormErrors.request_type" class="text-red-500 text-xs mt-1">Select a request type.</p>
+            </div>
+
+            <!-- ── Part fields ────────────────────────────────── -->
+            <template v-if="purchasingRequestForm.request_type === 'part'">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Part # <span class="text-red-500">*</span></label>
+                        <input v-model="purchasingRequestForm.part_number" type="text"
+                            class="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            :class="purchasingRequestFormErrors.part_number ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                            placeholder="e.g. TC27261">
+                        <p v-if="purchasingRequestFormErrors.part_number" class="text-red-500 text-xs mt-0.5">Required.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                        <input v-model="purchasingRequestForm.description" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="Part description">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Sales Order #</label>
+                        <input v-model="purchasingRequestForm.sales_order" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="SO #">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">WO #</label>
+                        <input v-model="purchasingRequestForm.wo_number" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="WO #">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Job #</label>
+                        <input v-model="purchasingRequestForm.job_number" type="number"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="Job #">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Qty Needed</label>
+                        <input v-model="purchasingRequestForm.qty_needed" type="number" min="1"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Est. Qty in Stock</label>
+                        <input v-model="purchasingRequestForm.estimated_qty_in_stock" type="number" min="0"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Location</label>
+                        <input v-model="purchasingRequestForm.request_location" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="e.g. Fab area">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Bin</label>
+                        <input v-model="purchasingRequestForm.bin_location" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="Bin location">
+                    </div>
+                </div>
+            </template>
+
+            <!-- ── Supply fields ──────────────────────────────── -->
+            <template v-if="purchasingRequestForm.request_type === 'supply'">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Item Name <span class="text-red-500">*</span></label>
+                        <input v-model="purchasingRequestForm.supply_item_name" type="text"
+                            class="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            :class="purchasingRequestFormErrors.supply_item_name ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                            placeholder="e.g. Blue masking tape, Safety glasses, etc.">
+                        <p v-if="purchasingRequestFormErrors.supply_item_name" class="text-red-500 text-xs mt-0.5">Required.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Category</label>
+                        <input v-model="purchasingRequestForm.supply_category" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="e.g. Safety, Tape, Lubricant">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                        <input v-model="purchasingRequestForm.description" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="Brand, size, spec, etc.">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Qty Needed</label>
+                        <input v-model="purchasingRequestForm.qty_needed" type="number" min="1"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="0">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Location / Department</label>
+                        <input v-model="purchasingRequestForm.request_location" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="Where it's needed">
+                    </div>
+                </div>
+            </template>
+
+            <!-- ── Steel fields ───────────────────────────────── -->
+            <template v-if="purchasingRequestForm.request_type === 'steel'">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Material Type <span class="text-red-500">*</span></label>
+                        <select v-model="purchasingRequestForm.material_type"
+                            class="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400"
+                            :class="purchasingRequestFormErrors.material_type ? 'border-red-400 bg-red-50' : 'border-gray-300'">
+                            <option value="">Select type…</option>
+                            <option>Hot Roll Steel</option>
+                            <option>Cold Roll Steel</option>
+                            <option>Stainless Steel</option>
+                            <option>Galvanized Steel</option>
+                            <option>Aluminum</option>
+                            <option>Other</option>
+                        </select>
+                        <p v-if="purchasingRequestFormErrors.material_type" class="text-red-500 text-xs mt-0.5">Required.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Shape</label>
+                        <select v-model="purchasingRequestForm.steel_shape"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
+                            <option value="">Select shape…</option>
+                            <option>Flat Bar</option>
+                            <option>Round Bar</option>
+                            <option>Square Bar</option>
+                            <option>Angle</option>
+                            <option>Channel</option>
+                            <option>Square Tube</option>
+                            <option>Round Tube</option>
+                            <option>Pipe</option>
+                            <option>Sheet</option>
+                            <option>Plate</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Size</label>
+                        <input v-model="purchasingRequestForm.material_size" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder='e.g. 2" × 2"'>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Thickness / Gauge</label>
+                        <input v-model="purchasingRequestForm.material_thickness" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder='e.g. 0.125" or 11ga'>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Length</label>
+                        <input v-model="purchasingRequestForm.material_length" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="e.g. 20 ft">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Grade / Spec</label>
+                        <input v-model="purchasingRequestForm.material_grade" type="text"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="e.g. A36, A500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Qty Needed</label>
+                        <input v-model="purchasingRequestForm.qty_needed" type="number" min="1"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="0">
+                    </div>
+                </div>
+            </template>
+
+            <!-- ── Common fields (shown once type is selected) ── -->
+            <template v-if="purchasingRequestForm.request_type">
+                <div class="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Needed By</label>
+                        <input v-model="purchasingRequestForm.needed_by" type="date"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Requested By <span class="text-red-500">*</span></label>
+                        <input v-model="purchasingRequestForm.requested_by" type="text"
+                            class="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            :class="purchasingRequestFormErrors.requested_by ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                            placeholder="Your name">
+                        <p v-if="purchasingRequestFormErrors.requested_by" class="text-red-500 text-xs mt-0.5">Required.</p>
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Notes</label>
+                        <textarea v-model="purchasingRequestForm.requester_notes" rows="2"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400 resize-none"
+                            placeholder="Any additional context for purchasing…"></textarea>
+                    </div>
+                </div>
+            </template>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="shrink-0 flex gap-3 px-6 py-4 border-t border-gray-100">
+            <button @click="closeNewRequestForm"
+                class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm transition-colors">
+                Cancel
+            </button>
+            <button @click="submitPurchasingRequest" :disabled="purchasingRequestSaving"
+                class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
+                {{ purchasingRequestSaving ? 'Submitting…' : 'Submit Request' }}
+            </button>
+        </div>
+
+    </div>
+</div>

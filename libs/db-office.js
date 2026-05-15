@@ -76,11 +76,17 @@ export async function fetchReceivingEligible() {
 
     const { data: tracked } = await withRetry(() =>
         supabase.from('wo_status_tracking')
-            .select('wo_number, erp_status')
+            .select('wo_number, job_number, erp_status')
             .in('erp_status', ['received', 'closed'])
     );
-    const excludedWoNums = new Set((tracked || []).map(t => t.wo_number));
-    const eligible = (wos || []).filter(w => !excludedWoNums.has(w.wo_number));
+    // Exclude by wo_number when present; exclude by job_number for pending WOs (wo_number still null)
+    const excludedWoNums  = new Set((tracked || []).filter(t => t.wo_number).map(t => t.wo_number));
+    const excludedJobNums = new Set((tracked || []).filter(t => !t.wo_number && t.job_number).map(t => t.job_number));
+    const eligible = (wos || []).filter(w => {
+        if (w.wo_number)  return !excludedWoNums.has(w.wo_number);
+        if (w.job_number) return !excludedJobNums.has(w.job_number);
+        return true;
+    });
     return { data: eligible, error: null };
 }
 
@@ -93,6 +99,7 @@ export async function receiveWorkOrder(order, qty, receivedBy, binLocation) {
     const cleanBin = (binLocation || '').trim();
     const payload = {
         wo_number:    order.wo_number,
+        job_number:   order.job_number   || null,
         part_number:  order.part_number,
         description:  order.description,
         qty_required: order.qty_required,
@@ -108,8 +115,13 @@ export async function receiveWorkOrder(order, qty, receivedBy, binLocation) {
         })
     };
 
+    // Use wo_number as lookup key if available, otherwise fall back to job_number
+    const lookupField = order.wo_number ? 'wo_number' : 'job_number';
+    const lookupValue = order.wo_number || order.job_number;
+    if (!lookupValue) return { data: null, error: new Error('Order has neither WO # nor Job #') };
+
     const { data: existing } = await withRetry(() =>
-        supabase.from('wo_status_tracking').select('id').eq('wo_number', order.wo_number).single()
+        supabase.from('wo_status_tracking').select('id').eq(lookupField, lookupValue).single()
     );
 
     if (existing) {
@@ -126,14 +138,17 @@ export async function receiveWorkOrder(order, qty, receivedBy, binLocation) {
 // autoReceiveAssyWo — inserts a 'received' tracking row when an Assy WO is completed.
 // No-ops if a tracking row already exists for this WO number.
 export async function autoReceiveAssyWo(order, operator) {
-    if (!order?.wo_number) return;
+    if (!order?.wo_number && !order?.job_number) return;
+    const lookupField = order.wo_number ? 'wo_number' : 'job_number';
+    const lookupValue = order.wo_number || order.job_number;
     const { data: existing } = await withRetry(() =>
-        supabase.from('wo_status_tracking').select('id').eq('wo_number', order.wo_number).single()
+        supabase.from('wo_status_tracking').select('id').eq(lookupField, lookupValue).single()
     );
     if (existing) return;
     const { error } = await withRetry(() =>
         supabase.from('wo_status_tracking').insert([{
             wo_number:               order.wo_number,
+            job_number:              order.job_number || null,
             part_number:             order.part_number,
             qty_required:            order.qty_required,
             qty_received:            order.qty_completed || order.qty_required || 0,
@@ -176,6 +191,19 @@ async function archiveWorkOrder(woNumber) {
     if (insertErr) return;
     await withRetry(() =>
         supabase.from('work_orders').delete().eq('wo_number', woNumber)
+    );
+}
+
+// updateTrackingWoNumberByJobNumber — backfills wo_number on a wo_status_tracking row
+// that was received before the official WO# was known. Matches on job_number.
+export async function updateTrackingWoNumberByJobNumber(jobNumber, woNumber) {
+    if (!jobNumber || !woNumber) return { data: null, error: null };
+    return withRetry(() =>
+        supabase.from('wo_status_tracking')
+            .update({ wo_number: woNumber })
+            .eq('job_number', jobNumber)
+            .is('wo_number', null)
+            .select()
     );
 }
 

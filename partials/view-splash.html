@@ -233,12 +233,24 @@
                 <!-- ── Level 1: Purchasing sub-menu ────────────── -->
                 <div v-else-if="splashLevel === 1 && splashCategory === 'purchasing'"
                     class="w-full max-w-7xl px-4 flex flex-col items-center gap-8">
-                    <div class="grid grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-3xl">
-                        <!-- PO Requests (stub) -->
-                        <button disabled class="bg-white text-gray-400 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-gray-200 opacity-50 cursor-not-allowed">
-                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <div class="grid grid-cols-2 gap-6 w-full max-w-2xl">
+                        <!-- PO Requests — navigates to split-panel request view -->
+                        <button @click="enterPoRequestView()"
+                            class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-amber-400 active:scale-95 transition-transform">
+                            <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
                             <span class="text-2xl font-bold uppercase">PO Requests</span>
-                            <span class="text-xs uppercase tracking-widest">Coming Soon</span>
+                            <span class="text-xs text-amber-600 uppercase tracking-widest font-semibold">Submit a request</span>
+                        </button>
+                        <!-- Ordering -->
+                        <button @click="enterPurchasingView('parts')"
+                            class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-amber-300 active:scale-95 transition-transform">
+                            <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                            </svg>
+                            <span class="text-2xl font-bold uppercase">Ordering</span>
+                            <span class="text-xs text-amber-500 uppercase tracking-widest font-semibold">Parts · Supplies · Steel</span>
                         </button>
                     </div>
                 </div>
@@ -246,7 +258,7 @@
                 <!-- ── Level 1: Engineering sub-menu ──────────────── -->
                 <div v-else-if="splashLevel === 1 && splashCategory === 'engineering'"
                     class="w-full max-w-7xl px-4 flex flex-col items-center gap-8">
-                    <div class="grid grid-cols-2 gap-6 w-full max-w-2xl">
+                    <div class="grid grid-cols-3 gap-6 w-full max-w-3xl">
                         <!-- Customer Inquiries & Concerns -->
                         <button @click="enterEngineeringInquiriesView"
                             class="bg-white hover:bg-rose-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-rose-400 active:scale-95 transition-transform">
@@ -268,6 +280,15 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                             </svg>
                             <span class="text-xl font-bold uppercase text-center">Customer Follow Up</span>
+                        </button>
+                        <!-- Prints / Files Update -->
+                        <button @click="enterEngPrintsView"
+                            class="bg-white hover:bg-indigo-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-indigo-300 active:scale-95 transition-transform">
+                            <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <span class="text-xl font-bold uppercase text-center">Prints / Files Update</span>
+                            <span class="text-xs text-gray-400 text-center">Search by part #</span>
                         </button>
                     </div>
                 </div>

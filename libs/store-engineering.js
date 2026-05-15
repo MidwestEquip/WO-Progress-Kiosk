@@ -131,6 +131,16 @@ export const engFollowupChecklistCount = computed(() => {
     return { done: fields.filter(f => row[f]).length, total: 9 };
 });
 
+// ── Prints / Files Update sub-view ───────────────────────────
+export const engPrintsSearch             = ref('');
+export const engPrintsFiles              = ref([]);
+export const engPrintsLoading            = ref(false);
+export const engPrintsSearchedPart       = ref('');
+export const engPrintsDeleteConfirmOpen   = ref(false);
+export const engPrintsDeleteTarget        = ref(null);
+export const engPrintsReplaceConfirmOpen  = ref(false);
+export const engPrintsUploadConfirmOpen   = ref(false);
+
 // Text search for active inquiries — customer name is the primary field
 export const engInquirySearch = ref('');
 

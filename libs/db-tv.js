@@ -78,6 +78,7 @@ export async function submitTvUnitStageAction({ id, currentOrder, stageKey, stag
         insertProgressEvent({
             workOrderId:         id,
             woNumber:            currentOrder.wo_number || '',
+            jobNumber:           currentOrder.job_number || null,
             department:          'Trac Vac Assy',
             stage:               stageKey,
             operatorName:        opName,
@@ -91,6 +92,7 @@ export async function submitTvUnitStageAction({ id, currentOrder, stageKey, stag
             if (newStatus === 'started') {
                 openTimeSession({
                     woId: id, woNumber: currentOrder.wo_number || '',
+                    jobNumber: currentOrder.job_number || null,
                     department: 'Trac Vac Assy', operator: opName, stage: stageKey,
                 });
             } else if (newStatus === 'paused' || newStatus === 'on_hold' || newStatus === 'completed') {
@@ -141,6 +143,7 @@ export async function submitTvStockAction({ id, currentOrder, newStatus, opName,
         insertProgressEvent({
             workOrderId:         id,
             woNumber:            currentOrder.wo_number || '',
+            jobNumber:           currentOrder.job_number || null,
             department:          'Trac Vac Assy',
             stage:               'stock',
             operatorName:        opName,
@@ -154,6 +157,7 @@ export async function submitTvStockAction({ id, currentOrder, newStatus, opName,
             if (newStatus === 'started') {
                 openTimeSession({
                     woId: id, woNumber: currentOrder.wo_number || '',
+                    jobNumber: currentOrder.job_number || null,
                     department: 'Trac Vac Assy', operator: opName, stage: 'stock',
                 });
             } else if (newStatus === 'paused' || newStatus === 'on_hold' || newStatus === 'completed') {
@@ -193,6 +197,7 @@ export async function completeTvUnitWo({ id, currentOrder, opName }) {
         insertProgressEvent({
             workOrderId:        id,
             woNumber:           currentOrder.wo_number || '',
+            jobNumber:          currentOrder.job_number || null,
             department:         'Trac Vac Assy',
             stage:              null,
             operatorName:       opName,

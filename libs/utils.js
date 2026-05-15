@@ -269,3 +269,50 @@ export function normalizePartNumber(partNumber) {
     if (typeof partNumber !== 'string') return '';
     return partNumber.trim().toUpperCase();
 }
+
+// computePrintRoutingChain — derives the ordered routing steps for a work order traveller.
+// order: a work_orders row. travellerWos: { [traveller_id]: [work_orders rows] } map from store.
+// Returns an array of step strings, e.g. ['Fab', 'Weld', 'Paint', 'W2 Staging'].
+// Rules:
+//   - Fab WO present → 'Fab'
+//   - Weld WO present → 'Weld' then 'Paint' (weld always ends at paint)
+//   - No Weld WO but Fab WO has fab_bring_to → use that value as the next step
+//   - staging_area on the order → appended after the last paint/weld step
+//   - Assy WOs → appended at the end
+export function computePrintRoutingChain(order, travellerWos) {
+    if (!order) return [];
+    const wos  = order.traveller_id
+        ? (travellerWos[order.traveller_id] || [order])
+        : [order];
+
+    const hasFab    = wos.some(w => w.department === 'Fab');
+    const hasWeld   = wos.some(w => w.department === 'Weld');
+    const hasTvAssy = wos.some(w => w.department === 'Trac Vac Assy');
+    const hasTcAssy = wos.some(w => w.department === 'Tru Cut Assy');
+    const fabWo     = wos.find(w => w.department === 'Fab');
+
+    const steps = [];
+    if (hasFab) steps.push('Fab');
+
+    if (hasWeld) {
+        steps.push('Weld');
+        steps.push('Paint');
+    } else if (hasFab && fabWo?.fab_bring_to) {
+        steps.push(fabWo.fab_bring_to);
+    }
+
+    if (order.staging_area) steps.push(order.staging_area);
+    if (hasTvAssy) steps.push('TV Assy');
+    if (hasTcAssy) steps.push('TC Assy');
+
+    return steps;
+}
+
+// isPurchasingOrderLate — true if expected_date is past and order is not complete/canceled.
+export function isPurchasingOrderLate(order) {
+    if (!order?.expected_date) return false;
+    if (['received', 'canceled'].includes(order.status)) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(order.expected_date) < today;
+}

@@ -26,6 +26,8 @@ export * from './db-cs.js';
 export * from './db-storage.js';
 export * from './db-engineering.js';
 export * from './db-followup.js';
+export * from './db-part-defaults.js';
+export * from './db-purchasing.js';
 
 // ── Dashboard queries ─────────────────────────────────────────
 
@@ -167,6 +169,7 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
             insertProgressEvent({
                 workOrderId:        id,
                 woNumber:           currentOrder.wo_number || '',
+                jobNumber:          currentOrder.job_number || null,
                 department:         currentOrder.department,
                 stage:              null,
                 operatorName:       opName,
@@ -179,6 +182,7 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
         if (shouldOpenSession) {
             openTimeSession({
                 woId: id, woNumber: currentOrder.wo_number || '',
+                jobNumber: currentOrder.job_number || null,
                 department: currentOrder.department, operator: opName, stage: null,
             });
         } else if (shouldCloseSession) {
@@ -304,6 +308,7 @@ export async function updateReelOperation({ id, currentOrder, op, newStatus, opN
         if (newStatus === 'started') {
             openTimeSession({
                 woId: id, woNumber: currentOrder.wo_number || '',
+                jobNumber: currentOrder.job_number || null,
                 department: currentOrder.department, operator: opName, stage: op,
             });
         } else if (newStatus === 'paused' || newStatus === 'completed') {
@@ -388,6 +393,17 @@ export async function insertManualWorkOrder({ partNumber, description, qty, dept
 
     return withRetry(() =>
         supabase.from('work_orders').insert([row]).select()
+    );
+}
+
+// fetchWosByTravellerIds — batch fetch all work_orders sharing any of the given traveller IDs.
+// Used to populate the linked-WO panel on dashboard cards.
+export async function fetchWosByTravellerIds(travellerIds) {
+    if (!travellerIds || travellerIds.length === 0) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('work_orders')
+            .select('id, wo_number, job_number, part_number, department, status, traveller_id, qty_completed, qty_required, alere_bin')
+            .in('traveller_id', travellerIds)
     );
 }
 
