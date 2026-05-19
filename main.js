@@ -21,7 +21,7 @@ import { checkConnectivity, supabase } from './libs/db.js';
 import { loadHeaderLinks, loadSplashLinks } from './pages/splash-view.js';
 import { loadManagerAlerts } from './pages/manager-view.js';
 import { loadReceivingEligible } from './pages/wo-status-view.js';
-import { loadInventoryItems } from './pages/inventory-view.js';
+import { loadInventoryItems, loadPoReceiveOrders } from './pages/inventory-view.js';
 import { loadWoRequests } from './pages/wo-request-view.js';
 import { loadForecastedItems } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems } from './pages/create-wo-view.js';
@@ -113,7 +113,8 @@ try {
                 if (v !== 'wo_status') store.closeoutAuthorized.value = false;
                 if (v === 'wo_status')       loadReceivingEligible();
                 if (v === 'manager')         loadManagerAlerts();
-                if (v === 'inventory')       loadInventoryItems();
+                if (v === 'inventory' && store.inventoryMode.value === 'parts')     loadInventoryItems();
+                if (v === 'inventory' && store.inventoryMode.value === 'po_receive') loadPoReceiveOrders();
                 if (v === 'wo_request')      loadWoRequests();
                 if (v === 'wo_forecasting')  loadForecastedItems();
                 if (v === 'create_wo')       loadCreateWoItems();

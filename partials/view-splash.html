@@ -191,11 +191,11 @@
                             </svg>
                             <span class="text-2xl font-bold uppercase">WO Receive &amp; Close Out</span>
                         </button>
-                        <!-- PO Receive (stub) -->
-                        <button disabled class="bg-white text-gray-400 rounded-2xl shadow-md p-8 flex flex-col items-center gap-3 border-2 border-gray-200 opacity-50 cursor-not-allowed">
-                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        <!-- PO Receive -->
+                        <button @click="enterPoReceiveView()"
+                            class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md p-8 flex flex-col items-center gap-3 border-2 border-amber-400 active:scale-95 transition-transform">
+                            <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                             <span class="text-2xl font-bold uppercase">PO Receive</span>
-                            <span class="text-xs uppercase tracking-widest">Coming Soon</span>
                         </button>
                         <!-- Chutes -->
                         <button @click="enterInventoryView('chute')"
@@ -233,7 +233,8 @@
                 <!-- ── Level 1: Purchasing sub-menu ────────────── -->
                 <div v-else-if="splashLevel === 1 && splashCategory === 'purchasing'"
                     class="w-full max-w-7xl px-4 flex flex-col items-center gap-8">
-                    <div class="grid grid-cols-2 gap-6 w-full max-w-2xl">
+                    <div class="grid gap-6 w-full"
+                        :class="sessionRole === 'manager' ? 'grid-cols-3 max-w-4xl' : 'grid-cols-2 max-w-2xl'">
                         <!-- PO Requests — navigates to split-panel request view -->
                         <button @click="enterPoRequestView()"
                             class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-amber-400 active:scale-95 transition-transform">
@@ -251,6 +252,19 @@
                             </svg>
                             <span class="text-2xl font-bold uppercase">Ordering</span>
                             <span class="text-xs text-amber-500 uppercase tracking-widest font-semibold">Parts · Supplies · Steel</span>
+                        </button>
+                        <!-- Approval Queue — manager only -->
+                        <button v-if="sessionRole === 'manager'" @click="enterApprovalQueueView()"
+                            class="relative bg-white hover:bg-red-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-red-400 active:scale-95 transition-transform">
+                            <span v-if="purchasingTabCounts.approval > 0"
+                                class="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.5rem] h-6 flex items-center justify-center px-1">
+                                {{ purchasingTabCounts.approval }}
+                            </span>
+                            <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                            </svg>
+                            <span class="text-2xl font-bold uppercase">Approval Queue</span>
+                            <span class="text-xs text-red-500 uppercase tracking-widest font-semibold">Manager Only</span>
                         </button>
                     </div>
                 </div>
@@ -320,14 +334,13 @@
                     <!-- Quick Actions row -->
                     <div class="w-full border-t border-slate-600 pt-6">
                         <p class="text-slate-400 text-sm uppercase tracking-widest mb-4 text-center">Quick Actions</p>
-                        <div class="grid grid-cols-3 gap-6 w-full">
+                        <div class="grid grid-cols-4 gap-6 w-full">
                             <!-- PO Requests -->
-                            <button disabled
-                                class="bg-white text-gray-400 rounded-2xl shadow-md p-6 flex flex-col items-center gap-2 border-2 border-gray-200 opacity-50 cursor-not-allowed">
-                                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                <span class="text-xs text-gray-400 uppercase tracking-wide">Request PO Here</span>
+                            <button @click="enterPoRequestView()"
+                                class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md p-6 flex flex-col items-center gap-2 border-2 border-amber-300 active:scale-95 transition-transform">
+                                <svg class="w-7 h-7 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <span class="text-xs text-amber-600 uppercase tracking-wide font-semibold">Request PO Here</span>
                                 <span class="text-xl font-bold uppercase">PO Requests</span>
-                                <span class="text-xs uppercase tracking-widest text-gray-400">Coming Soon</span>
                             </button>
                             <!-- Request WO -->
                             <button @click="enterWoRequestView"
@@ -336,13 +349,20 @@
                                 <span class="text-xs text-blue-500 uppercase tracking-wide font-semibold">Request WO Here</span>
                                 <span class="text-xl font-bold uppercase">Request WO</span>
                             </button>
-                            <!-- Inventory -->
+                            <!-- WO Receive (Inventory) -->
                             <button @click="selectCategory('inventory')"
                                 class="bg-white hover:bg-green-50 text-gray-800 rounded-2xl shadow-md p-6 flex flex-col items-center gap-2 border-2 border-green-300 active:scale-95 transition-transform">
                                 <svg class="w-7 h-7 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
                                 <span class="text-xs text-green-600 uppercase tracking-wide font-semibold">Turn In Received WO's &amp; PO's</span>
                                 <span class="text-xl font-bold uppercase">Inventory</span>
                                 <span class="text-xs text-green-600 uppercase tracking-wide font-semibold">Inventory List</span>
+                            </button>
+                            <!-- PO Receive -->
+                            <button @click="enterPoReceiveView()"
+                                class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md p-6 flex flex-col items-center gap-2 border-2 border-amber-400 active:scale-95 transition-transform">
+                                <svg class="w-7 h-7 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                <span class="text-xs text-amber-600 uppercase tracking-wide font-semibold">Receive Purchased Parts</span>
+                                <span class="text-xl font-bold uppercase">PO Receive</span>
                             </button>
                         </div>
                     </div>

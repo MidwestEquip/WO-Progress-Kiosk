@@ -209,3 +209,97 @@ export function closePullHistory() {
     store.pullHistoryTarget.value = null;
     store.pullHistoryItems.value  = [];
 }
+
+// ── PO Receive ────────────────────────────────────────────────
+
+// loadPoReceiveOrders — fetch all ordered/partially_received purchasing orders into store.
+export async function loadPoReceiveOrders() {
+    store.poReceiveLoading.value = true;
+    try {
+        const { data, error } = await db.fetchPoReceiveOrders();
+        if (error) throw error;
+        store.poReceiveOrders.value = data || [];
+    } catch (err) {
+        store.showToast('Failed to load PO receive list: ' + err.message);
+        logError('loadPoReceiveOrders', err);
+    } finally {
+        store.poReceiveLoading.value = false;
+    }
+}
+
+// openPoReceiveItem — select an order and open the receive modal.
+export function openPoReceiveItem(order) {
+    store.poReceiveItem.value = order;
+    store.poReceiveForm.value = { qty_received: '', received_by: '' };
+    store.poReceiveOpen.value = true;
+}
+
+// closePoReceiveItem — dismiss the receive modal without saving.
+export function closePoReceiveItem() {
+    store.poReceiveOpen.value = false;
+    store.poReceiveItem.value = null;
+}
+
+// submitPoReceive — validate, update order status, refresh list.
+export async function submitPoReceive() {
+    const order       = store.poReceiveItem.value;
+    const form        = store.poReceiveForm.value;
+    const qtyReceived = parseFloat(form.qty_received) || 0;
+    const qtyFull     = parseFloat(order.qty_ordered) || parseFloat(order.qty_needed) || qtyReceived;
+
+    if (qtyReceived <= 0) {
+        store.showToast('Enter a quantity received greater than 0.', 'error');
+        return;
+    }
+    if (!form.received_by?.trim()) {
+        store.showToast('Enter the name of who received the order.', 'error');
+        return;
+    }
+
+    const newStatus = qtyReceived >= qtyFull ? 'received' : 'partially_received';
+    const now       = new Date().toISOString();
+    const updates   = {
+        qty_received:       qtyReceived,
+        received_by:        form.received_by.trim(),
+        received_at:        now,
+        status:             newStatus,
+        last_status_update: now,
+    };
+    if (newStatus === 'received') updates.completed_at = now;
+
+    store.poReceiveSaving.value = true;
+    try {
+        const { data, error } = await db.updatePurchasingOrder(order.id, updates);
+        if (error) throw error;
+
+        if (newStatus === 'received') {
+            store.poReceiveOrders.value = store.poReceiveOrders.value.filter(o => o.id !== order.id);
+        } else {
+            store.poReceiveOrders.value = store.poReceiveOrders.value.map(o => o.id === data.id ? data : o);
+        }
+        // Update completed tab in place (order was ordered/partially_received, now received/partial)
+        store.purchasingCompletedOrders.value = store.purchasingCompletedOrders.value.map(
+            o => o.id === data.id ? data : o
+        );
+
+        store.poReceiveOpen.value = false;
+        store.showToast(
+            newStatus === 'received' ? 'Order fully received — moved to Completed.' : 'Partial receipt saved.',
+            'success'
+        );
+
+        db.insertPurchasingEvent({
+            orderId:   order.id,
+            eventType: 'receiving',
+            note:      `Received ${qtyReceived} by ${form.received_by.trim()}`,
+            oldStatus: order.status,
+            newStatus,
+            createdBy: form.received_by.trim(),
+        });
+    } catch (err) {
+        store.showToast('Failed to record receiving: ' + err.message);
+        logError('submitPoReceive', err);
+    } finally {
+        store.poReceiveSaving.value = false;
+    }
+}

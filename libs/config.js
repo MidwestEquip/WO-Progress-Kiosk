@@ -12,6 +12,11 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: false }
 });
 
+// ----- App instance location -----
+// Each location's deployed copy of this app sets its own value here.
+// Used to auto-populate the "Ship To" field on purchasing orders created from this instance.
+export const APP_LOCATION = 'Thorntown, IN';
+
 // ----- Kiosk username → Supabase Auth email map -----
 // Passwords are managed in Supabase Auth dashboard — never stored here.
 export const KIOSK_USER_MAP = {

@@ -5,9 +5,27 @@
 //          detail/edit modal, status changes, receiving.
 // ============================================================
 
+import { watch } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
+import { APP_LOCATION } from '../libs/config.js';
+import { _replaceInStore } from './purchasing-receive.js';
+
+// ── Autosave machinery ────────────────────────────────────────
+let _autosaveTimer = null;
+let _formSnapshot  = null; // JSON snapshot of form at last open/save
+
+function _scheduleAutosave() {
+    if (!store.purchasingDetailOpen.value) return;
+    // Skip if form hasn't changed since it was last loaded or saved
+    if (_formSnapshot !== null &&
+        JSON.stringify(store.purchasingDetailForm.value) === _formSnapshot) return;
+    clearTimeout(_autosaveTimer);
+    _autosaveTimer = setTimeout(_doSave, 800);
+}
+
+watch(store.purchasingDetailForm, _scheduleAutosave, { deep: true });
 
 const BLANK_FORM = () => ({
     request_type:              '',
@@ -52,6 +70,13 @@ export async function loadPurchasingOrders() {
 
 // switchPurchasingTab — change the active ordering tab; auto-loads completed.
 export function switchPurchasingTab(tab) {
+    if (tab !== 'approval') {
+        store.approvalManagerAuthed.value = false;
+        store.approvalPinInput.value      = '';
+        store.approvalPinError.value      = false;
+        store.approvalReviseOpen.value    = false;
+        store.approvalReviseNote.value    = '';
+    }
     store.purchasingTab.value = tab;
     if (tab === 'completed') loadPurchasingCompleted();
 }
@@ -126,6 +151,7 @@ export async function submitPurchasingRequest() {
             needed_by:       form.needed_by   || null,
             qty_needed:      parseFloat(form.qty_needed) || null,
             requester_notes: form.requester_notes?.trim() || null,
+            ship_to:         APP_LOCATION,
         };
 
         if (form.request_type === 'part') {
@@ -204,12 +230,14 @@ export function openOrderDetail(order, section = 'ordering') {
     store.purchasingDetailSection.value = section;
     store.purchasingDetailForm.value = {
         status:               order.status               || 'requested',
+        ship_to:              order.ship_to              || APP_LOCATION,
         supplier_name:        order.supplier_name        || '',
         supplier_part_number: order.supplier_part_number || '',
         po_number:            order.po_number            || '',
         estimated_lead_time:  order.estimated_lead_time  ?? '',
         expected_date:        order.expected_date        || '',
         qty_ordered:          order.qty_ordered          ?? '',
+        cost:                 order.cost                 ?? '',
         purchaser_notes:      order.purchaser_notes      || '',
         purchaser_questions:  order.purchaser_questions  || '',
         production_notes:     order.production_notes     || '',
@@ -219,6 +247,8 @@ export function openOrderDetail(order, section = 'ordering') {
         received_by:  order.received_by  || '',
     };
     store.purchasingDetailOpen.value = true;
+    // Snapshot after setting so the watcher doesn't trigger an immediate save
+    _formSnapshot = JSON.stringify(store.purchasingDetailForm.value);
 }
 
 // closeOrderDetail — dismiss the detail modal.
@@ -226,25 +256,27 @@ export function closeOrderDetail() {
     store.purchasingDetailOpen.value = false;
 }
 
-// saveOrderDetail — persist ordering fields and status change.
-export async function saveOrderDetail() {
+// _doSave — internal save: persists ordering fields, updates snapshot, no modal close.
+async function _doSave() {
     const order = store.purchasingDetailOrder.value;
     const form  = store.purchasingDetailForm.value;
+    if (!order) return;
 
     const updates = {
         status:               form.status,
-        supplier_name:        form.supplier_name?.trim()        || null,
-        supplier_part_number: form.supplier_part_number?.trim() || null,
-        po_number:            form.po_number?.trim()            || null,
+        ship_to:              form.ship_to?.trim()                 || null,
+        supplier_name:        form.supplier_name?.trim()           || null,
+        supplier_part_number: form.supplier_part_number?.trim()    || null,
+        po_number:            form.po_number?.trim()               || null,
         estimated_lead_time:  parseFloat(form.estimated_lead_time) || null,
-        expected_date:        form.expected_date                || null,
-        qty_ordered:          parseFloat(form.qty_ordered)      || null,
-        purchaser_notes:      form.purchaser_notes?.trim()      || null,
-        purchaser_questions:  form.purchaser_questions?.trim()  || null,
-        production_notes:     form.production_notes?.trim()     || null,
+        expected_date:        form.expected_date                   || null,
+        qty_ordered:          parseFloat(form.qty_ordered)         || null,
+        cost:                 parseFloat(form.cost)                || null,
+        purchaser_notes:      form.purchaser_notes?.trim()         || null,
+        purchaser_questions:  form.purchaser_questions?.trim()     || null,
+        production_notes:     form.production_notes?.trim()        || null,
     };
 
-    // Auto-calculate expected_date from lead time when not manually set
     if (form.estimated_lead_time && !form.expected_date && order.date_requested) {
         const d = new Date(order.date_requested);
         d.setDate(d.getDate() + parseFloat(form.estimated_lead_time));
@@ -260,8 +292,10 @@ export async function saveOrderDetail() {
         if (error) throw error;
 
         _replaceInStore(data);
-        store.purchasingDetailOpen.value = false;
-        store.showToast('Order updated.', 'success');
+        store.purchasingDetailOrder.value  = data;
+        _formSnapshot = JSON.stringify(store.purchasingDetailForm.value);
+        store.purchasingDetailAutoSaved.value = true;
+        setTimeout(() => { store.purchasingDetailAutoSaved.value = false; }, 2000);
 
         if (statusChanged) {
             db.insertPurchasingEvent({
@@ -274,79 +308,19 @@ export async function saveOrderDetail() {
         }
     } catch (err) {
         store.showToast('Failed to save order: ' + err.message);
-        logError('saveOrderDetail', err);
+        logError('_doSave', err);
     } finally {
         store.purchasingDetailSaving.value = false;
     }
 }
 
-// submitReceiving — record quantity received; auto-sets status.
-export async function submitReceiving() {
-    const order       = store.purchasingDetailOrder.value;
-    const form        = store.purchasingReceiveForm.value;
-    const qtyReceived = parseFloat(form.qty_received) || 0;
-    // Use qty_ordered as the "full" amount; fall back to qty_needed
-    const qtyFull     = parseFloat(order.qty_ordered) || parseFloat(order.qty_needed) || qtyReceived;
-
-    if (qtyReceived <= 0) {
-        store.showToast('Enter a quantity received greater than 0.', 'error');
-        return;
-    }
-    if (!form.received_by?.trim()) {
-        store.showToast('Enter the name of who received the order.', 'error');
-        return;
-    }
-
-    const newStatus   = qtyReceived >= qtyFull ? 'received' : 'partially_received';
-    const now         = new Date().toISOString();
-    const updates     = {
-        qty_received:        qtyReceived,
-        received_by:         form.received_by.trim(),
-        received_at:         now,
-        status:              newStatus,
-        last_status_update:  now,
-    };
-    if (newStatus === 'received') updates.completed_at = now;
-
-    store.purchasingReceiveSaving.value = true;
-    try {
-        const { data, error } = await db.updatePurchasingOrder(order.id, updates);
-        if (error) throw error;
-
-        // Fully received → remove from active list
-        if (newStatus === 'received') {
-            store.purchasingOrders.value = store.purchasingOrders.value.filter(o => o.id !== order.id);
-        } else {
-            _replaceInStore(data);
-        }
-
-        store.purchasingDetailOpen.value = false;
-        store.showToast(
-            newStatus === 'received' ? 'Order fully received — moved to Completed.' : 'Partial receipt saved.',
-            'success'
-        );
-
-        db.insertPurchasingEvent({
-            orderId:   order.id,
-            eventType: 'receiving',
-            note:      `Received ${qtyReceived} by ${form.received_by.trim()}`,
-            oldStatus: order.status,
-            newStatus,
-            createdBy: form.received_by.trim(),
-        });
-    } catch (err) {
-        store.showToast('Failed to record receiving: ' + err.message);
-        logError('submitReceiving', err);
-    } finally {
-        store.purchasingReceiveSaving.value = false;
-    }
+// saveOrderDetail — exported for any explicit callers; delegates to _doSave.
+export async function saveOrderDetail() {
+    await _doSave();
 }
 
-function _replaceInStore(updated) {
-    store.purchasingOrders.value = store.purchasingOrders.value.map(o =>
-        o.id === updated.id ? updated : o
-    );
-}
+export { completeOrder, submitReceiving, _replaceInStore } from './purchasing-receive.js';
+export { enterApprovalTab, approveOrder, cancelRevise, submitRevise } from './purchasing-approval.js';
 
 // loadPartUsageForOrder — fetch 12mo usage + PO purchase history for Request Info tab.
 // Only fires for part orders. All 3 lookups run in parallel (non-blocking).
@@ -479,6 +453,24 @@ export async function saveQuote(row) {
 
         row.id = data.id;
         store.showToast('Quote saved.', 'success');
+
+        // Auto-advance status to 'quoting' the first time a quote is saved
+        if (order.status === 'requested') {
+            const now = new Date().toISOString();
+            const { data: updated } = await db.updatePurchasingOrder(order.id, {
+                status: 'quoting', last_status_update: now,
+            });
+            if (updated) {
+                _replaceInStore(updated);
+                store.purchasingDetailOrder.value      = updated;
+                store.purchasingDetailForm.value.status = 'quoting';
+                _formSnapshot = JSON.stringify(store.purchasingDetailForm.value);
+                db.insertPurchasingEvent({
+                    orderId: order.id, eventType: 'status_change',
+                    oldStatus: 'requested', newStatus: 'quoting', createdBy: 'purchasing',
+                });
+            }
+        }
     } catch (err) {
         store.showToast('Failed to save quote: ' + err.message);
         logError('saveQuote', err);

@@ -11,7 +11,7 @@ export const purchasingTab     = ref('parts');
 export const purchasingOrders  = ref([]);
 export const purchasingLoading = ref(false);
 
-const DONE_STATUSES = ['received', 'canceled'];
+const DONE_STATUSES = ['received', 'canceled', 'ordered', 'partially_received'];
 
 // filteredPurchasingOrders — active orders scoped to the current ordering tab.
 // 'completed' is loaded separately in a later patch.
@@ -68,11 +68,12 @@ export const purchasingCompletedTo      = ref('');
 
 // ── Detail / edit modal ───────────────────────────────────────
 
-export const purchasingDetailOpen    = ref(false);
-export const purchasingDetailOrder   = ref(null);
-export const purchasingDetailSection = ref('ordering'); // 'ordering' | 'receiving'
-export const purchasingDetailSaving  = ref(false);
-export const purchasingReceiveSaving = ref(false);
+export const purchasingDetailOpen      = ref(false);
+export const purchasingDetailOrder     = ref(null);
+export const purchasingDetailSection   = ref('ordering'); // 'ordering' | 'receiving'
+export const purchasingDetailSaving    = ref(false);
+export const purchasingDetailAutoSaved = ref(false); // true briefly after each autosave
+export const purchasingReceiveSaving   = ref(false);
 
 export const purchasingDetailForm = ref({
     status:               '',
@@ -82,6 +83,7 @@ export const purchasingDetailForm = ref({
     estimated_lead_time:  '',
     expected_date:        '',
     qty_ordered:          '',
+    cost:                 '',
     purchaser_notes:      '',
     purchaser_questions:  '',
     production_notes:     '',
@@ -152,5 +154,41 @@ export const purchasingTabCounts = computed(() => {
         parts:    open.filter(o => o.request_type === 'part').length,
         supplies: open.filter(o => o.request_type === 'supply').length,
         steel:    open.filter(o => o.request_type === 'steel').length,
+        approval: purchasingOrders.value.filter(o => o.status === 'quoted').length,
     };
 });
+
+// approvalOrders — orders waiting for manager approval (status = 'quoted').
+export const approvalOrders = computed(() =>
+    purchasingOrders.value.filter(o => o.status === 'quoted')
+);
+
+// ── Approval view ─────────────────────────────────────────────
+
+export const approvalManagerAuthed = ref(false);
+export const approvalPinInput      = ref('');
+export const approvalPinError      = ref(false);
+export const approvalReviseOpen    = ref(false);
+export const approvalReviseNote    = ref('');
+
+// ── PO Receive (Inventory view) ───────────────────────────────
+
+export const poReceiveOrders  = ref([]);
+export const poReceiveLoading = ref(false);
+export const poReceiveTab     = ref('part'); // 'part' | 'supply' | 'steel'
+export const poReceiveOpen    = ref(false);
+export const poReceiveItem    = ref(null);
+export const poReceiveSaving  = ref(false);
+export const poReceiveForm    = ref({ qty_received: '', received_by: '' });
+
+// filteredPoReceiveOrders — all open orders for the active PO Receive sub-tab.
+export const filteredPoReceiveOrders = computed(() =>
+    poReceiveOrders.value.filter(o => o.request_type === poReceiveTab.value)
+);
+
+// poReceiveCounts — badge counts per type for PO Receive sub-tabs.
+export const poReceiveCounts = computed(() => ({
+    part:   poReceiveOrders.value.filter(o => o.request_type === 'part').length,
+    supply: poReceiveOrders.value.filter(o => o.request_type === 'supply').length,
+    steel:  poReceiveOrders.value.filter(o => o.request_type === 'steel').length,
+}));

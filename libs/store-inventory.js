@@ -188,6 +188,7 @@ export const createdWoItemsGrouped = computed(() => {
 });
 
 // ── Inventory ─────────────────────────────────────────────────
+export const inventoryMode    = ref('parts'); // 'parts' | 'po_receive'
 export const inventoryTab     = ref('chute');
 export const inventoryItems   = ref([]);
 export const inventoryLoading = ref(false);

@@ -208,6 +208,20 @@ export function enterPurchasingView(tab = 'parts') {
     store.currentView.value    = 'purchasing';
 }
 
+// ── enterApprovalQueueView ────────────────────────────────────
+// Navigate directly to the Purchasing Approval Queue. Manager-only
+// (gated at the splash button); auto-authenticates so no PIN is needed.
+export function enterApprovalQueueView() {
+    if (store.sessionRole.value !== 'manager') return;
+    store.splashLevel.value           = 1;
+    store.splashCategory.value        = 'purchasing';
+    store.purchasingTab.value         = 'approval';
+    store.approvalManagerAuthed.value = true;
+    store.approvalPinInput.value      = '';
+    store.approvalPinError.value      = false;
+    store.currentView.value           = 'purchasing';
+}
+
 // ── enterPoRequestView ────────────────────────────────────────
 // Navigate to the PO Requests split-panel view (submit form + open request list).
 // Resets the request form and preserves purchasing sub-menu as Back destination.
@@ -268,10 +282,20 @@ export function enterWoForecastingView() {
 // Navigate to the inventory view for a specific tab.
 // splashLevel/Category are preserved so goBack() returns to the inventory sub-menu.
 export function enterInventoryView(tab) {
+    store.inventoryMode.value   = 'parts';
     store.inventoryTab.value    = tab;
     store.inventorySearch.value = '';
     store.inventoryItems.value  = [];
     store.currentView.value     = 'inventory';
+}
+
+// ── enterPoReceiveView ────────────────────────────────────────
+// Navigate to inventory view in PO Receive mode, loading pending orders.
+export function enterPoReceiveView() {
+    store.inventoryMode.value  = 'po_receive';
+    store.poReceiveTab.value   = 'part';
+    store.poReceiveOrders.value = [];
+    store.currentView.value    = 'inventory';
 }
 
 // ── goBack ────────────────────────────────────────────────────

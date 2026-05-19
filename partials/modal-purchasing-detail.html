@@ -7,7 +7,7 @@
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
     @click.self="closeOrderDetail">
 
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[90vh]">
+    <div class="bg-white rounded-2xl shadow-2xl w-[66vw] max-w-5xl mx-4 flex flex-col max-h-[90vh]">
 
         <!-- ── Header ──────────────────────────────────────── -->
         <div class="shrink-0 px-6 py-4 border-b border-gray-200">
@@ -49,19 +49,12 @@
                     : 'border-transparent text-gray-500 hover:text-gray-700'">
                 Ordering
             </button>
-            <button @click="purchasingDetailSection = 'receiving'"
-                class="px-4 py-3 text-sm font-semibold border-b-2 transition-colors"
-                :class="purchasingDetailSection === 'receiving'
-                    ? 'border-amber-500 text-amber-700'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'">
-                Receiving
-            </button>
             <button @click="purchasingDetailSection = 'request'; purchasingDetailOrder.request_type === 'part' && loadPartUsageForOrder()"
                 class="px-4 py-3 text-sm font-semibold border-b-2 transition-colors"
                 :class="purchasingDetailSection === 'request'
                     ? 'border-amber-500 text-amber-700'
                     : 'border-transparent text-gray-500 hover:text-gray-700'">
-                Request Info
+                Research
             </button>
         </div>
 
@@ -166,21 +159,28 @@
                     <label class="block text-xs font-semibold text-gray-600 mb-1">Status</label>
                     <select v-model="purchasingDetailForm.status"
                         class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
-                        <option value="requested">Requested</option>
-                        <option value="needs_review">Needs Review</option>
+                        <option value="requested">Requested / Needs Review</option>
+                        <option value="quoting">Quoting</option>
+                        <option value="quoted">Quoted / Needs Approved</option>
                         <option value="approved">Approved</option>
-                        <option value="quoted">Quoted — Needs Approval</option>
                         <option value="ordered">Ordered</option>
-                        <option value="partially_received">Partially Received</option>
-                        <option value="received">Received</option>
-                        <option value="canceled">Canceled</option>
+                        <option value="not_approved">Not Approved — See Notes</option>
+                        <option value="received">Received / Completed</option>
                     </select>
+                </div>
+
+                <!-- Ship To -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Ship To</label>
+                    <input v-model="purchasingDetailForm.ship_to" type="text"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                        placeholder="Shipping destination">
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <!-- Supplier Name -->
                     <div class="col-span-2">
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Supplier Name</label>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Supplier Name <span class="text-red-500">*</span></label>
                         <input v-model="purchasingDetailForm.supplier_name" type="text"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
                             placeholder="Supplier / vendor name">
@@ -196,7 +196,7 @@
 
                     <!-- PO # -->
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">PO #</label>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">PO # <span class="text-red-500">*</span></label>
                         <input v-model="purchasingDetailForm.po_number" type="text"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
                             placeholder="Purchase order number">
@@ -204,10 +204,18 @@
 
                     <!-- Qty Ordered -->
                     <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Qty Ordered</label>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Qty Ordered <span class="text-red-500">*</span></label>
                         <input v-model="purchasingDetailForm.qty_ordered" type="number" min="0"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
                             placeholder="0">
+                    </div>
+
+                    <!-- Cost -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Cost <span class="text-red-500">*</span></label>
+                        <input v-model="purchasingDetailForm.cost" type="number" min="0" step="0.01"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
+                            placeholder="0.00">
                     </div>
 
                     <!-- Est. Lead Time -->
@@ -221,7 +229,7 @@
                     <!-- Expected Date -->
                     <div class="col-span-2">
                         <label class="block text-xs font-semibold text-gray-600 mb-1">
-                            Expected Date
+                            Expected Date <span class="text-red-500">*</span>
                             <span class="text-gray-400 font-normal ml-1">— auto-calculated from lead time if left blank</span>
                         </label>
                         <input v-model="purchasingDetailForm.expected_date" type="date"
@@ -254,63 +262,7 @@
                 </div>
             </div>
 
-            <!-- ── Receiving section ────────────────────── -->
-            <div v-if="purchasingDetailSection === 'receiving'" class="flex flex-col gap-5">
-
-                <!-- Order summary -->
-                <div class="bg-gray-50 rounded-xl px-5 py-4 grid grid-cols-3 gap-4 text-center">
-                    <div>
-                        <p class="text-xs text-gray-400 mb-1">Qty Needed</p>
-                        <p class="text-xl font-bold text-gray-700">{{ purchasingDetailOrder.qty_needed ?? '—' }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-400 mb-1">Qty Ordered</p>
-                        <p class="text-xl font-bold text-gray-700">{{ purchasingDetailOrder.qty_ordered ?? '—' }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-400 mb-1">Already Received</p>
-                        <p class="text-xl font-bold"
-                            :class="(purchasingDetailOrder.qty_received || 0) > 0 ? 'text-emerald-600' : 'text-gray-400'">
-                            {{ purchasingDetailOrder.qty_received || 0 }}
-                        </p>
-                    </div>
-                </div>
-
-                <!-- PO # display if set -->
-                <div v-if="purchasingDetailOrder.po_number"
-                    class="text-sm text-gray-600 text-center">
-                    PO # <span class="font-bold text-gray-800">{{ purchasingDetailOrder.po_number }}</span>
-                </div>
-
-                <!-- Receive inputs -->
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Qty Received Now</label>
-                        <input v-model="purchasingReceiveForm.qty_received" type="number" min="1"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400 text-center text-lg font-bold"
-                            placeholder="0">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Received By</label>
-                        <input v-model="purchasingReceiveForm.received_by" type="text"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
-                            placeholder="Your name">
-                    </div>
-                </div>
-
-                <!-- Auto-status note -->
-                <p class="text-xs text-gray-400 text-center">
-                    If qty received ≥ qty ordered, status is set to <strong>Received</strong> and order moves to Completed.
-                    Otherwise it is marked <strong>Partially Received</strong>.
-                </p>
-
-                <button @click="submitReceiving" :disabled="purchasingReceiveSaving"
-                    class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
-                    {{ purchasingReceiveSaving ? 'Saving…' : 'Record Receipt' }}
-                </button>
-            </div>
-
-            <!-- ── Request Info section (read-only) ────────── -->
+            <!-- ── Research section (read-only) ────────────── -->
             <div v-if="purchasingDetailSection === 'request'" class="flex flex-col gap-3 text-sm">
 
                 <div class="grid grid-cols-2 gap-x-6 gap-y-3">
@@ -324,7 +276,7 @@
                         <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.needed_by }}</p>
                     </div>
                     <div v-if="purchasingDetailOrder.qty_needed">
-                        <p class="text-xs text-gray-400">Qty Needed</p>
+                        <p class="text-xs text-gray-400">Qty Requested</p>
                         <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.qty_needed }}</p>
                     </div>
 
@@ -528,16 +480,61 @@
         </div>
 
         <!-- ── Footer ───────────────────────────────────────── -->
-        <div class="shrink-0 flex gap-3 px-6 py-4 border-t border-gray-100">
-            <button @click="closeOrderDetail"
-                class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm transition-colors">
-                Close
-            </button>
-            <button v-if="purchasingDetailSection === 'ordering'"
-                @click="saveOrderDetail" :disabled="purchasingDetailSaving"
-                class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
-                {{ purchasingDetailSaving ? 'Saving…' : 'Save Changes' }}
-            </button>
+        <div class="shrink-0 border-t border-gray-100">
+            <!-- Revise note row (approval revise mode) -->
+            <div v-if="purchasingTab === 'approval' && approvalReviseOpen" class="px-6 pt-4 pb-0 flex gap-3">
+                <textarea v-model="approvalReviseNote" rows="2" placeholder="Describe what needs to be revised…"
+                    class="flex-1 border border-amber-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-500 resize-none"></textarea>
+            </div>
+            <!-- Button row -->
+            <div class="flex items-center gap-3 px-6 py-4">
+                <button @click="closeOrderDetail"
+                    class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm transition-colors">
+                    Close
+                </button>
+                <!-- Autosave status (ordering tab, non-approval only) -->
+                <div v-if="purchasingDetailSection === 'ordering' && purchasingTab !== 'approval'" class="flex items-center gap-1.5 text-xs">
+                    <span v-if="purchasingDetailSaving" class="text-amber-500 font-semibold flex items-center gap-1">
+                        <svg class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                        Saving…
+                    </span>
+                    <span v-else-if="purchasingDetailAutoSaved" class="text-emerald-600 font-semibold">✓ Saved</span>
+                    <span v-else class="text-gray-400">Auto-saves as you type</span>
+                </div>
+                <div class="flex-1"></div>
+                <!-- Standard Complete Order (non-approval) -->
+                <button v-if="purchasingDetailSection === 'ordering' && purchasingTab !== 'approval'"
+                    @click="completeOrder" :disabled="purchasingDetailSaving"
+                    class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
+                    {{ purchasingDetailSaving ? 'Saving…' : 'Complete Order ✓' }}
+                </button>
+                <!-- Approval actions -->
+                <template v-if="purchasingDetailSection === 'ordering' && purchasingTab === 'approval'">
+                    <template v-if="approvalReviseOpen">
+                        <button @click="cancelRevise"
+                            class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm transition-colors">
+                            Cancel
+                        </button>
+                        <button @click="submitRevise(purchasingDetailOrder)"
+                            class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-white font-bold rounded-xl text-sm transition-colors">
+                            Submit Revision
+                        </button>
+                    </template>
+                    <template v-else>
+                        <button @click="approvalReviseOpen = true"
+                            class="px-5 py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold rounded-xl text-sm transition-colors">
+                            Revise Order
+                        </button>
+                        <button @click="approveOrder(purchasingDetailOrder)"
+                            class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition-colors">
+                            Approve Order ✓
+                        </button>
+                    </template>
+                </template>
+            </div>
         </div>
 
     </div>

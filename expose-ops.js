@@ -7,7 +7,7 @@
 import * as store from './libs/store.js';
 import { OPEN_ORDER_STATUSES, CHUTE_PART_STATUSES,
          OPEN_ORDER_SORT_FIELDS, INVENTORY_TABS } from './libs/config.js';
-import { enterInventoryView, enterWoRequestView, enterCreateWoView,
+import { enterInventoryView, enterPoReceiveView, enterWoRequestView, enterCreateWoView,
          enterOpenOrdersView, enterWoForecastingView,
          saveHeaderLinks, saveSplashLinks } from './pages/splash-view.js';
 import { openManagerSection, loadKpiData, loadDelayedOrders,
@@ -37,7 +37,8 @@ import { loadInventoryItems, switchInventoryTab,
          openAddItemForm, closeAddItemForm, submitAddItem,
          openEditItemForm, closeEditItemForm, submitEditItem,
          confirmDeleteInventoryItem,
-         openPullHistory, closePullHistory } from './pages/inventory-view.js';
+         openPullHistory, closePullHistory,
+         loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive } from './pages/inventory-view.js';
 import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          openWoRequestDetail, closeWoRequestDetail,
          saveWoRequestDetail, approveWoRequest,
@@ -54,11 +55,13 @@ import { loadPurchasingOrders, switchPurchasingTab,
          loadPurchasingCompleted, loadOrderEvents,
          openNewRequestForm, closeNewRequestForm, submitPurchasingRequest,
          openOrderDetail, closeOrderDetail, saveOrderDetail,
-         submitReceiving, loadPartUsageForOrder,
+         loadPartUsageForOrder,
          loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow } from './pages/purchasing-view.js';
+import { completeOrder, submitReceiving } from './pages/purchasing-receive.js';
+import { enterApprovalTab, approveOrder, cancelRevise, submitRevise } from './pages/purchasing-approval.js';
 import { openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
          loadAllQuotes, openQuoteOrder, cancelQuoteOrder, submitQuoteOrder } from './pages/purchasing-quotes-view.js';
-import { enterPurchasingView, enterPoRequestView } from './pages/splash-view.js';
+import { enterPurchasingView, enterPoRequestView, enterApprovalQueueView } from './pages/splash-view.js';
 
 export function buildOpsExpose() {
     return {
@@ -189,6 +192,7 @@ export function buildOpsExpose() {
         enterCreateWoView, loadCreateWoItems, setAlereWoNumber, switchCreateWoTab, loadCreatedWoItems,
 
         // Inventory
+        inventoryMode:          store.inventoryMode,
         inventoryTab:           store.inventoryTab,
         inventoryItems:         store.inventoryItems,
         inventoryLoading:       store.inventoryLoading,
@@ -209,13 +213,24 @@ export function buildOpsExpose() {
         pullHistoryTarget:      store.pullHistoryTarget,
         pullHistoryItems:       store.pullHistoryItems,
         pullHistoryLoading:     store.pullHistoryLoading,
+        // PO Receive
+        poReceiveOrders:           store.poReceiveOrders,
+        poReceiveLoading:          store.poReceiveLoading,
+        poReceiveTab:              store.poReceiveTab,
+        poReceiveOpen:             store.poReceiveOpen,
+        poReceiveItem:             store.poReceiveItem,
+        poReceiveSaving:           store.poReceiveSaving,
+        poReceiveForm:             store.poReceiveForm,
+        filteredPoReceiveOrders:   store.filteredPoReceiveOrders,
+        poReceiveCounts:           store.poReceiveCounts,
         inventoryTabs: INVENTORY_TABS,
-        enterInventoryView, switchInventoryTab,
+        enterInventoryView, enterPoReceiveView, switchInventoryTab,
         openPullForm, closePullForm, submitPull,
         openAddItemForm, closeAddItemForm, submitAddItem,
         openEditItemForm, closeEditItemForm, submitEditItem,
         confirmDeleteInventoryItem,
         openPullHistory, closePullHistory,
+        loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive,
 
         // Completed Orders
         completedOrders:        store.completedOrders,
@@ -236,6 +251,7 @@ export function buildOpsExpose() {
         purchasingDetailOrder:          store.purchasingDetailOrder,
         purchasingDetailSection:        store.purchasingDetailSection,
         purchasingDetailSaving:         store.purchasingDetailSaving,
+        purchasingDetailAutoSaved:      store.purchasingDetailAutoSaved,
         purchasingReceiveSaving:        store.purchasingReceiveSaving,
         purchasingDetailForm:           store.purchasingDetailForm,
         purchasingReceiveForm:          store.purchasingReceiveForm,
@@ -266,11 +282,18 @@ export function buildOpsExpose() {
         purchasingCompletedLoading:     store.purchasingCompletedLoading,
         purchasingCompletedFrom:        store.purchasingCompletedFrom,
         purchasingCompletedTo:          store.purchasingCompletedTo,
-        enterPurchasingView, enterPoRequestView, loadPurchasingOrders, switchPurchasingTab,
+        approvalOrders:          store.approvalOrders,
+        approvalManagerAuthed:   store.approvalManagerAuthed,
+        approvalPinInput:        store.approvalPinInput,
+        approvalPinError:        store.approvalPinError,
+        approvalReviseOpen:      store.approvalReviseOpen,
+        approvalReviseNote:      store.approvalReviseNote,
+        enterPurchasingView, enterPoRequestView, enterApprovalQueueView, loadPurchasingOrders, switchPurchasingTab,
         loadPurchasingCompleted, loadOrderEvents,
         openNewRequestForm, closeNewRequestForm, submitPurchasingRequest,
-        openOrderDetail, closeOrderDetail, saveOrderDetail, submitReceiving, loadPartUsageForOrder,
+        openOrderDetail, closeOrderDetail, saveOrderDetail, completeOrder, submitReceiving, loadPartUsageForOrder,
         loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow,
+        enterApprovalTab, approveOrder, cancelRevise, submitRevise,
         openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
         loadAllQuotes, openQuoteOrder, cancelQuoteOrder, submitQuoteOrder,
 

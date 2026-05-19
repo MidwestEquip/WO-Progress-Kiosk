@@ -7,29 +7,40 @@
 
 import { supabase } from './db-shared.js';
 
-// fetchPurchasingOrders — all active (non-completed) orders, newest first.
+// fetchPurchasingOrders — active ordering-stage orders (not yet placed), newest first.
 // Returns { data, error }
 export async function fetchPurchasingOrders() {
     const { data, error } = await supabase
         .from('purchasing_orders')
         .select('*')
-        .not('status', 'in', '("received","canceled")')
+        .in('status', ['requested', 'quoting', 'quoted', 'approved', 'not_approved'])
         .order('created_at', { ascending: false });
     return { data: data || [], error };
 }
 
-// fetchCompletedPurchasingOrders — received/canceled orders, newest first.
-// fromDate/toDate filter on completed_at (optional YYYY-MM-DD strings).
+// fetchPoReceiveOrders — orders placed and awaiting physical receipt.
+// Returns { data, error }
+export async function fetchPoReceiveOrders() {
+    const { data, error } = await supabase
+        .from('purchasing_orders')
+        .select('*')
+        .in('status', ['ordered', 'partially_received'])
+        .order('last_status_update', { ascending: false });
+    return { data: data || [], error };
+}
+
+// fetchCompletedPurchasingOrders — ordered/received/canceled orders, newest first.
+// fromDate/toDate filter on last_status_update (optional YYYY-MM-DD strings).
 // Returns { data, error }
 export async function fetchCompletedPurchasingOrders(fromDate, toDate) {
     let q = supabase
         .from('purchasing_orders')
         .select('*')
-        .in('status', ['received', 'canceled'])
-        .order('completed_at', { ascending: false })
+        .in('status', ['ordered', 'partially_received', 'received', 'canceled'])
+        .order('last_status_update', { ascending: false })
         .limit(500);
-    if (fromDate) q = q.gte('completed_at', fromDate);
-    if (toDate)   q = q.lte('completed_at', toDate + 'T23:59:59');
+    if (fromDate) q = q.gte('last_status_update', fromDate);
+    if (toDate)   q = q.lte('last_status_update', toDate + 'T23:59:59');
     const { data, error } = await q;
     return { data: data || [], error };
 }

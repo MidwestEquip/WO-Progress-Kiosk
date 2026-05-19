@@ -115,12 +115,13 @@
                     @click="openOrderDetail(order)"
                     class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-3 flex items-center gap-4 hover:border-amber-300 cursor-pointer transition-all">
 
-                    <!-- Type badge -->
-                    <span class="shrink-0 w-16 text-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide"
-                        :class="order.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
-                                order.request_type === 'supply' ? 'bg-green-100 text-green-700' :
-                                                                  'bg-orange-100 text-orange-700'">
-                        {{ order.request_type }}
+                    <!-- Status badge (LEFT, prominent) -->
+                    <span class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-extrabold capitalize whitespace-nowrap"
+                        :class="order.status === 'ordered'            ? 'bg-violet-100 text-violet-800'  :
+                                order.status === 'partially_received' ? 'bg-orange-100 text-orange-800' :
+                                order.status === 'received'           ? 'bg-emerald-100 text-emerald-800':
+                                                                        'bg-gray-100 text-gray-600'">
+                        {{ order.status.replace(/_/g, ' ') }}
                     </span>
 
                     <!-- Identifier -->
@@ -145,13 +146,15 @@
                     <!-- Received by / date -->
                     <div class="shrink-0 text-right w-32">
                         <p class="text-xs font-semibold text-gray-600">{{ order.received_by || '—' }}</p>
-                        <p class="text-xs text-gray-400">{{ order.received_at ? order.received_at.slice(0,10) : order.completed_at?.slice(0,10) || '' }}</p>
+                        <p class="text-xs text-gray-400">{{ order.received_at ? order.received_at.slice(0,10) : order.last_status_update?.slice(0,10) || '' }}</p>
                     </div>
 
-                    <!-- Status badge -->
-                    <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
-                        :class="order.status === 'received' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'">
-                        {{ order.status }}
+                    <!-- Type badge (RIGHT, small) -->
+                    <span class="shrink-0 w-14 text-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide"
+                        :class="order.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
+                                order.request_type === 'supply' ? 'bg-green-100 text-green-700' :
+                                                                  'bg-orange-100 text-orange-700'">
+                        {{ order.request_type }}
                     </span>
                 </div>
             </div>
@@ -253,6 +256,67 @@
             </div>
         </div>
 
+        <!-- Approval Queue tab -->
+        <div v-else-if="purchasingTab === 'approval'" class="flex flex-col gap-4">
+
+            <!-- PIN gate -->
+            <div v-if="!approvalManagerAuthed" class="flex items-center justify-center h-64">
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 flex flex-col gap-4 w-80">
+                    <h3 class="text-base font-bold text-gray-800 text-center">Manager Access Required</h3>
+                    <input v-model="approvalPinInput" type="password" placeholder="Manager PIN"
+                        class="border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-center tracking-widest focus:outline-none focus:border-red-400"
+                        @keydown.enter="enterApprovalTab">
+                    <p v-if="approvalPinError" class="text-xs text-red-500 text-center font-semibold">Incorrect PIN — try again</p>
+                    <button @click="enterApprovalTab"
+                        class="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-sm transition-colors">
+                        Verify
+                    </button>
+                </div>
+            </div>
+
+            <!-- Approval queue -->
+            <template v-else>
+                <div v-if="approvalOrders.length === 0"
+                    class="flex flex-col items-center justify-center h-48 text-gray-400 gap-2">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-sm">No orders waiting for approval</p>
+                </div>
+                <div v-else class="flex flex-col gap-2">
+                    <div v-for="order in approvalOrders" :key="order.id"
+                        @click="openOrderDetail(order)"
+                        class="bg-white rounded-xl border border-amber-200 shadow-sm px-5 py-4 flex items-center gap-4 hover:border-amber-400 hover:shadow-md cursor-pointer transition-all">
+                        <!-- Status badge (LEFT, prominent) -->
+                        <span class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-extrabold whitespace-nowrap bg-amber-100 text-amber-800">
+                            Quoted
+                        </span>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-gray-800 truncate text-sm">
+                                <template v-if="order.request_type === 'steel'">
+                                    {{ [order.material_grade, order.material_type, order.steel_shape, order.material_size, order.material_thickness].filter(Boolean).join(' · ') || '—' }}
+                                </template>
+                                <template v-else>{{ order.part_number || order.supply_item_name || '—' }}</template>
+                            </p>
+                            <p class="text-xs text-gray-400 truncate">{{ order.description || order.supply_category || '' }}</p>
+                        </div>
+                        <div class="shrink-0 text-center w-16">
+                            <p class="text-sm font-semibold text-gray-700">{{ order.qty_needed ?? '—' }}</p>
+                            <p class="text-xs text-gray-400">qty</p>
+                        </div>
+                        <!-- Type badge (RIGHT, small) -->
+                        <span class="shrink-0 w-14 text-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide"
+                            :class="order.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
+                                    order.request_type === 'supply' ? 'bg-green-100 text-green-700' :
+                                                                      'bg-orange-100 text-orange-700'">
+                            {{ order.request_type }}
+                        </span>
+                        <span class="shrink-0 text-xs text-gray-400 w-20 text-right truncate">{{ order.requested_by || '' }}</span>
+                    </div>
+                </div>
+            </template>
+        </div>
+
         <!-- Empty state -->
         <div v-else-if="filteredPurchasingOrders.length === 0"
             class="flex flex-col items-center justify-center h-48 text-gray-400 gap-3">
@@ -268,12 +332,17 @@
                 @click="openOrderDetail(order)"
                 class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4 hover:border-amber-300 hover:shadow-md cursor-pointer transition-all">
 
-                <!-- Type badge -->
-                <span class="shrink-0 w-16 text-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide"
-                    :class="order.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
-                            order.request_type === 'supply' ? 'bg-green-100 text-green-700' :
-                                                              'bg-orange-100 text-orange-700'">
-                    {{ order.request_type }}
+                <!-- Status badge (LEFT, prominent) -->
+                <span class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-extrabold capitalize whitespace-nowrap"
+                    :class="order.status === 'requested'          ? 'bg-gray-100 text-gray-700'     :
+                            order.status === 'quoting'            ? 'bg-purple-100 text-purple-800' :
+                            order.status === 'quoted'             ? 'bg-amber-100 text-amber-800'   :
+                            order.status === 'approved'           ? 'bg-blue-100 text-blue-800'     :
+                            order.status === 'ordered'            ? 'bg-violet-100 text-violet-800' :
+                            order.status === 'not_approved'       ? 'bg-red-100 text-red-800'       :
+                            order.status === 'partially_received' ? 'bg-orange-100 text-orange-800' :
+                                                                    'bg-gray-100 text-gray-600'">
+                    {{ order.status.replace(/_/g, ' ') }}
                 </span>
 
                 <!-- Primary identifier -->
@@ -318,16 +387,12 @@
                     </template>
                 </div>
 
-                <!-- Status badge -->
-                <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
-                    :class="order.status === 'requested'          ? 'bg-gray-100 text-gray-600'     :
-                            order.status === 'needs_review'       ? 'bg-amber-100 text-amber-700'   :
-                            order.status === 'approved'           ? 'bg-blue-100 text-blue-700'     :
-                            order.status === 'researching'        ? 'bg-indigo-100 text-indigo-700' :
-                            order.status === 'ordered'            ? 'bg-violet-100 text-violet-700' :
-                            order.status === 'partially_received' ? 'bg-orange-100 text-orange-700' :
-                                                                    'bg-gray-100 text-gray-500'">
-                    {{ order.status.replace(/_/g, ' ') }}
+                <!-- Type badge (RIGHT, small) -->
+                <span class="shrink-0 w-14 text-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide"
+                    :class="order.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
+                            order.request_type === 'supply' ? 'bg-green-100 text-green-700' :
+                                                              'bg-orange-100 text-orange-700'">
+                    {{ order.request_type }}
                 </span>
 
                 <!-- Requested by -->
