@@ -8,6 +8,7 @@
 import * as store  from '../libs/store.js';
 import * as db     from '../libs/db.js';
 import * as dbAssy from '../libs/db-assy.js';
+import { fetchDraftUnitCompletions, upsertUnitDraft } from '../libs/db-assy.js';
 import { isNonEmpty, detectTcMode, deepClone } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
@@ -82,8 +83,8 @@ export function tcAssyContinue(mode) {
 }
 
 // ── openTcAssyUnit ────────────────────────────────────────────
-// Opens the TC Unit workflow screen; resets all stage pending states.
-export function openTcAssyUnit(order) {
+// Opens the TC Unit workflow screen; resets stage pending states and restores draft units.
+export async function openTcAssyUnit(order) {
     store.activeOrder.value     = order;
     store.tcAssyJobType.value   = 'unit';
     store.tcAssyEntryOpen.value = false;
@@ -93,14 +94,31 @@ export function openTcAssyUnit(order) {
     const _blank = { pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false };
     store.tcPreStage.value = { ..._blank };
     store.tcFinStage.value = { ..._blank };
-    store.tcUnitInfoForm.value = {
-        salesOrder:   order.sales_order                    || '',
-        unitSerial:   order.unit_serial_number             || '',
-        engine:       order.engine                         || '',
-        engineSerial: order.engine_serial_number           || '',
-        numBlades:    order.num_blades                     || '',
-        notes:        order.tc_assy_notes_differences_mods || '',
-    };
+    // Default unit #1 from order fields while fetch is in-flight
+    store.tcUnitDetailList.value = [{
+        salesOrder:   order.sales_order || '',
+        unitSerial:   order.unit_serial_number || '',
+        engineModel:  order.engine || '',
+        engineSerial: order.engine_serial_number || '',
+        numBlades:    String(order.num_blades || ''),
+        notes:        '',
+    }];
+    store.tcUnitNotes.value     = order.tc_assy_notes_differences_mods || '';
+    store.tcUnitListError.value = false;
+    // For completed WOs fetch all rows (incl. stamped); for active WOs fetch drafts only.
+    const { data } = order.status === 'completed'
+        ? await dbAssy.fetchUnitCompletions(order.wo_number)
+        : await fetchDraftUnitCompletions(order.wo_number);
+    if (data && data.length > 0) {
+        store.tcUnitDetailList.value = data.map(r => ({
+            salesOrder:   r.unit_number === 1 ? (order.sales_order || '') : '',
+            unitSerial:   r.unit_serial_number || '',
+            engineModel:  r.engine_model || '',
+            engineSerial: r.engine_serial_number || '',
+            numBlades:    String(r.num_blades || ''),
+            notes:        r.unit_notes || '',
+        }));
+    }
     // Persist mode on first selection
     if (!order.tc_job_mode) {
         dbAssy.saveTcJobMode(order.id, 'unit').then(res => {
@@ -113,25 +131,29 @@ export function openTcAssyUnit(order) {
     }
 }
 
+// ── addTcUnit / removeTcUnit ──────────────────────────────────
+// Adds a blank unit entry or removes one (min 1 unit always kept).
+export function addTcUnit() {
+    store.tcUnitDetailList.value = [
+        ...store.tcUnitDetailList.value,
+        { salesOrder: '', unitSerial: '', engineModel: '', engineSerial: '', numBlades: '', notes: '' }
+    ];
+}
+export function removeTcUnit(idx) {
+    if (store.tcUnitDetailList.value.length <= 1) return;
+    store.tcUnitDetailList.value = store.tcUnitDetailList.value.filter((_, i) => i !== idx);
+}
+
 // ── saveTcUnitDetails ─────────────────────────────────────────
-// Saves all unit info fields from the TC Unit workflow screen.
-export async function saveTcUnitDetails() {
-    const order = store.activeOrder.value;
+// Fire-and-forget: upserts each unit as a draft row in wo_unit_completions on blur.
+export function saveTcUnitDetails() {
+    const order    = store.activeOrder.value;
     if (!order) return;
-    store.loading.value = true;
-    try {
-        const result = await dbAssy.saveTcUnitInfo(order.id, store.tcUnitInfoForm.value);
-        if (result.error) throw result.error;
-        const updated = result.data[0];
-        store.activeOrder.value = updated;
-        store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
-        store.showToast('Details saved.', 'success');
-    } catch (err) {
-        store.showToast('Failed to save details: ' + err.message);
-        logError('saveTcUnitDetails', err, { id: store.activeOrder.value?.id });
-    } finally {
-        store.loading.value = false;
-    }
+    const operator = store.tcAssyEntryName.value.trim();
+    store.tcUnitDetailList.value.forEach((u, idx) => {
+        upsertUnitDraft(order.id, order.wo_number, 'Tru Cut Assy', idx + 1, { ...u, operator }, order.job_number || null)
+            .catch(err => logError('saveTcUnitDetails/upsert', err, { id: order.id, unit: idx + 1 }));
+    });
 }
 
 // ── openTcAssyStock ───────────────────────────────────────────
@@ -266,6 +288,19 @@ export async function submitTcUnitStageFromUi(stageName) {
     }
     if (hasError) return;
 
+    // Gate final-stage completion on unit details for unit WOs
+    if (stageName === 'final' && pending === 'complete' && order.tc_job_mode === 'unit') {
+        const incomplete = store.tcUnitDetailList.value.some(u =>
+            !u.unitSerial.trim() || !u.engineModel.trim() || !u.engineSerial.trim() || !String(u.numBlades).trim()
+        );
+        if (incomplete) {
+            store.tcUnitListError.value = true;
+            store.showToast('Fill in Unit Serial #, Engine, Engine Serial #, and # of Blades for all units before completing.', 'error');
+            return;
+        }
+        store.tcUnitListError.value = false;
+    }
+
     const STATUS_MAP = { start: 'started', pause: 'paused', resume: 'started', complete: 'completed', hold: 'on_hold', cant_start: null };
     const keepStatus = pending === 'cant_start';
 
@@ -296,6 +331,21 @@ export async function submitTcUnitStageFromUi(stageName) {
             description: `TC ${stageName} ${STATUS_MAP[pending] || 'can\'t start'} — WO ${order.wo_number}`,
             dept: store.selectedDept.value
         };
+        // On final-stage complete for unit WOs: record each unit and auto-receive
+        if (stageName === 'final' && pending === 'complete' && order.tc_job_mode === 'unit') {
+            const units = store.tcUnitDetailList.value;
+            units.forEach((u, idx) => {
+                dbAssy.recordUnitCompletion(updated.id, updated.wo_number, 'Tru Cut Assy', idx + 1, {
+                    unitSerial:   u.unitSerial,
+                    engineModel:  u.engineModel,
+                    engineSerial: u.engineSerial,
+                    numBlades:    u.numBlades,
+                    notes:        u.notes,
+                    operator,
+                }, updated.job_number || null);
+            });
+            await db.autoReceiveAssyWo(updated, operator);
+        }
     } catch (err) {
         store.showToast('Failed: ' + err.message);
         logError('submitTcUnitStageFromUi', err, { id: store.activeOrder.value?.id, stageName });
@@ -320,7 +370,7 @@ export async function tcUnitStageDirectAction(stageName, action) {
 }
 
 // ── openTcAssyCompleteModal ───────────────────────────────────
-// Opens the TC WO completion gate modal. For qty>1 initialises step-through state.
+// Validates unit fields (unit mode) then opens the confirm modal.
 export function openTcAssyCompleteModal() {
     const order    = store.activeOrder.value;
     const operator = store.tcAssyEntryName.value.trim();
@@ -328,69 +378,38 @@ export function openTcAssyCompleteModal() {
         store.showToast('Enter your name before completing the WO.', 'error');
         return;
     }
-    const qty = parseInt(order.qty_required) || 1;
-    store.tcUnitTotal.value     = qty;
-    store.tcUnitStep.value      = 1;
-    store.tcUnitStepError.value = false;
-    store.tcUnitForms.value = Array.from({ length: qty }, (_, i) => ({
-        unitSerial:   i === 0 ? (order.unit_serial_number   || '') : '',
-        engineModel:  i === 0 ? (order.engine               || '') : '',
-        engineSerial: i === 0 ? (order.engine_serial_number || '') : '',
-        numBlades:    i === 0 ? (String(order.num_blades    || '')) : '',
-    }));
-    store.tcAssyCompleteForm.value = {
-        salesOrder: order.sales_order || '',
-        notes:      ''
-    };
-    store.tcAssyCompleteErrors.value = { salesOrder: false };
+    if (order.tc_job_mode === 'unit') {
+        const incomplete = store.tcUnitDetailList.value.some(u =>
+            !u.unitSerial.trim() || !u.engineModel.trim() || !u.engineSerial.trim() || !String(u.numBlades).trim()
+        );
+        if (incomplete) {
+            store.tcUnitListError.value = true;
+            store.showToast('Unit Serial #, Engine, Engine Serial #, and # of Blades are required for all units.', 'error');
+            return;
+        }
+        store.tcUnitListError.value = false;
+    }
     store.tcAssyCompleteModalOpen.value = true;
 }
 
-// tcUnitNextStep — validates current unit form then advances to the next step.
-export function tcUnitNextStep() {
-    const form = store.tcUnitForms.value[store.tcUnitStep.value - 1];
-    if (!isNonEmpty(form.unitSerial) || !isNonEmpty(form.engineModel) ||
-        !isNonEmpty(form.engineSerial) || !isNonEmpty(form.numBlades)) {
-        store.tcUnitStepError.value = true;
-        return;
-    }
-    store.tcUnitStepError.value = false;
-    store.tcUnitStep.value++;
-}
-
 // ── confirmTcWoComplete ───────────────────────────────────────
-// Validates and marks TC WO complete. Records per-unit completions to wo_unit_completions.
+// Marks TC WO complete; records each entry in tcUnitDetailList to wo_unit_completions.
 export async function confirmTcWoComplete() {
     const order    = store.activeOrder.value;
     const operator = store.tcAssyEntryName.value.trim();
-    const form     = store.tcAssyCompleteForm.value;
-    const errors   = store.tcAssyCompleteErrors.value;
     const isUnit   = order.tc_job_mode === 'unit';
-    const isMulti  = store.tcUnitTotal.value > 1;
-
-    if (isUnit) {
-        errors.salesOrder = !isNonEmpty(form.salesOrder);
-        // Validate the current (last) step's per-unit fields
-        const cur = store.tcUnitForms.value[store.tcUnitStep.value - 1];
-        store.tcUnitStepError.value = !isNonEmpty(cur.unitSerial) || !isNonEmpty(cur.engineModel) ||
-            !isNonEmpty(cur.engineSerial) || !isNonEmpty(cur.numBlades);
-        if (errors.salesOrder || store.tcUnitStepError.value) return;
-    }
 
     const previousSnapshot = deepClone(order);
     store.loading.value = true;
     try {
-        // For single-unit: write fields into work_orders for backward compat.
-        // For multi-unit: only write sales_order; per-unit data lives in wo_unit_completions.
-        const uf0 = store.tcUnitForms.value[0];
+        const units = store.tcUnitDetailList.value;
+        const u0    = units[0] || {};
         const unitFields = isUnit ? {
-            sales_order: form.salesOrder,
-            ...(!isMulti && {
-                unit_serial_number:   uf0.unitSerial,
-                engine:               uf0.engineModel,
-                engine_serial_number: uf0.engineSerial,
-                num_blades:           uf0.numBlades,
-            })
+            sales_order:          u0.salesOrder || null,
+            unit_serial_number:   u0.unitSerial || null,
+            engine:               u0.engineModel || null,
+            engine_serial_number: u0.engineSerial || null,
+            num_blades:           u0.numBlades || null,
         } : null;
 
         const result = await dbAssy.completeTcWo({
@@ -398,7 +417,7 @@ export async function confirmTcWoComplete() {
             currentOrder: order,
             opName:       operator,
             unitFields,
-            notes:        form.notes
+            notes:        store.tcUnitNotes.value.trim()
         });
         if (result.error) throw result.error;
         const updated = result.data[0];
@@ -412,14 +431,14 @@ export async function confirmTcWoComplete() {
         };
         store.tcAssyCompleteModalOpen.value = false;
 
-        // Record each unit in wo_unit_completions (fire-and-forget)
         if (isUnit) {
-            store.tcUnitForms.value.forEach((uf, idx) => {
+            units.forEach((u, idx) => {
                 dbAssy.recordUnitCompletion(updated.id, updated.wo_number, 'Tru Cut Assy', idx + 1, {
-                    unitSerial:   uf.unitSerial,
-                    engineModel:  uf.engineModel,
-                    engineSerial: uf.engineSerial,
-                    numBlades:    uf.numBlades,
+                    unitSerial:   u.unitSerial,
+                    engineModel:  u.engineModel,
+                    engineSerial: u.engineSerial,
+                    numBlades:    u.numBlades,
+                    notes:        u.notes,
                     operator,
                 }, updated.job_number || null);
             });

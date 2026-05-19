@@ -7,6 +7,7 @@
 
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
+import { fetchUnitCompletions } from '../libs/db-assy.js';
 import { CS_LEAD_TIME_DEFAULTS } from '../libs/config.js';
 import { getHistoricalAvgDays } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
@@ -37,18 +38,27 @@ export async function searchPastOrders() {
 // Input: wo row object. Output: sets csPastSelected (or clears if same row).
 export function selectPastWo(wo) {
     if (store.csPastSelected.value && store.csPastSelected.value.id === wo.id) {
-        store.csPastSelected.value = null;
+        store.csPastSelected.value    = null;
+        store.csUnitCompletions.value = [];
     } else {
-        store.csPastSelected.value = wo;
+        store.csPastSelected.value    = wo;
+        store.csUnitCompletions.value = [];
+        store.csUnitCompletionsLoading.value = true;
+        fetchUnitCompletions(wo.wo_number)
+            .then(({ data }) => { store.csUnitCompletions.value = data || []; })
+            .catch(() => {})
+            .finally(() => { store.csUnitCompletionsLoading.value = false; });
     }
 }
 
 // ── clearPastOrders ────────────────────────────────────────────
 // Clear the past WOs panel search and results.
 export function clearPastOrders() {
-    store.csPastSearch.value   = '';
-    store.csPastResults.value  = [];
-    store.csPastSelected.value = null;
+    store.csPastSearch.value              = '';
+    store.csPastResults.value             = [];
+    store.csPastSelected.value            = null;
+    store.csUnitCompletions.value         = [];
+    store.csUnitCompletionsLoading.value  = false;
 }
 
 // ── searchCS ──────────────────────────────────────────────────

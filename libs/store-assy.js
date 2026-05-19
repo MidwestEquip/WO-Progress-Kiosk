@@ -56,18 +56,13 @@ export const tcPreStage = ref({ pending: '', sessionQty: '', reason: '', qtyErro
 export const tcFinStage = ref({ pending: '', sessionQty: '', reason: '', qtyError: false, reasonError: false });
 
 export const tcAssyCompleteModalOpen = ref(false);
-export const tcAssyCompleteForm   = ref({ salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '', notes: '' });
-export const tcAssyCompleteErrors = ref({ salesOrder: false, unitSerial: false, engine: false, engineSerial: false, numBlades: false });
 
-// Inline-editable unit detail fields on the TC Unit workflow screen
-export const tcUnitInfoForm = ref({ salesOrder: '', unitSerial: '', engine: '', engineSerial: '', numBlades: '', notes: '' });
+// Inline multi-unit list on the TC Unit workflow screen — one entry per unit assembled
+export const tcUnitDetailList = ref([]);  // [{ salesOrder, unitSerial, engineModel, engineSerial, numBlades }, ...]
+export const tcUnitNotes      = ref('');  // WO-level notes / differences / mods
+export const tcUnitListError  = ref(false); // true when completion attempted with missing required fields
 
-// Step-through unit completion for multi-unit TC/TV Assy WOs
-export const tcUnitStep      = ref(1);    // current unit being entered (1-indexed)
-export const tcUnitForms     = ref([]);   // array of { unitSerial, engineModel, engineSerial, numBlades }
-export const tcUnitTotal     = ref(0);    // total units in this WO
-export const tcUnitStepError = ref(false); // true if current step has a missing required field
-
-// TV Assy unit inline detail fields (saved on blur, validated at WO completion)
-export const tvUnitInfoForm   = ref({ unitSerial: '', engineModel: '', engineSerial: '' });
-export const tvUnitInfoErrors = ref({ unitSerial: false, engineModel: false, engineSerial: false });
+// Inline multi-unit list on the TV Unit workflow screen
+export const tvUnitDetailList = ref([]);  // [{ salesOrder, unitSerial, engineModel, engineSerial, notes }, ...]
+export const tvUnitNotes      = ref('');  // WO-level notes
+export const tvUnitListError  = ref(false); // true when completion attempted with missing required fields

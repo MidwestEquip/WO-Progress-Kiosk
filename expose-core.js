@@ -29,11 +29,11 @@ import { openTvAssyEntry, tvSelectMode,
          submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
          tvStockDirectAction, saveTvStockNotes,
          tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold,
-         saveTvUnitDetails, markTvUnitWoComplete } from './pages/dashboard-tv.js';
+         saveTvUnitDetails, markTvUnitWoComplete, addTvUnit, removeTvUnit } from './pages/dashboard-tv.js';
 import { openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
          saveTcStockNotes, saveTcUnitDetails, tcUnitOpenHold, tcUnitConfirmHold,
          submitTcUnitStageFromUi, tcStockDirectAction, tcUnitStageDirectAction,
-         openTcAssyCompleteModal, confirmTcWoComplete, tcUnitNextStep,
+         openTcAssyCompleteModal, confirmTcWoComplete, addTcUnit, removeTcUnit,
          toggleTcEntryMode } from './pages/dashboard-tc.js';
 import { markAlereUpdated } from './libs/db.js';
 import { fetchAllWorkOrdersByWoNumber, fetchAllWorkOrdersByJobNumber } from './libs/db-inventory.js';
@@ -269,8 +269,9 @@ export function buildCoreExpose() {
         tvAssyNameError:       store.tvAssyNameError,
 
         // TV Assy unit inline detail fields
-        tvUnitInfoForm:   store.tvUnitInfoForm,
-        tvUnitInfoErrors: store.tvUnitInfoErrors,
+        tvUnitDetailList: store.tvUnitDetailList,
+        tvUnitNotes:      store.tvUnitNotes,
+        tvUnitListError:  store.tvUnitListError,
 
         // TC Assy entry
         tcAssyEntryOpen:    store.tcAssyEntryOpen,
@@ -293,15 +294,11 @@ export function buildCoreExpose() {
         tcPreCum:     store.tcPreCum,
         tcFinCum:     store.tcFinCum,
 
-        // TC Assy complete modal
+        // TC Assy complete modal + inline unit list
         tcAssyCompleteModalOpen: store.tcAssyCompleteModalOpen,
-        tcAssyCompleteForm:      store.tcAssyCompleteForm,
-        tcAssyCompleteErrors:    store.tcAssyCompleteErrors,
-        tcUnitInfoForm:          store.tcUnitInfoForm,
-        tcUnitStep:              store.tcUnitStep,
-        tcUnitForms:             store.tcUnitForms,
-        tcUnitTotal:             store.tcUnitTotal,
-        tcUnitStepError:         store.tcUnitStepError,
+        tcUnitDetailList:        store.tcUnitDetailList,
+        tcUnitNotes:             store.tcUnitNotes,
+        tcUnitListError:         store.tcUnitListError,
 
         // Office / WO Status
         officeMode:             store.officeMode,
@@ -344,7 +341,9 @@ export function buildCoreExpose() {
         csPastResults:  store.csPastResults,
         csPastSort:     store.csPastSort,
         csPastSortDir:  store.csPastSortDir,
-        csPastSelected: store.csPastSelected,
+        csPastSelected:           store.csPastSelected,
+        csUnitCompletions:        store.csUnitCompletions,
+        csUnitCompletionsLoading: store.csUnitCompletionsLoading,
 
         // WO file attachments
         woFiles:        store.woFiles,
@@ -411,11 +410,11 @@ export function buildCoreExpose() {
         submitTvUnitStageFromUi, openTvAssyUnit, openTvAssyStock, submitTvStockActionFromUi,
         tvStockDirectAction, saveTvStockNotes,
         tvUnitStageDirectAction, tvUnitOpenHold, tvUnitConfirmHold,
-        saveTvUnitDetails, markTvUnitWoComplete,
+        saveTvUnitDetails, markTvUnitWoComplete, addTvUnit, removeTvUnit,
         openTcAssyEntry, tcAssyContinue, openTcAssyUnit, openTcAssyStock, submitTcStockActionFromUi,
         saveTcStockNotes, saveTcUnitDetails, tcUnitOpenHold, tcUnitConfirmHold,
         submitTcUnitStageFromUi, tcStockDirectAction, tcUnitStageDirectAction,
-        openTcAssyCompleteModal, confirmTcWoComplete, tcUnitNextStep,
+        openTcAssyCompleteModal, confirmTcWoComplete, addTcUnit, removeTcUnit,
         updateOrderStatus, undoLastAction,
         submitNewWo, submitNote, toggleTcNewWoMode, toggleTcEntryMode,
         loadWoFiles, handleWoFileUpload, handleWoFileDelete,

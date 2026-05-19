@@ -6,6 +6,7 @@
 // ============================================================
 
 import { supabase, withRetry } from './db-shared.js';
+import { fetchUnitCompletions } from './db-assy.js';
 
 export async function fetchWoStatusOrders() {
     // Parallel fetch: all non-closed tracking rows + received rows for closeout
@@ -175,16 +176,35 @@ export async function markAlereUpdated(id, updatedBy) {
     );
 }
 
-// archiveWorkOrder — copies all work_orders rows for a WO# into completed_work_orders, then deletes them.
+// archiveWorkOrder — copies work_orders row(s) into completed_work_orders, then deletes them.
+// For unit WOs with multiple units, fans out one completed_work_orders row per unit so each
+// unit serial / engine serial is individually searchable. Stock WOs get one row as normal.
 // Fire-and-forget: called from closeOutWorkOrder without awaiting.
 async function archiveWorkOrder(woNumber) {
     if (!woNumber) return;
-    const { data: rows } = await withRetry(() =>
-        supabase.from('work_orders').select('*').eq('wo_number', woNumber)
-    );
+    const [{ data: rows }, { data: unitRows }] = await Promise.all([
+        withRetry(() => supabase.from('work_orders').select('*').eq('wo_number', woNumber)),
+        fetchUnitCompletions(woNumber),
+    ]);
     if (!rows?.length) return;
     const now = new Date().toISOString();
-    const inserts = rows.map(({ id, ...rest }) => ({ ...rest, archived_at: now }));
+
+    let inserts;
+    if (unitRows?.length > 1) {
+        // Fan out: one completed_work_orders row per unit
+        const { id, ...base } = rows[0];
+        inserts = unitRows.map(u => ({
+            ...base,
+            archived_at:          now,
+            unit_serial_number:   u.unit_serial_number   || base.unit_serial_number,
+            engine:               u.engine_model         || base.engine,
+            engine_serial_number: u.engine_serial_number || base.engine_serial_number,
+            num_blades:           u.num_blades            ?? base.num_blades,
+        }));
+    } else {
+        inserts = rows.map(({ id, ...rest }) => ({ ...rest, archived_at: now }));
+    }
+
     const { error: insertErr } = await withRetry(() =>
         supabase.from('completed_work_orders').insert(inserts)
     );

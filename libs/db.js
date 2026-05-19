@@ -209,8 +209,6 @@ export async function restoreOrderSnapshot(id, previousData) {
         tc_final_status:               previousData.tc_final_status,
         tc_final_operator:             previousData.tc_final_operator,
         tc_final_qty_completed:        previousData.tc_final_qty_completed,
-        tc_packaging_status:           previousData.tc_packaging_status,
-        tc_packaging_operator:         previousData.tc_packaging_operator,
         tc_assy_notes_differences_mods: previousData.tc_assy_notes_differences_mods,
         tv_engine_status:              previousData.tv_engine_status,
         tv_engine_qty_completed:       previousData.tv_engine_qty_completed,

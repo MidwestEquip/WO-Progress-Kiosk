@@ -16,7 +16,9 @@ export const csPastSearch   = ref('');
 export const csPastResults  = ref([]);
 export const csPastSort     = ref('wo_number');
 export const csPastSortDir  = ref('asc');
-export const csPastSelected = ref(null);
+export const csPastSelected           = ref(null);
+export const csUnitCompletions        = ref([]);
+export const csUnitCompletionsLoading = ref(false);
 
 // ── WO file attachments ───────────────────────────────────────
 export const woFiles        = ref([]);

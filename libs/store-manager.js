@@ -105,12 +105,12 @@ export const timeReportExpandedPart = ref(null);
 export const timeReportByWo = computed(() => {
     const map = {};
     for (const s of timeReportSessions.value) {
-        const key = s.wo_id;
+        const key = s.work_order_id;
         if (!map[key]) {
             map[key] = {
-                wo_id:        s.wo_id,
+                wo_id:        s.work_order_id,
                 wo_number:    s.wo_number,
-                part_number:  s.work_orders?.part_number || '',
+                part_number:  '',
                 department:   s.department,
                 totalMinutes: 0,
                 totalQty:     0,
@@ -121,8 +121,8 @@ export const timeReportByWo = computed(() => {
         }
         const row = map[key];
         row.totalMinutes += s.duration_minutes || 0;
-        row.totalQty     += s.qty_this_session || 0;
-        row.operators.add(s.operator);
+        row.totalQty     += s.session_qty || 0;
+        row.operators.add(s.operator_name);
         row.sessions.push(s);
         if (s.started_at > row.lastStarted) row.lastStarted = s.started_at;
     }
@@ -134,10 +134,10 @@ export const timeReportByWo = computed(() => {
 export const timeReportByPart = computed(() => {
     const map = {};
     for (const s of timeReportSessions.value) {
-        const key = s.work_orders?.part_number || '(unknown)';
+        const key = s.wo_number || '(unknown)';
         if (!map[key]) {
             map[key] = {
-                part_number:  key,
+                wo_number:    key,
                 woIds:        new Set(),
                 totalMinutes: 0,
                 totalQty:     0,
@@ -146,10 +146,10 @@ export const timeReportByPart = computed(() => {
             };
         }
         const row = map[key];
-        row.woIds.add(s.wo_id);
+        row.woIds.add(s.work_order_id);
         row.totalMinutes += s.duration_minutes || 0;
-        row.totalQty     += s.qty_this_session || 0;
-        row.operators.add(s.operator);
+        row.totalQty     += s.session_qty || 0;
+        row.operators.add(s.operator_name);
         row.sessions.push(s);
     }
     return Object.values(map)

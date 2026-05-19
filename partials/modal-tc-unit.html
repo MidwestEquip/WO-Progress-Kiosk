@@ -69,7 +69,7 @@
                         <!-- Notes / Differences / Mods -->
                         <div class="p-4 border-b border-gray-100">
                             <div class="text-gray-500 text-xs font-bold uppercase tracking-wide mb-2">Notes / Differences / Mods</div>
-                            <textarea v-model="tcUnitInfoForm.notes" :readonly="actionPanelReadOnly" rows="4" maxlength="2000" placeholder="Log any changes or anything different in this assembled unit/part here."
+                            <textarea v-model="tcUnitNotes" :readonly="actionPanelReadOnly" rows="4" maxlength="2000" placeholder="Log any changes or anything different in this assembled unit/part here."
                                 class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 resize-none transition-colors"></textarea>
                             <button @click="saveTcUnitDetails()" :disabled="actionPanelReadOnly"
                                 class="mt-2 w-full px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-lg text-xs active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
@@ -108,39 +108,61 @@
                     <div class="flex-1 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
                         <div class="p-4 flex flex-col gap-4">
 
-                            <!-- Unit Details card -->
-                            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-                                <div class="flex items-center justify-between mb-1">
+                            <!-- Unit Details card — expandable per-unit list -->
+                            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                                <div class="flex items-center justify-between mb-3">
                                     <div class="text-gray-500 text-xs font-bold uppercase tracking-wide">Unit Details</div>
                                     <div class="text-gray-500 text-xs">Qty Required: <span class="text-gray-800 font-bold">{{ activeOrder?.qty_required }}</span></div>
                                 </div>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Sales Order</label>
-                                        <input v-model="tcUnitInfoForm.salesOrder" @blur="!actionPanelReadOnly && saveTcUnitDetails()" :readonly="actionPanelReadOnly" type="text" placeholder="—" maxlength="30"
-                                            class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-gray-800 text-sm transition-colors">
-                                    </div>
-                                    <div>
-                                        <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Unit Serial #</label>
-                                        <input v-model="tcUnitInfoForm.unitSerial" @blur="!actionPanelReadOnly && saveTcUnitDetails()" :readonly="actionPanelReadOnly" type="text" placeholder="—" maxlength="40"
-                                            class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-gray-800 font-mono text-sm transition-colors">
-                                    </div>
-                                    <div>
-                                        <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Engine</label>
-                                        <input v-model="tcUnitInfoForm.engine" @blur="!actionPanelReadOnly && saveTcUnitDetails()" :readonly="actionPanelReadOnly" type="text" placeholder="—" maxlength="40"
-                                            class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-gray-800 text-sm transition-colors">
-                                    </div>
-                                    <div>
-                                        <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1">Engine Serial #</label>
-                                        <input v-model="tcUnitInfoForm.engineSerial" @blur="!actionPanelReadOnly && saveTcUnitDetails()" :readonly="actionPanelReadOnly" type="text" placeholder="—" maxlength="40"
-                                            class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-gray-800 font-mono text-sm transition-colors">
-                                    </div>
-                                    <div>
-                                        <label class="block text-gray-500 text-xs font-bold uppercase tracking-wide mb-1"># of Blades</label>
-                                        <input v-model="tcUnitInfoForm.numBlades" @blur="!actionPanelReadOnly && saveTcUnitDetails()" :readonly="actionPanelReadOnly" type="text" placeholder="—" maxlength="5"
-                                            class="w-full bg-white p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-teal-500 text-gray-800 text-sm transition-colors">
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div v-for="(unit, idx) in tcUnitDetailList" :key="idx" class="bg-white border border-gray-200 rounded-lg p-2.5 flex flex-col gap-1.5">
+                                        <div class="flex items-center justify-between mb-0.5">
+                                            <span class="text-xs font-bold text-teal-700 uppercase tracking-wide">Unit #{{ idx + 1 }}</span>
+                                            <button v-if="tcUnitDetailList.length > 1" @click="removeTcUnit(idx)" :disabled="actionPanelReadOnly"
+                                                class="text-red-400 hover:text-red-600 text-xs font-bold leading-none disabled:opacity-40">&#10005;</button>
+                                        </div>
+                                        <div class="grid gap-1.5" style="grid-template-columns: 1fr 1.35fr 1fr 1.5fr 0.95fr">
+                                            <div>
+                                                <label class="block text-gray-400 text-xs font-bold uppercase mb-0.5">SO#</label>
+                                                <input v-model="unit.salesOrder" @blur="!actionPanelReadOnly && saveTcUnitDetails()" :readonly="actionPanelReadOnly" type="text" placeholder="—" maxlength="30"
+                                                    class="w-full bg-gray-50 px-1.5 py-1 rounded border border-gray-300 focus:outline-none focus:border-teal-500 text-gray-800 text-xs transition-colors">
+                                            </div>
+                                            <div>
+                                                <label class="block text-gray-400 text-xs font-bold uppercase mb-0.5">Unit Serial <span class="text-red-400">*</span></label>
+                                                <input v-model="unit.unitSerial" @blur="!actionPanelReadOnly && saveTcUnitDetails()" :readonly="actionPanelReadOnly" type="text" placeholder="—" maxlength="40"
+                                                    class="w-full bg-gray-50 px-1.5 py-1 rounded border focus:outline-none focus:border-teal-500 text-gray-800 font-mono text-xs transition-colors"
+                                                    :class="tcUnitListError && !unit.unitSerial.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'">
+                                            </div>
+                                            <div>
+                                                <label class="block text-gray-400 text-xs font-bold uppercase mb-0.5">Engine <span class="text-red-400">*</span></label>
+                                                <input v-model="unit.engineModel" @blur="!actionPanelReadOnly && saveTcUnitDetails()" :readonly="actionPanelReadOnly" type="text" placeholder="—" maxlength="40"
+                                                    class="w-full bg-gray-50 px-1.5 py-1 rounded border focus:outline-none focus:border-teal-500 text-gray-800 text-xs transition-colors"
+                                                    :class="tcUnitListError && !unit.engineModel.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'">
+                                            </div>
+                                            <div>
+                                                <label class="block text-gray-400 text-xs font-bold uppercase mb-0.5">Eng Serial <span class="text-red-400">*</span></label>
+                                                <input v-model="unit.engineSerial" @blur="!actionPanelReadOnly && saveTcUnitDetails()" :readonly="actionPanelReadOnly" type="text" placeholder="—" maxlength="40"
+                                                    class="w-full bg-gray-50 px-1.5 py-1 rounded border focus:outline-none focus:border-teal-500 text-gray-800 font-mono text-xs transition-colors"
+                                                    :class="tcUnitListError && !unit.engineSerial.trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'">
+                                            </div>
+                                            <div>
+                                                <label class="block text-gray-400 text-xs font-bold uppercase mb-0.5">Blades <span class="text-red-400">*</span></label>
+                                                <input v-model="unit.numBlades" @blur="!actionPanelReadOnly && saveTcUnitDetails()" :readonly="actionPanelReadOnly" type="text" placeholder="—" maxlength="5"
+                                                    class="w-full bg-gray-50 px-1.5 py-1 rounded border focus:outline-none focus:border-teal-500 text-gray-800 text-xs transition-colors"
+                                                    :class="tcUnitListError && !String(unit.numBlades).trim() ? 'border-red-500 bg-red-50' : 'border-gray-300'">
+                                            </div>
+                                        </div>
+                                        <div class="mt-1.5">
+                                            <label class="block text-gray-400 text-xs font-bold uppercase mb-0.5">Notes / Mods</label>
+                                            <textarea v-model="unit.notes" :readonly="actionPanelReadOnly" rows="2" maxlength="500" placeholder="—"
+                                                class="w-full bg-gray-50 px-1.5 py-1 rounded border border-gray-300 focus:outline-none focus:border-teal-500 text-gray-800 text-xs resize-none transition-colors"></textarea>
+                                        </div>
                                     </div>
                                 </div>
+                                <button @click="addTcUnit()" :disabled="actionPanelReadOnly"
+                                    class="mt-3 w-full px-3 py-2 border-2 border-dashed border-gray-300 hover:border-teal-400 text-gray-400 hover:text-teal-600 rounded-lg text-xs font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                    + Add Unit
+                                </button>
                             </div>
 
                             <!-- PRELAP ASSY stage panel -->
@@ -364,80 +386,38 @@
             </div>
         </div><!-- /TC ASSY UNIT MODAL -->
 
-        <!-- TC ASSY UNIT COMPLETE PROMPT MODAL -->
+        <!-- TC ASSY COMPLETE CONFIRM MODAL -->
         <div v-if="tcAssyCompleteModalOpen" class="fixed z-50 inset-0 bg-black/80 flex items-center justify-center p-4">
             <div class="bg-slate-800 rounded-xl w-full max-w-lg border border-emerald-500/50 shadow-2xl flex flex-col">
                 <div class="bg-emerald-900/30 border-b border-emerald-700/40 px-6 py-5 rounded-t-xl shrink-0">
-                    <h2 class="text-2xl font-bold text-emerald-300">
-                        &#9989;
-                        <template v-if="activeOrder?.tc_job_mode === 'unit' && tcUnitTotal > 1">
-                            Unit {{ tcUnitStep }} of {{ tcUnitTotal }}
-                        </template>
-                        <template v-else>
-                            {{ activeOrder?.tc_job_mode === 'unit' ? 'Complete Unit WO' : 'Complete Subassy WO' }}
-                        </template>
-                    </h2>
+                    <h2 class="text-2xl font-bold text-emerald-300">&#9989; {{ activeOrder?.tc_job_mode === 'unit' ? 'Complete Unit WO' : 'Complete Subassy WO' }}</h2>
                     <p class="text-slate-400 text-sm mt-0.5">
-                        {{ activeOrder?.tc_job_mode === 'unit' ? 'Enter unit details and any build notes.' : 'Add any notes before completing.' }}
+                        {{ activeOrder?.tc_job_mode === 'unit' ? tcUnitDetailList.length + ' unit(s) will be recorded.' : 'Add any notes before completing.' }}
                     </p>
                 </div>
                 <div class="p-6 space-y-4">
-                    <!-- Notes / Differences field (WO-level, always shown) -->
                     <div>
                         <label class="block font-bold text-slate-400 text-sm mb-1">Notes / Differences / Modifications</label>
-                        <textarea v-model="tcAssyCompleteForm.notes" rows="2" maxlength="2000"
+                        <textarea v-model="tcUnitNotes" rows="3" maxlength="2000"
                             class="w-full bg-slate-900 p-3 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500 transition-colors"
                             placeholder="Any differences from standard build?"></textarea>
                     </div>
-
-                    <!-- Unit fields: only shown for unit mode -->
-                    <template v-if="activeOrder?.tc_job_mode === 'unit'">
-                        <div class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2">Required Unit Details</div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <!-- Sales Order (WO-level, always shown) -->
-                            <div class="col-span-2">
-                                <label class="block font-bold text-slate-400 text-sm mb-1">Sales Order #</label>
-                                <input v-model="tcAssyCompleteForm.salesOrder" type="text" maxlength="30"
-                                    class="w-full bg-slate-900 p-2.5 rounded-lg border focus:outline-none focus:border-emerald-500 transition-colors"
-                                    :class="tcAssyCompleteErrors.salesOrder ? 'border-red-500' : 'border-slate-700'">
-                                <div v-if="tcAssyCompleteErrors.salesOrder" class="text-red-400 text-xs mt-1">Required</div>
+                    <div v-if="activeOrder?.tc_job_mode === 'unit'" class="space-y-1">
+                        <div v-for="(u, i) in tcUnitDetailList" :key="i" class="bg-slate-900 rounded px-3 py-2 text-xs text-slate-300">
+                            <div class="flex gap-3">
+                                <span class="text-slate-500 shrink-0">Unit #{{ i + 1 }}</span>
+                                <span class="font-mono">{{ u.unitSerial || '—' }}</span>
+                                <span class="text-slate-500">·</span>
+                                <span>{{ u.engineModel || '—' }}</span>
+                                <span class="text-slate-500">SO# {{ u.salesOrder || '—' }}</span>
                             </div>
-                            <!-- Unit Serial # -->
-                            <div>
-                                <label class="block font-bold text-slate-400 text-sm mb-1">Unit Serial #</label>
-                                <input v-model="tcUnitForms[tcUnitStep - 1].unitSerial" type="text" maxlength="40"
-                                    class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500 transition-colors font-mono">
-                            </div>
-                            <!-- Engine Model -->
-                            <div>
-                                <label class="block font-bold text-slate-400 text-sm mb-1">Engine Model</label>
-                                <input v-model="tcUnitForms[tcUnitStep - 1].engineModel" type="text" maxlength="40"
-                                    class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500 transition-colors">
-                            </div>
-                            <!-- Engine Serial # -->
-                            <div>
-                                <label class="block font-bold text-slate-400 text-sm mb-1">Engine Serial #</label>
-                                <input v-model="tcUnitForms[tcUnitStep - 1].engineSerial" type="text" maxlength="40"
-                                    class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500 transition-colors font-mono">
-                            </div>
-                            <!-- # of Blades -->
-                            <div>
-                                <label class="block font-bold text-slate-400 text-sm mb-1"># of Blades</label>
-                                <input v-model="tcUnitForms[tcUnitStep - 1].numBlades" type="text" maxlength="5"
-                                    class="w-full bg-slate-900 p-2.5 rounded-lg border border-slate-700 focus:outline-none focus:border-emerald-500 transition-colors">
-                            </div>
+                            <div v-if="u.notes" class="text-slate-400 italic mt-0.5 pl-0">{{ u.notes }}</div>
                         </div>
-                        <div v-if="tcUnitStepError" class="text-red-400 text-sm">All unit fields are required.</div>
-                    </template>
+                    </div>
                 </div>
                 <div class="px-6 py-5 border-t border-slate-700 flex gap-4 shrink-0">
                     <button @click="tcAssyCompleteModalOpen = false" class="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold transition-all">CANCEL</button>
-                    <button v-if="tcUnitTotal > 1 && tcUnitStep < tcUnitTotal"
-                        @click="tcUnitNextStep()"
-                        class="flex-1 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold text-white active:scale-95 transition-all">
-                        Next &#8594; Unit {{ tcUnitStep + 1 }}
-                    </button>
-                    <button v-else @click="confirmTcWoComplete()"
+                    <button @click="confirmTcWoComplete()"
                         class="flex-1 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold text-white active:scale-95 transition-all">
                         CONFIRM COMPLETE
                     </button>

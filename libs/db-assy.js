@@ -173,6 +173,47 @@ export async function saveTcUnitInfo(id, fields) {
     );
 }
 
+// upsertUnitDraft — saves one unit as a draft row (action='unit_draft') in wo_progress_events.
+// Delete+insert because Supabase upsert doesn't support partial unique indexes.
+export async function upsertUnitDraft(woId, woNumber, dept, unitNumber, unitData, jobNumber = null) {
+    if (!woNumber) return { data: null, error: new Error('Missing WO number') };
+    const wn = woNumber.trim().toUpperCase();
+    await supabase.from('wo_progress_events')
+        .delete()
+        .eq('wo_number', wn)
+        .eq('unit_number', unitNumber)
+        .eq('action', 'unit_draft');
+    return withRetry(() =>
+        supabase.from('wo_progress_events').insert([{
+            work_order_id:        woId      || null,
+            wo_number:            wn,
+            job_number:           jobNumber || null,
+            department:           dept,
+            action:               'unit_draft',
+            unit_number:          unitNumber,
+            unit_serial_number:   (unitData.unitSerial   || '').trim() || null,
+            engine_model:         (unitData.engineModel  || unitData.engine || '').trim() || null,
+            engine_serial_number: (unitData.engineSerial || '').trim() || null,
+            num_blades:           unitData.numBlades ? parseInt(unitData.numBlades) : null,
+            operator_name:        (unitData.operator     || '').trim() || null,
+            unit_notes:           (unitData.notes        || '').trim() || null,
+        }]).select()
+    );
+}
+
+// fetchDraftUnitCompletions — fetches unit_draft rows for a WO from wo_progress_events.
+// Used to restore the unit list when a WO is reopened.
+export async function fetchDraftUnitCompletions(woNumber) {
+    if (!woNumber) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('wo_progress_events')
+            .select('unit_number,unit_serial_number,engine_model,engine_serial_number,num_blades,unit_notes,operator_name')
+            .eq('wo_number', woNumber.trim().toUpperCase())
+            .eq('action', 'unit_draft')
+            .order('unit_number', { ascending: true })
+    );
+}
+
 // saveTcAssyNotes — saves TC Assy notes/mods text. Input: WO id, notes string.
 export async function saveTcAssyNotes(id, notes) {
     if (!id) return { data: null, error: new Error('Missing WO ID') };
@@ -254,47 +295,63 @@ export async function submitTcStockAction({ id, currentOrder, newStatus, opName,
 
 // ── Unit Completions ──────────────────────────────────────────
 
-// recordUnitCompletion — inserts one row into wo_unit_completions for a single unit.
-// unitData: { unitSerial, engineModel, engineSerial, numBlades, operator }
+// recordUnitCompletion — promotes an existing unit_draft row to unit_completed in wo_progress_events,
+// or inserts a unit_completed row directly if no draft exists.
 export async function recordUnitCompletion(woId, woNumber, dept, unitNumber, unitData, jobNumber = null) {
     if (!woNumber) return { data: null, error: new Error('Missing WO number') };
+    const wn = woNumber.trim().toUpperCase();
+    // Try to promote existing draft row
+    const upd = await withRetry(() =>
+        supabase.from('wo_progress_events')
+            .update({ action: 'unit_completed', operator_name: (unitData.operator || '').trim() || null })
+            .eq('wo_number', wn)
+            .eq('unit_number', unitNumber)
+            .eq('action', 'unit_draft')
+            .select()
+    );
+    if (!upd.error && upd.data?.length > 0) return upd;
+    // Fallback: insert completed row if no draft existed
     return withRetry(() =>
-        supabase.from('wo_unit_completions').insert([{
-            wo_id:                woId      || null,
-            wo_number:            woNumber.trim().toUpperCase(),
+        supabase.from('wo_progress_events').insert([{
+            work_order_id:        woId      || null,
+            wo_number:            wn,
             job_number:           jobNumber || null,
             department:           dept,
+            action:               'unit_completed',
             unit_number:          unitNumber,
             unit_serial_number:   (unitData.unitSerial   || '').trim() || null,
-            engine_model:         (unitData.engineModel  || '').trim() || null,
+            engine_model:         (unitData.engineModel  || unitData.engine || '').trim() || null,
             engine_serial_number: (unitData.engineSerial || '').trim() || null,
             num_blades:           unitData.numBlades ? parseInt(unitData.numBlades) : null,
-            operator:             (unitData.operator     || '').trim() || null,
-            completed_at:         new Date().toISOString(),
+            operator_name:        (unitData.operator     || '').trim() || null,
+            unit_notes:           (unitData.notes        || '').trim() || null,
         }]).select()
     );
 }
 
-// fetchUnitCompletions — all wo_unit_completions rows for a given WO number, ordered by unit_number.
+// fetchUnitCompletions — all unit_completed rows for a given WO number from wo_progress_events.
 export async function fetchUnitCompletions(woNumber) {
     if (!woNumber) return { data: [], error: null };
     return withRetry(() =>
-        supabase.from('wo_unit_completions')
-            .select('*')
+        supabase.from('wo_progress_events')
+            .select('unit_number,unit_serial_number,engine_model,engine_serial_number,num_blades,unit_notes,operator_name')
             .eq('wo_number', woNumber.trim().toUpperCase())
+            .eq('action', 'unit_completed')
             .order('unit_number', { ascending: true })
     );
 }
 
-// searchUnitsBySerial — finds wo_unit_completions rows matching a serial number (exact or partial).
-// Used by CS view for serial # lookup.
-export async function searchUnitsBySerial(serial) {
-    if (!serial) return { data: [], error: null };
+// searchUnitCompletionsByTerm — finds wo_progress_events rows where unit_serial_number OR
+// engine_serial_number matches the term (partial, case-insensitive).
+export async function searchUnitCompletionsByTerm(term) {
+    if (!term) return { data: [], error: null };
+    const t = term.trim();
     return withRetry(() =>
-        supabase.from('wo_unit_completions')
-            .select('*')
-            .ilike('unit_serial_number', '%' + serial.trim() + '%')
-            .order('completed_at', { ascending: false })
-            .limit(50)
+        supabase.from('wo_progress_events')
+            .select('wo_number,unit_serial_number,engine_serial_number')
+            .in('action', ['unit_draft', 'unit_completed'])
+            .or(`unit_serial_number.ilike.%${t}%,engine_serial_number.ilike.%${t}%`)
+            .order('created_at', { ascending: false })
+            .limit(100)
     );
 }

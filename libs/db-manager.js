@@ -272,12 +272,13 @@ export async function fetchAiContextData() {
 
 // ── Time Report ───────────────────────────────────────────────
 
-// Fetch all wo_time_sessions within a date range, joining part_number from work_orders.
+// Fetch closed time sessions within a date range from wo_progress_events.
 // Input: from/to ISO date strings. Output: { data, error }
 export async function fetchTimeReportSessions(from, to) {
     return withRetry(() =>
-        supabase.from('wo_time_sessions')
-            .select('id, wo_id, wo_number, department, operator, started_at, ended_at, duration_minutes, qty_this_session, end_status, work_orders(part_number)')
+        supabase.from('wo_progress_events')
+            .select('id, work_order_id, wo_number, job_number, department, operator_name, started_at, ended_at, duration_minutes, session_qty, end_status')
+            .eq('action', 'time_close')
             .gte('started_at', from)
             .lte('started_at', to)
             .not('ended_at', 'is', null)

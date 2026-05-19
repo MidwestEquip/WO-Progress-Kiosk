@@ -137,10 +137,10 @@
                                                 <div class="bg-slate-900/60 rounded-lg p-3 space-y-1">
                                                     <div v-for="s in row.sessions" :key="s.id"
                                                         class="flex items-center gap-4 text-xs text-slate-300 border-b border-slate-700/40 last:border-0 pb-1 last:pb-0">
-                                                        <span class="font-bold text-white w-24 shrink-0">{{ s.operator }}</span>
+                                                        <span class="font-bold text-white w-24 shrink-0">{{ s.operator_name }}</span>
                                                         <span class="text-slate-400">{{ new Date(s.started_at).toLocaleDateString() }}</span>
                                                         <span class="text-emerald-400">{{ (s.duration_minutes / 60).toFixed(1) }} hrs</span>
-                                                        <span class="text-blue-400">{{ s.qty_this_session }} pcs</span>
+                                                        <span class="text-blue-400">{{ s.session_qty }} pcs</span>
                                                         <span class="ml-auto uppercase text-xs font-bold"
                                                             :class="s.end_status === 'completed' ? 'text-emerald-500' : s.end_status === 'on_hold' ? 'text-amber-400' : 'text-slate-500'">
                                                             {{ s.end_status }}
@@ -154,39 +154,39 @@
                             </table>
                         </div>
 
-                        <!-- By Part # tab -->
+                        <!-- By WO# tab (formerly By Part — part# lookup removed; grouped by WO#) -->
                         <div v-if="timeReportTab === 'part'" class="p-4">
                             <div v-if="timeReportByPart.length === 0" class="text-slate-500 text-center py-8">No sessions recorded in this date range</div>
                             <table v-else class="w-full text-sm">
                                 <thead>
                                     <tr class="text-slate-400 text-xs uppercase tracking-wide border-b border-slate-700">
-                                        <th class="text-left pb-2 pr-4">Part #</th>
-                                        <th class="text-right pb-2 pr-4">WOs Run</th>
-                                        <th class="text-right pb-2 pr-4">Avg Hrs/WO</th>
+                                        <th class="text-left pb-2 pr-4">WO #</th>
+                                        <th class="text-right pb-2 pr-4">Sessions</th>
+                                        <th class="text-right pb-2 pr-4">Avg Hrs/Session</th>
                                         <th class="text-right pb-2 pr-4">Total Pcs</th>
                                         <th class="text-left pb-2">Operators</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <template v-for="row in timeReportByPart" :key="row.part_number">
+                                    <template v-for="row in timeReportByPart" :key="row.wo_number">
                                         <tr class="border-b border-slate-700/50 hover:bg-slate-700/30 cursor-pointer"
-                                            @click="timeReportExpandedPart = timeReportExpandedPart === row.part_number ? null : row.part_number">
-                                            <td class="py-2 pr-4 font-bold text-white">{{ row.part_number }}</td>
+                                            @click="timeReportExpandedPart = timeReportExpandedPart === row.wo_number ? null : row.wo_number">
+                                            <td class="py-2 pr-4 font-bold text-white">{{ row.wo_number }}</td>
                                             <td class="py-2 pr-4 text-right text-slate-300">{{ row.woCount }}</td>
                                             <td class="py-2 pr-4 text-right text-emerald-400 font-bold">{{ (row.avgMinutes / 60).toFixed(1) }} hrs</td>
                                             <td class="py-2 pr-4 text-right text-blue-400 font-bold">{{ row.totalQty }}</td>
                                             <td class="py-2 text-slate-400 text-xs">{{ row.operators }}</td>
                                         </tr>
-                                        <tr v-if="timeReportExpandedPart === row.part_number">
+                                        <tr v-if="timeReportExpandedPart === row.wo_number">
                                             <td colspan="5" class="pb-3 pt-1 px-4">
                                                 <div class="bg-slate-900/60 rounded-lg p-3 space-y-1">
                                                     <div v-for="s in row.sessions" :key="s.id"
                                                         class="flex items-center gap-4 text-xs text-slate-300 border-b border-slate-700/40 last:border-0 pb-1 last:pb-0">
-                                                        <span class="font-bold text-white w-24 shrink-0">{{ s.operator }}</span>
+                                                        <span class="font-bold text-white w-24 shrink-0">{{ s.operator_name }}</span>
                                                         <span class="text-slate-500">WO {{ s.wo_number }}</span>
                                                         <span class="text-slate-400">{{ new Date(s.started_at).toLocaleDateString() }}</span>
                                                         <span class="text-emerald-400">{{ (s.duration_minutes / 60).toFixed(1) }} hrs</span>
-                                                        <span class="text-blue-400">{{ s.qty_this_session }} pcs</span>
+                                                        <span class="text-blue-400">{{ s.session_qty }} pcs</span>
                                                         <span class="ml-auto uppercase text-xs font-bold"
                                                             :class="s.end_status === 'completed' ? 'text-emerald-500' : s.end_status === 'on_hold' ? 'text-amber-400' : 'text-slate-500'">
                                                             {{ s.end_status }}

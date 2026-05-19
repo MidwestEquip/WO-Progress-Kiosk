@@ -8,7 +8,7 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import * as dbTv  from '../libs/db-tv.js';
-import { recordUnitCompletion } from '../libs/db-assy.js';
+import { recordUnitCompletion, fetchDraftUnitCompletions, fetchUnitCompletions, upsertUnitDraft } from '../libs/db-assy.js';
 import { deepClone } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
@@ -47,8 +47,8 @@ export function tvSelectMode(mode) {
 }
 
 // ── openTvAssyUnit ────────────────────────────────────────────
-// Opens the TV Unit workflow screen; resets stage pending states and unit detail form.
-export function openTvAssyUnit(order) {
+// Opens the TV Unit workflow screen; resets stage pending states and restores draft units.
+export async function openTvAssyUnit(order) {
     store.activeOrder.value      = order;
     store.tvAssyJobType.value    = 'unit';
     store.tvModeSelectOpen.value = false;
@@ -62,12 +62,29 @@ export function openTvAssyUnit(order) {
     store.tvUnitHoldReason.value      = '';
     store.tvUnitHoldReasonError.value = false;
     store.tvStockNotes.value          = order.tv_assy_notes || '';
-    store.tvUnitInfoForm.value = {
-        unitSerial:   order.unit_serial_number   || '',
-        engineModel:  order.engine               || '',
+    // Default unit #1 from order fields while fetch is in-flight
+    store.tvUnitDetailList.value = [{
+        salesOrder:   order.sales_order || '',
+        unitSerial:   order.unit_serial_number || '',
+        engineModel:  order.engine || '',
         engineSerial: order.engine_serial_number || '',
-    };
-    store.tvUnitInfoErrors.value = { unitSerial: false, engineModel: false, engineSerial: false };
+        notes:        '',
+    }];
+    store.tvUnitNotes.value     = order.tv_assy_notes || '';
+    store.tvUnitListError.value = false;
+    // For completed WOs fetch all rows (incl. stamped); for active WOs fetch drafts only.
+    const { data } = order.status === 'completed'
+        ? await fetchUnitCompletions(order.wo_number)
+        : await fetchDraftUnitCompletions(order.wo_number);
+    if (data && data.length > 0) {
+        store.tvUnitDetailList.value = data.map(r => ({
+            salesOrder:   r.unit_number === 1 ? (order.sales_order || '') : '',
+            unitSerial:   r.unit_serial_number || '',
+            engineModel:  r.engine_model || '',
+            engineSerial: r.engine_serial_number || '',
+            notes:        r.unit_notes || '',
+        }));
+    }
     // Persist mode on first selection so future openings skip the choice screen
     if (!order.tv_job_mode) {
         dbTv.saveTvJobMode(order.id, 'unit').then(res => {
@@ -262,40 +279,42 @@ export async function tvUnitStageDirectAction(stageName, action) {
     await submitTvUnitStageFromUi(stageName);
 }
 
-// saveTvUnitDetails — saves the inline unit detail fields to work_orders (fire on blur).
-export async function saveTvUnitDetails() {
-    const order = store.activeOrder.value;
-    if (!order) return;
-    store.loading.value = true;
-    try {
-        const f = store.tvUnitInfoForm.value;
-        const result = await dbTv.saveTvUnitInfo(order.id, f.unitSerial, f.engineModel, f.engineSerial);
-        if (result.error) throw result.error;
-        const updated = result.data[0];
-        store.activeOrder.value = updated;
-        store.orders.value = store.orders.value.map(o => o.id === updated.id ? updated : o);
-        store.showToast('Details saved.', 'success');
-    } catch (err) {
-        store.showToast('Failed to save details: ' + err.message);
-        logError('saveTvUnitDetails', err, { id: store.activeOrder.value?.id });
-    } finally {
-        store.loading.value = false;
-    }
+// addTvUnit / removeTvUnit — expand or shrink the inline unit list.
+export function addTvUnit() {
+    store.tvUnitDetailList.value = [
+        ...store.tvUnitDetailList.value,
+        { salesOrder: '', unitSerial: '', engineModel: '', engineSerial: '', notes: '' }
+    ];
+}
+export function removeTvUnit(idx) {
+    if (store.tvUnitDetailList.value.length <= 1) return;
+    store.tvUnitDetailList.value = store.tvUnitDetailList.value.filter((_, i) => i !== idx);
 }
 
-// markTvUnitWoComplete — validates unit detail fields then marks the WO complete.
+// saveTvUnitDetails — fire-and-forget: upserts each unit as a draft row on blur.
+export function saveTvUnitDetails() {
+    const order    = store.activeOrder.value;
+    if (!order) return;
+    const operator = store.tvAssyEntryName.value.trim();
+    store.tvUnitDetailList.value.forEach((u, idx) => {
+        upsertUnitDraft(order.id, order.wo_number, 'Trac Vac Assy', idx + 1, { ...u, operator }, order.job_number || null)
+            .catch(err => logError('saveTvUnitDetails/upsert', err, { id: order.id, unit: idx + 1 }));
+    });
+}
+
+// markTvUnitWoComplete — validates all units then marks the WO complete.
 export async function markTvUnitWoComplete() {
     const operator = store.tvAssyEntryName.value.trim();
     if (!operator) { store.showToast('Enter your name before completing the WO.', 'error'); return; }
-    const form   = store.tvUnitInfoForm.value;
-    const errors = store.tvUnitInfoErrors.value;
-    errors.unitSerial   = !form.unitSerial.trim();
-    errors.engineModel  = !form.engineModel.trim();
-    errors.engineSerial = !form.engineSerial.trim();
-    if (errors.unitSerial || errors.engineModel || errors.engineSerial) {
-        store.showToast('Unit Serial #, Engine Model, and Engine Serial # are required.', 'error');
+    const incomplete = store.tvUnitDetailList.value.some(u =>
+        !u.unitSerial.trim() || !u.engineModel.trim() || !u.engineSerial.trim()
+    );
+    if (incomplete) {
+        store.tvUnitListError.value = true;
+        store.showToast('Unit Serial #, Engine, and Engine Serial # are required for all units.', 'error');
         return;
     }
+    store.tvUnitListError.value = false;
     const order = store.activeOrder.value;
     const previousSnapshot = deepClone(order);
     store.loading.value = true;
@@ -311,12 +330,15 @@ export async function markTvUnitWoComplete() {
             description: `TV Unit WO complete — ${order.wo_number}`,
             dept: store.selectedDept.value
         };
-        recordUnitCompletion(updated.id, updated.wo_number, 'Trac Vac Assy', 1, {
-            unitSerial:   form.unitSerial,
-            engineModel:  form.engineModel,
-            engineSerial: form.engineSerial,
-            operator,
-        }, updated.job_number || null);
+        store.tvUnitDetailList.value.forEach((u, idx) => {
+            recordUnitCompletion(updated.id, updated.wo_number, 'Trac Vac Assy', idx + 1, {
+                unitSerial:   u.unitSerial,
+                engineModel:  u.engineModel,
+                engineSerial: u.engineSerial,
+                notes:        u.notes,
+                operator,
+            }, updated.job_number || null);
+        });
         await db.autoReceiveAssyWo(updated, operator);
     } catch (err) {
         store.showToast('Failed: ' + err.message);
