@@ -20,18 +20,87 @@
                 <!-- ── PO Receive sub-view ────────────────────── -->
                 <div v-if="inventoryMode === 'po_receive'" class="flex-1 flex flex-col overflow-hidden">
 
-                    <!-- Type sub-tabs -->
-                    <div class="bg-slate-800 border-b border-slate-700 px-4 py-2 flex gap-2 shrink-0">
+                    <!-- Type sub-tabs + toggle -->
+                    <div class="bg-slate-800 border-b border-slate-700 px-4 py-2 flex gap-2 items-center shrink-0">
                         <button v-for="tab in [['part','Part'],['supply','Supply'],['steel','Steel']]" :key="tab[0]"
                             @click="poReceiveTab = tab[0]"
                             class="px-4 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
                             :class="poReceiveTab === tab[0] ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400 hover:text-white'">
                             {{ tab[1] }}
-                            <span v-if="poReceiveCounts[tab[0]] > 0"
+                            <span v-if="!poReceiveShowReceived && poReceiveCounts[tab[0]] > 0"
                                 class="bg-white/20 text-white text-xs font-bold rounded-full px-1.5 leading-5">
                                 {{ poReceiveCounts[tab[0]] }}
                             </span>
+                            <span v-if="poReceiveShowReceived && poReceivedCounts[tab[0]] > 0"
+                                class="bg-white/20 text-white text-xs font-bold rounded-full px-1.5 leading-5">
+                                {{ poReceivedCounts[tab[0]] }}
+                            </span>
                         </button>
+                        <!-- Toggle: PO's Already Received -->
+                        <button @click="poReceiveShowReceived = !poReceiveShowReceived; poReceiveShowReceived && loadPoReceivedOrders()"
+                            class="ml-auto px-4 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                            :class="poReceiveShowReceived ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-400 hover:text-white'">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            PO's Already Received
+                            <span v-if="poReceiveShowReceived && filteredPoReceivedOrders.length > 0"
+                                class="bg-white/20 text-white text-xs font-bold rounded-full px-1.5 leading-5">
+                                {{ filteredPoReceivedOrders.length }}
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- ── Already Received sub-view ──────────────── -->
+                    <template v-if="poReceiveShowReceived">
+                        <div v-if="poReceivedLoading" class="flex-1 flex items-center justify-center text-slate-400 text-lg">
+                            Loading…
+                        </div>
+                        <div v-else-if="filteredPoReceivedOrders.length === 0"
+                            class="flex-1 flex flex-col items-center justify-center text-slate-600">
+                            <svg class="w-16 h-16 mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <p class="text-xl font-bold text-slate-500">No received orders</p>
+                            <p class="text-sm mt-1 text-slate-700">Nothing received yet for this type.</p>
+                        </div>
+                        <div v-else class="flex-1 overflow-y-auto p-6">
+                            <div class="max-w-3xl mx-auto space-y-3">
+                                <p class="text-slate-500 text-sm mb-4">{{ filteredPoReceivedOrders.length }} received — click "Move Back" to undo</p>
+                                <div v-for="o in filteredPoReceivedOrders" :key="o.id"
+                                    class="bg-slate-800 border border-slate-700 rounded-xl p-5">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="min-w-0">
+                                            <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                                <span class="font-bold text-lg text-white">
+                                                    {{ o.part_number || o.supply_item_name || o.material_type || '—' }}
+                                                </span>
+                                                <span v-if="o.po_number" class="text-xs text-slate-400 font-mono">PO# {{ o.po_number }}</span>
+                                            </div>
+                                            <p v-if="o.supplier_name" class="text-slate-400 text-sm">{{ o.supplier_name }}</p>
+                                            <p class="text-slate-500 text-xs mt-1">
+                                                Received {{ o.qty_received ?? '—' }} by {{ o.received_by || '—' }}
+                                                <span v-if="o.received_at"> · {{ o.received_at.slice(0,10) }}</span>
+                                            </p>
+                                        </div>
+                                        <button @click="unreceivePoOrder(o)"
+                                            class="shrink-0 px-4 py-2 bg-amber-700 hover:bg-amber-600 text-white text-sm font-bold rounded-lg transition-colors active:scale-95">
+                                            Move Back to Pending
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- ── Pending sub-view ───────────────────────── -->
+                    <template v-else>
+
+                    <!-- Search bar -->
+                    <div class="bg-slate-850 border-b border-slate-700 px-4 py-2 shrink-0">
+                        <input v-model="poReceiveSearch" type="text"
+                            placeholder="Search part #, item, description, supplier, PO#…"
+                            class="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
                     </div>
 
                     <!-- Loading -->
@@ -46,7 +115,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                         <p class="text-xl font-bold text-slate-500">Nothing pending receiving</p>
-                        <p class="text-sm mt-1 text-slate-700">All {{ poReceiveTab }} orders have been received.</p>
+                        <p class="text-sm mt-1 text-slate-700">{{ poReceiveSearch ? 'No results for your search.' : 'All ' + poReceiveTab + ' orders have been received.' }}</p>
                     </div>
 
                     <!-- Order list -->
@@ -57,26 +126,33 @@
                                 @click="openPoReceiveItem(o)"
                                 class="bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-amber-500/50 rounded-xl p-5 cursor-pointer transition-all active:scale-[0.99]">
                                 <div class="flex items-center justify-between gap-4">
-                                    <div class="min-w-0">
+                                    <div class="min-w-0 flex-1">
                                         <div class="flex items-center gap-2 mb-1 flex-wrap">
                                             <span class="font-bold text-lg text-white">
                                                 {{ o.part_number || o.supply_item_name || o.material_type || '—' }}
-                                            </span>
-                                            <span v-if="o.status === 'partially_received'"
-                                                class="text-xs px-2 py-0.5 rounded font-bold bg-amber-700/50 text-amber-300">
-                                                Partial
                                             </span>
                                             <span v-if="o.po_number" class="text-xs text-slate-400 font-mono">PO# {{ o.po_number }}</span>
                                         </div>
                                         <p v-if="o.supplier_name" class="text-slate-400 text-sm">{{ o.supplier_name }}</p>
                                         <p v-if="o.description" class="text-slate-500 text-sm">{{ o.description }}</p>
-                                        <p class="text-slate-600 text-xs mt-1">Requested by {{ o.requested_by || '—' }}</p>
+                                        <!-- Info row -->
+                                        <div class="flex items-center gap-4 mt-2 flex-wrap">
+                                            <span class="text-xs text-slate-400">Qty Requested: <span class="font-semibold text-slate-200">{{ o.qty_needed ?? '—' }}</span></span>
+                                            <span class="text-xs text-slate-400">Qty Ordered: <span class="font-semibold text-amber-300">{{ o.qty_ordered ?? '—' }}</span></span>
+                                            <span class="text-xs px-2 py-0.5 rounded font-bold capitalize"
+                                                :class="o.status === 'ordered'            ? 'bg-violet-700/50 text-violet-300'  :
+                                                        o.status === 'partially_received' ? 'bg-amber-700/50 text-amber-300'   :
+                                                        o.status === 'approved'           ? 'bg-green-700/50 text-green-300'   :
+                                                        o.status === 'quoted'             ? 'bg-yellow-700/50 text-yellow-300' :
+                                                        o.status === 'quoting'            ? 'bg-purple-700/50 text-purple-300' :
+                                                                                            'bg-slate-700 text-slate-300'">
+                                                {{ o.status.replace(/_/g, ' ') }}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div class="text-right shrink-0">
-                                        <div class="text-2xl font-extrabold text-amber-400">{{ o.qty_ordered ?? o.qty_needed ?? '—' }}</div>
-                                        <div class="text-slate-500 text-xs">ordered</div>
-                                        <div v-if="(o.qty_received || 0) > 0" class="text-emerald-400 text-sm font-bold mt-1">{{ o.qty_received }} received</div>
-                                        <div class="mt-2 bg-amber-600 text-white text-xs px-3 py-1 rounded font-bold">RECEIVE &#8594;</div>
+                                        <div v-if="(o.qty_received || 0) > 0" class="text-emerald-400 text-sm font-bold mb-1">{{ o.qty_received }} received</div>
+                                        <div class="bg-amber-600 text-white text-xs px-3 py-1 rounded font-bold">RECEIVE &#8594;</div>
                                     </div>
                                 </div>
                             </div>
@@ -142,6 +218,8 @@
                             </div>
                         </div>
                     </div>
+
+                    </template><!-- end pending sub-view -->
                 </div>
 
                 <!-- Parts table + modals (parts mode only) -->

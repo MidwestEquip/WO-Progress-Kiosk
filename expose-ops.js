@@ -38,7 +38,8 @@ import { loadInventoryItems, switchInventoryTab,
          openEditItemForm, closeEditItemForm, submitEditItem,
          confirmDeleteInventoryItem,
          openPullHistory, closePullHistory,
-         loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive } from './pages/inventory-view.js';
+         loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive,
+         loadPoReceivedOrders, unreceivePoOrder } from './pages/inventory-view.js';
 import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          openWoRequestDetail, closeWoRequestDetail,
          saveWoRequestDetail, approveWoRequest,
@@ -59,7 +60,9 @@ import { loadPurchasingOrders, switchPurchasingTab,
          loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow } from './pages/purchasing-view.js';
 import { completeOrder, submitReceiving } from './pages/purchasing-receive.js';
 import { enterApprovalTab, approveOrder, cancelRevise, submitRevise } from './pages/purchasing-approval.js';
+import { uploadOrderAttachment, deleteOrderAttachment, loadOrderAttachments } from './pages/purchasing-attachments.js';
 import { openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
+         stageQuoteFile, unstageQuoteFile,
          loadAllQuotes, openQuoteOrder, cancelQuoteOrder, submitQuoteOrder } from './pages/purchasing-quotes-view.js';
 import { enterPurchasingView, enterPoRequestView, enterApprovalQueueView } from './pages/splash-view.js';
 
@@ -223,6 +226,13 @@ export function buildOpsExpose() {
         poReceiveForm:             store.poReceiveForm,
         filteredPoReceiveOrders:   store.filteredPoReceiveOrders,
         poReceiveCounts:           store.poReceiveCounts,
+        poReceiveSearch:           store.poReceiveSearch,
+        // PO Already Received
+        poReceivedOrders:          store.poReceivedOrders,
+        poReceivedLoading:         store.poReceivedLoading,
+        poReceiveShowReceived:     store.poReceiveShowReceived,
+        filteredPoReceivedOrders:  store.filteredPoReceivedOrders,
+        poReceivedCounts:          store.poReceivedCounts,
         inventoryTabs: INVENTORY_TABS,
         enterInventoryView, enterPoReceiveView, switchInventoryTab,
         openPullForm, closePullForm, submitPull,
@@ -231,6 +241,7 @@ export function buildOpsExpose() {
         confirmDeleteInventoryItem,
         openPullHistory, closePullHistory,
         loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive,
+        loadPoReceivedOrders, unreceivePoOrder,
 
         // Completed Orders
         completedOrders:        store.completedOrders,
@@ -268,11 +279,15 @@ export function buildOpsExpose() {
         purchasingPartPurchaseHistoryError:   store.purchasingPartPurchaseHistoryError,
         purchasingDetailQuotes:         store.purchasingDetailQuotes,
         purchasingDetailQuotesLoading:  store.purchasingDetailQuotesLoading,
+        orderAttachments:          store.orderAttachments,
+        orderAttachmentsLoading:   store.orderAttachmentsLoading,
+        orderAttachmentsUploading: store.orderAttachmentsUploading,
         quoteBuilderOpen:            store.quoteBuilderOpen,
         quoteBuilderSaving:          store.quoteBuilderSaving,
         quoteBuilderSelectedOrders:  store.quoteBuilderSelectedOrders,
         quoteBuilderItems:           store.quoteBuilderItems,
         quoteBuilderForm:            store.quoteBuilderForm,
+        quoteBuilderPendingFiles:    store.quoteBuilderPendingFiles,
         allQuotes:                   store.allQuotes,
         allQuotesLoading:            store.allQuotesLoading,
         quoteOrderingId:             store.quoteOrderingId,
@@ -293,8 +308,10 @@ export function buildOpsExpose() {
         openNewRequestForm, closeNewRequestForm, submitPurchasingRequest,
         openOrderDetail, closeOrderDetail, saveOrderDetail, completeOrder, submitReceiving, loadPartUsageForOrder,
         loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow,
+        uploadOrderAttachment, deleteOrderAttachment, loadOrderAttachments,
         enterApprovalTab, approveOrder, cancelRevise, submitRevise,
         openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
+        stageQuoteFile, unstageQuoteFile,
         loadAllQuotes, openQuoteOrder, cancelQuoteOrder, submitQuoteOrder,
 
         // Open Orders

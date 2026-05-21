@@ -14,7 +14,19 @@ export function openQuoteBuilder() {
     store.quoteBuilderSelectedOrders.value = [];
     store.quoteBuilderItems.value          = {};
     store.quoteBuilderForm.value           = { supplier_name: '', quote_ref: '', terms: '', shipping_price: '' };
+    store.quoteBuilderPendingFiles.value   = [];
     store.quoteBuilderOpen.value           = true;
+}
+
+// stageQuoteFile — add a file to the pending upload list for the quote builder.
+export function stageQuoteFile(file) {
+    if (!file) return;
+    store.quoteBuilderPendingFiles.value = [...store.quoteBuilderPendingFiles.value, file];
+}
+
+// unstageQuoteFile — remove a staged file by index.
+export function unstageQuoteFile(index) {
+    store.quoteBuilderPendingFiles.value = store.quoteBuilderPendingFiles.value.filter((_, i) => i !== index);
 }
 
 // closeQuoteBuilder — dismiss the modal without saving.
@@ -89,6 +101,13 @@ export async function submitQuote() {
         store.purchasingOrders.value = store.purchasingOrders.value.map(o =>
             idSet.has(o.id) ? { ...o, status: 'quoted' } : o
         );
+
+        // Upload any staged attachments to quotes/{quoteId}/{filename}
+        const pendingFiles = store.quoteBuilderPendingFiles.value;
+        for (const file of pendingFiles) {
+            const { error: upErr } = await db.uploadMasterQuoteAttachment(quote.id, file);
+            if (upErr) store.showToast(`Attachment "${file.name}" failed: ${upErr.message}`, 'error');
+        }
 
         store.quoteBuilderOpen.value = false;
         store.showToast(`Quote saved — ${selected.length} item(s) marked Quoted.`, 'success');

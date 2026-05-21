@@ -18,14 +18,26 @@ export async function fetchPurchasingOrders() {
     return { data: data || [], error };
 }
 
-// fetchPoReceiveOrders — orders placed and awaiting physical receipt.
+// fetchPoReceiveOrders — all open orders pending physical receipt (excludes received/canceled).
 // Returns { data, error }
 export async function fetchPoReceiveOrders() {
     const { data, error } = await supabase
         .from('purchasing_orders')
         .select('*')
-        .in('status', ['ordered', 'partially_received'])
+        .not('status', 'in', '(received,canceled)')
         .order('last_status_update', { ascending: false });
+    return { data: data || [], error };
+}
+
+// fetchReceivedPoOrders — orders with status='received', newest first, cap 100.
+// Returns { data, error }
+export async function fetchReceivedPoOrders() {
+    const { data, error } = await supabase
+        .from('purchasing_orders')
+        .select('*')
+        .eq('status', 'received')
+        .order('received_at', { ascending: false })
+        .limit(100);
     return { data: data || [], error };
 }
 
@@ -170,4 +182,55 @@ export async function deletePurchasingQuote(id) {
         .delete()
         .eq('id', id);
     return { error };
+}
+
+// ── Order attachments (purchasing-attachments bucket) ─────────
+// Path pattern: {order_id}/{filename}
+
+// fetchOrderAttachments — list all files for an order with 1-hour signed URLs.
+// Returns { data: [{ name, path, signedUrl }], error }
+export async function fetchOrderAttachments(orderId) {
+    const { data: files, error } = await supabase.storage
+        .from('purchasing-attachments').list(orderId);
+    if (error) return { data: [], error };
+    const filtered = (files || []).filter(f => f.name !== '.emptyFolderPlaceholder');
+    if (filtered.length === 0) return { data: [], error: null };
+    const paths = filtered.map(f => `${orderId}/${f.name}`);
+    const { data: signed } = await supabase.storage
+        .from('purchasing-attachments').createSignedUrls(paths, 3600);
+    return {
+        data: filtered.map((f, i) => ({
+            name:      f.name,
+            path:      paths[i],
+            signedUrl: signed?.[i]?.signedUrl || null,
+        })),
+        error: null,
+    };
+}
+
+// uploadOrderAttachment — upload a file for an order. Returns { data, error }
+export async function uploadOrderAttachment(orderId, file) {
+    const path = `${orderId}/${file.name}`;
+    const { data, error } = await supabase.storage
+        .from('purchasing-attachments')
+        .upload(path, file, { upsert: true });
+    return { data, error };
+}
+
+// deleteOrderAttachment — remove a file by its full storage path. Returns { error }
+export async function deleteOrderAttachment(storagePath) {
+    const { error } = await supabase.storage
+        .from('purchasing-attachments')
+        .remove([storagePath]);
+    return { error };
+}
+
+// uploadMasterQuoteAttachment — upload a file for a master quote at path quotes/{quoteId}/{filename}.
+// Returns { data, error }
+export async function uploadMasterQuoteAttachment(quoteId, file) {
+    const path = `quotes/${quoteId}/${file.name}`;
+    const { data, error } = await supabase.storage
+        .from('purchasing-attachments')
+        .upload(path, file, { upsert: true });
+    return { data, error };
 }

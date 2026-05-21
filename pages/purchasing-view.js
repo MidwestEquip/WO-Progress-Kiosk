@@ -219,6 +219,9 @@ export async function loadOrderEvents() {
 // section controls which tab is shown first ('ordering'|'receiving'|'request').
 export function openOrderDetail(order, section = 'ordering') {
     store.purchasingDetailEvents.value                = [];
+    store.orderAttachments.value          = [];
+    store.orderAttachmentsLoading.value   = false;
+    store.orderAttachmentsUploading.value = false;
     store.purchasingPartUsage.value                   = null;
     store.purchasingPartParentUsage.value             = null;
     store.purchasingPartUsageLoading.value            = false;

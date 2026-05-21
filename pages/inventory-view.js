@@ -212,7 +212,7 @@ export function closePullHistory() {
 
 // ── PO Receive ────────────────────────────────────────────────
 
-// loadPoReceiveOrders — fetch all ordered/partially_received purchasing orders into store.
+// loadPoReceiveOrders — fetch all pending (non-received) purchasing orders into store.
 export async function loadPoReceiveOrders() {
     store.poReceiveLoading.value = true;
     try {
@@ -224,6 +224,52 @@ export async function loadPoReceiveOrders() {
         logError('loadPoReceiveOrders', err);
     } finally {
         store.poReceiveLoading.value = false;
+    }
+}
+
+// loadPoReceivedOrders — fetch received orders into the already-received panel.
+export async function loadPoReceivedOrders() {
+    store.poReceivedLoading.value = true;
+    try {
+        const { data, error } = await db.fetchReceivedPoOrders();
+        if (error) throw error;
+        store.poReceivedOrders.value = data || [];
+    } catch (err) {
+        store.showToast('Failed to load received orders: ' + err.message);
+        logError('loadPoReceivedOrders', err);
+    } finally {
+        store.poReceivedLoading.value = false;
+    }
+}
+
+// unreceivePoOrder — move a received order back to pending (status = ordered).
+export async function unreceivePoOrder(order) {
+    const now = new Date().toISOString();
+    const updates = {
+        status:             'ordered',
+        qty_received:       null,
+        received_by:        null,
+        received_at:        null,
+        completed_at:       null,
+        last_status_update: now,
+    };
+    try {
+        const { data, error } = await db.updatePurchasingOrder(order.id, updates);
+        if (error) throw error;
+        store.poReceivedOrders.value = store.poReceivedOrders.value.filter(o => o.id !== order.id);
+        store.poReceiveOrders.value  = [data, ...store.poReceiveOrders.value];
+        store.showToast('Order moved back to pending.', 'success');
+        db.insertPurchasingEvent({
+            orderId:   order.id,
+            eventType: 'status_change',
+            note:      'Receipt undone — moved back to ordered',
+            oldStatus: 'received',
+            newStatus: 'ordered',
+            createdBy: 'receiving',
+        });
+    } catch (err) {
+        store.showToast('Failed to undo receive: ' + err.message);
+        logError('unreceivePoOrder', err);
     }
 }
 
@@ -273,7 +319,8 @@ export async function submitPoReceive() {
         if (error) throw error;
 
         if (newStatus === 'received') {
-            store.poReceiveOrders.value = store.poReceiveOrders.value.filter(o => o.id !== order.id);
+            store.poReceiveOrders.value   = store.poReceiveOrders.value.filter(o => o.id !== order.id);
+            store.poReceivedOrders.value  = [data, ...store.poReceivedOrders.value];
         } else {
             store.poReceiveOrders.value = store.poReceiveOrders.value.map(o => o.id === data.id ? data : o);
         }

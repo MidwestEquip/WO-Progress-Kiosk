@@ -101,12 +101,18 @@ export const purchasingDetailEventsLoading = ref(false);
 export const purchasingDetailQuotes        = ref([]);
 export const purchasingDetailQuotesLoading = ref(false);
 
+// ── Order attachments (Quoting tab) ──────────────────────────
+export const orderAttachments          = ref([]);  // [{ name, path, signedUrl }]
+export const orderAttachmentsLoading   = ref(false);
+export const orderAttachmentsUploading = ref(false);
+
 // ── Quote builder ─────────────────────────────────────────────
 export const quoteBuilderOpen            = ref(false);
 export const quoteBuilderSaving          = ref(false);
 export const quoteBuilderSelectedOrders  = ref([]);  // array of order objects
 export const quoteBuilderItems           = ref({});  // { [orderId]: { qty, price, lead_time } }
 export const quoteBuilderForm            = ref({ supplier_name: '', quote_ref: '', terms: '', shipping_price: '' });
+export const quoteBuilderPendingFiles    = ref([]);  // [File] staged before save
 
 // ── All Quotes tab ────────────────────────────────────────────
 export const allQuotes         = ref([]);
@@ -181,14 +187,44 @@ export const poReceiveItem    = ref(null);
 export const poReceiveSaving  = ref(false);
 export const poReceiveForm    = ref({ qty_received: '', received_by: '' });
 
-// filteredPoReceiveOrders — all open orders for the active PO Receive sub-tab.
-export const filteredPoReceiveOrders = computed(() =>
-    poReceiveOrders.value.filter(o => o.request_type === poReceiveTab.value)
-);
+export const poReceiveSearch = ref('');
+
+// filteredPoReceiveOrders — pending orders for the active sub-tab, filtered by search.
+export const filteredPoReceiveOrders = computed(() => {
+    const q = poReceiveSearch.value.trim().toLowerCase();
+    return poReceiveOrders.value
+        .filter(o => o.request_type === poReceiveTab.value)
+        .filter(o => !q ||
+            (o.part_number       || '').toLowerCase().includes(q) ||
+            (o.supply_item_name  || '').toLowerCase().includes(q) ||
+            (o.material_type     || '').toLowerCase().includes(q) ||
+            (o.description       || '').toLowerCase().includes(q) ||
+            (o.supplier_name     || '').toLowerCase().includes(q) ||
+            (o.po_number         || '').toLowerCase().includes(q)
+        );
+});
 
 // poReceiveCounts — badge counts per type for PO Receive sub-tabs.
 export const poReceiveCounts = computed(() => ({
     part:   poReceiveOrders.value.filter(o => o.request_type === 'part').length,
     supply: poReceiveOrders.value.filter(o => o.request_type === 'supply').length,
     steel:  poReceiveOrders.value.filter(o => o.request_type === 'steel').length,
+}));
+
+// ── PO Already Received ───────────────────────────────────────
+
+export const poReceivedOrders       = ref([]);
+export const poReceivedLoading      = ref(false);
+export const poReceiveShowReceived  = ref(false); // toggles pending vs. received sub-view
+
+// filteredPoReceivedOrders — received orders for the active sub-tab.
+export const filteredPoReceivedOrders = computed(() =>
+    poReceivedOrders.value.filter(o => o.request_type === poReceiveTab.value)
+);
+
+// poReceivedCounts — badge counts per type for the received panel.
+export const poReceivedCounts = computed(() => ({
+    part:   poReceivedOrders.value.filter(o => o.request_type === 'part').length,
+    supply: poReceivedOrders.value.filter(o => o.request_type === 'supply').length,
+    steel:  poReceivedOrders.value.filter(o => o.request_type === 'steel').length,
 }));

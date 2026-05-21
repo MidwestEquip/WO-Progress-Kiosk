@@ -330,14 +330,15 @@
         <div v-else class="flex flex-col gap-2">
             <div v-for="order in filteredPurchasingOrders" :key="order.id"
                 @click="openOrderDetail(order)"
-                class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4 hover:border-amber-300 hover:shadow-md cursor-pointer transition-all">
+                class="rounded-xl border shadow-sm px-5 py-4 flex items-center gap-4 hover:border-amber-300 hover:shadow-md cursor-pointer transition-all"
+                :class="order.status === 'approved' ? 'bg-green-100/60 border-green-300' : 'bg-white border-gray-200'">
 
                 <!-- Status badge (LEFT, prominent) -->
                 <span class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-extrabold capitalize whitespace-nowrap"
                     :class="order.status === 'requested'          ? 'bg-gray-100 text-gray-700'     :
                             order.status === 'quoting'            ? 'bg-purple-100 text-purple-800' :
                             order.status === 'quoted'             ? 'bg-amber-100 text-amber-800'   :
-                            order.status === 'approved'           ? 'bg-blue-100 text-blue-800'     :
+                            order.status === 'approved'           ? 'bg-green-700 text-white'        :
                             order.status === 'ordered'            ? 'bg-violet-100 text-violet-800' :
                             order.status === 'not_approved'       ? 'bg-red-100 text-red-800'       :
                             order.status === 'partially_received' ? 'bg-orange-100 text-orange-800' :

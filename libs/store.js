@@ -16,7 +16,7 @@ import { REEL_PART_NUMBERS } from './config.js';
 import { detectTcMode, detectReelWeld, computePrintRoutingChain } from './utils.js';
 
 // Bring inventoryTab into scope for appTitle computed (one-way, no circular dep)
-import { inventoryTab } from './store-inventory.js';
+import { inventoryTab, inventoryMode } from './store-inventory.js';
 
 // Re-export all sub-store state so callers need only one import
 export * from './store-manager.js';
@@ -232,6 +232,7 @@ export const appTitle = computed(() => {
     if (currentView.value === 'wo_request') return 'Request WO';
     if (currentView.value === 'create_wo')  return 'Create Work Orders';
     if (currentView.value === 'inventory') {
+        if (inventoryMode.value === 'po_receive') return 'PO Receiving';
         const labels = { chute: 'Chutes', hitch: 'Hitches', engine: 'Engines', hardware: 'Hardware', hoses: 'Hoses' };
         return `Inventory — ${labels[inventoryTab.value] || ''}`;
     }

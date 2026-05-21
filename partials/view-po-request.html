@@ -279,7 +279,8 @@
                     {{ purchasingOrders.length }} open request{{ purchasingOrders.length !== 1 ? 's' : '' }}
                 </p>
                 <div v-for="order in purchasingOrders" :key="order.id"
-                    class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 flex items-center gap-4">
+                    class="rounded-xl border shadow-sm px-5 py-4 flex items-center gap-4"
+                    :class="order.status === 'approved' ? 'bg-green-100/60 border-green-300' : 'bg-white border-gray-200'">
 
                     <!-- Type badge -->
                     <span class="shrink-0 w-16 text-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide"
@@ -326,7 +327,7 @@
                     <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
                         :class="order.status === 'requested'          ? 'bg-gray-100 text-gray-600'     :
                                 order.status === 'needs_review'       ? 'bg-amber-100 text-amber-700'   :
-                                order.status === 'approved'           ? 'bg-blue-100 text-blue-700'     :
+                                order.status === 'approved'           ? 'bg-green-700 text-white'        :
                                 order.status === 'researching'        ? 'bg-indigo-100 text-indigo-700' :
                                 order.status === 'ordered'            ? 'bg-violet-100 text-violet-700' :
                                 order.status === 'partially_received' ? 'bg-orange-100 text-orange-700' :
