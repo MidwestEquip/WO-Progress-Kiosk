@@ -40,9 +40,11 @@ export const woRequestSearch          = ref('');
 export const selectedWoRequest        = ref(null);
 export const woRequestReadOnly        = ref(false);
 export const woRequestDefaultsApplied  = ref(false); // true when defaults were auto-filled on modal open
-export const woRequestHistoryLoading       = ref(false); // true while fetching usage summary
-export const woRequestParentUsageLoading   = ref(false); // true while calculating BOM parent demand
-export const woRequestLastMade             = ref([]);    // last 2 MO-I rows [{ txn_date, qty }]
+export const woRequestHistoryLoading       = ref(false); // true while fetching 1yr usage summary
+export const woRequestParentUsageLoading   = ref(false); // true while calculating 1yr BOM parent demand
+export const woRequestHistoryLoading36mo   = ref(false); // true while fetching 3yr usage summary
+export const woRequestParentUsageLoading36mo = ref(false); // true while calculating 3yr BOM parent demand
+export const woRequestLastMade             = ref([]);    // last 3 MO-I rows [{ txn_date, qty }]
 export const woRequestSubparts             = ref([]);    // BOM children [{ item_child, item_child_normalized, qty_per_assy }]
 export const woRequestSubpartsLoading      = ref(false);
 export const woRequestSubpartsExpanded     = ref(false);
@@ -74,7 +76,9 @@ export const woRequestDetailForm = ref({
     fab: '', fab_print: '', weld: '', weld_print: '',
     assy_wo: '', color: '', bent_rolled_part: '', set_up_time: '',
     alere_bin: '', estimated_lead_time: '', sent_to_production: false, date_to_start: '',
-    production_notes: '', staging_area: ''
+    production_notes: '', staging_area: '',
+    // 3yr read-only reference data (not saved in approval snapshot)
+    qty_sold_36mo: '', qty_sold_parent_usage_36mo: '', qty_used_in_mfg_36mo: '', qty_made_36mo: '',
 });
 export const filteredWoRequests = computed(() => {
     const q = woRequestSearch.value.trim().toLowerCase();
@@ -123,6 +127,30 @@ export const woRequestStockWarning = computed(() => {
     const sold = parseFloat(form.qty_sold_used_12mo)  || 0;
     if (made === 0 || (used === 0 && sold === 0)) return false;
     return made >= (used + sold) * 1.25;
+});
+
+// woRequestEstQtyInStock36mo — same formula as 1yr but using 3yr fields.
+export const woRequestEstQtyInStock36mo = computed(() => {
+    const form   = woRequestDetailForm.value;
+    const sold   = parseFloat(form.qty_sold_36mo)               || 0;
+    const parent = parseFloat(form.qty_sold_parent_usage_36mo)  || 0;
+    const mfg    = parseFloat(form.qty_used_in_mfg_36mo)        || 0;
+    const made   = parseFloat(form.qty_made_36mo)               || 0;
+    if (sold === 0 && parent === 0 && mfg === 0 && made === 0) return null;
+    return mfg - (sold + parent) + (made - mfg);
+});
+
+// woRequestSuggestedQty36mo — 3yr demand minus est. stock, + 5%.
+export const woRequestSuggestedQty36mo = computed(() => {
+    const form   = woRequestDetailForm.value;
+    const sold   = parseFloat(form.qty_sold_36mo)               || 0;
+    const parent = parseFloat(form.qty_sold_parent_usage_36mo)  || 0;
+    const est    = woRequestEstQtyInStock36mo.value;
+    const total  = sold + parent;
+    if (total === 0 || est === null) return null;
+    const needed = total - est;
+    if (needed <= 0) return null;
+    return Math.ceil(needed * 1.05);
 });
 
 // ── WO Forecasting ────────────────────────────────────────────

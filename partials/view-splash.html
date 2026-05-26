@@ -50,7 +50,7 @@
                 class="h-full w-full flex flex-col items-center justify-center p-8 bg-slate-900 absolute inset-0">
 
                 <!-- ── Level 0: Root ───────────────────────────── -->
-                <div v-if="splashLevel === 0" class="w-full max-w-6xl px-4 flex flex-col items-center gap-8">
+                <div v-if="splashLevel === 0" class="w-full max-w-7xl px-6 flex flex-col items-center gap-6">
                     <div class="text-center">
                         <h2 class="text-5xl font-extrabold text-white mb-3">Midwest Mfg.</h2>
                         <p class="text-xl text-slate-400">Select a category to begin</p>
@@ -60,7 +60,7 @@
                     <div class="grid grid-cols-3 gap-8 w-full">
                         <!-- Production -->
                         <button @click="selectCategory('production')"
-                            class="bg-white hover:bg-blue-50 text-gray-800 rounded-2xl shadow-md py-14 px-6 flex flex-col items-center gap-4 border-2 border-blue-400 active:scale-95 transition-transform">
+                            class="bg-white hover:bg-blue-50 text-gray-800 rounded-2xl shadow-md py-10 px-6 flex flex-col items-center gap-3 border-2 border-blue-400 active:scale-95 transition-transform">
                             <svg class="w-14 h-14 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
                             </svg>
@@ -68,7 +68,7 @@
                         </button>
                         <!-- Inventory -->
                         <button @click="selectCategory('inventory')"
-                            class="bg-white hover:bg-green-50 text-gray-800 rounded-2xl shadow-md py-14 px-6 flex flex-col items-center gap-4 border-2 border-green-400 active:scale-95 transition-transform">
+                            class="bg-white hover:bg-green-50 text-gray-800 rounded-2xl shadow-md py-10 px-6 flex flex-col items-center gap-3 border-2 border-green-400 active:scale-95 transition-transform">
                             <svg class="w-14 h-14 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
                             </svg>
@@ -76,7 +76,7 @@
                         </button>
                         <!-- Customer Service -->
                         <button @click="selectDept('CS')"
-                            class="bg-white hover:bg-teal-50 text-gray-800 rounded-2xl shadow-md py-14 px-6 flex flex-col items-center gap-4 border-2 border-teal-400 active:scale-95 transition-transform">
+                            class="bg-white hover:bg-teal-50 text-gray-800 rounded-2xl shadow-md py-10 px-6 flex flex-col items-center gap-3 border-2 border-teal-400 active:scale-95 transition-transform">
                             <svg class="w-14 h-14 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"/>
                             </svg>
@@ -84,11 +84,12 @@
                         </button>
                     </div>
 
-                    <!-- Secondary row: Management, Purchasing, Engineering -->
-                    <div class="grid grid-cols-3 gap-8 w-full">
+                    <!-- Secondary row: Management (manager only), Purchasing, Engineering, Messages -->
+                    <div class="grid gap-8 w-full"
+                        :class="sessionRole === 'manager' ? 'grid-cols-4' : 'grid-cols-3'">
                         <!-- Management — only visible to manager session -->
                         <button v-if="sessionRole === 'manager'" @click="enterManagerView"
-                            class="relative bg-white hover:bg-purple-50 text-gray-800 rounded-2xl shadow-md py-14 px-6 flex flex-col items-center gap-4 border-2 border-purple-400 active:scale-95 transition-transform">
+                            class="relative bg-white hover:bg-purple-50 text-gray-800 rounded-2xl shadow-md py-10 px-6 flex flex-col items-center gap-3 border-2 border-purple-400 active:scale-95 transition-transform">
                             <span v-if="managerTotalBadge > 0"
                                 class="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.5rem] h-6 flex items-center justify-center px-1">
                                 {{ managerTotalBadge }}
@@ -98,11 +99,9 @@
                             </svg>
                             <span class="text-4xl font-bold uppercase">Management</span>
                         </button>
-                        <!-- Placeholder when not manager so grid stays centered -->
-                        <div v-else></div>
                         <!-- Purchasing -->
                         <button @click="selectCategory('purchasing')"
-                            class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md py-14 px-6 flex flex-col items-center gap-4 border-2 border-amber-400 active:scale-95 transition-transform">
+                            class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md py-10 px-6 flex flex-col items-center gap-3 border-2 border-amber-400 active:scale-95 transition-transform">
                             <svg class="w-14 h-14 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
                             </svg>
@@ -110,11 +109,24 @@
                         </button>
                         <!-- Engineering -->
                         <button @click="enterEngineeringMenu()"
-                            class="bg-white hover:bg-rose-50 text-gray-800 rounded-2xl shadow-md py-14 px-6 flex flex-col items-center gap-4 border-2 border-rose-400 active:scale-95 transition-transform">
+                            class="bg-white hover:bg-rose-50 text-gray-800 rounded-2xl shadow-md py-10 px-6 flex flex-col items-center gap-3 border-2 border-rose-400 active:scale-95 transition-transform">
                             <svg class="w-14 h-14 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             </svg>
                             <span class="text-4xl font-bold uppercase">Engineering</span>
+                        </button>
+                        <!-- Messages -->
+                        <button @click="openMessagesView"
+                            class="relative bg-white hover:bg-sky-50 text-gray-800 rounded-2xl shadow-md py-10 px-6 flex flex-col items-center gap-3 border-2 border-sky-400 active:scale-95 transition-transform">
+                            <span v-if="dmUnreadCount > 0"
+                                class="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.5rem] h-6 flex items-center justify-center px-1">
+                                {{ dmUnreadCount }}
+                            </span>
+                            <svg class="w-14 h-14 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                            <span class="text-4xl font-bold uppercase">Messages</span>
                         </button>
                     </div>
 

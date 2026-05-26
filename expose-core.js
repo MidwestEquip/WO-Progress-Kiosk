@@ -8,9 +8,11 @@ import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS,
          ENG_STATUSES, ENG_PRIORITIES, ENG_ASSIGNEES,
          ENG_FOLLOWUP_STATUSES, ENG_FOLLOWUP_PRIORITIES, ENG_FOLLOWUP_FIT_STATUSES,
          ENG_FOLLOWUP_STATUS_LABELS, ENG_FOLLOWUP_STATUS_COLORS,
-         STAGING_AREAS } from './libs/config.js';
+         STAGING_AREAS, ROLE_DISPLAY_NAMES, LAST_REPORT_DATE } from './libs/config.js';
 import { formatDateLocal, formatTimestamp, getStageCum, detectTcMode,
-         sanitizePartKey, isChutePart, isPurchasingOrderLate } from './libs/utils.js';
+         sanitizePartKey, isChutePart, isPurchasingOrderLate, formatMsgTime } from './libs/utils.js';
+import { openMessagesView, openThread, backToInbox, sendMessage,
+         dmAvatarClass, dmContacts } from './pages/messages-view.js';
 import { selectDept, promptPin, submitPin, goBack,
          selectCategory, selectSubCategory, splashBack,
          enterEngineeringMenu,
@@ -446,5 +448,22 @@ export function buildCoreExpose() {
 
         // Utilities
         formatDateLocal, detectTcMode, sanitizePartKey, isChutePart, isPurchasingOrderLate,
+
+        // Direct messaging
+        messagesView:    store.messagesView,
+        messageThreads:  store.messageThreads,
+        dmInboxThreads:  store.dmInboxThreads,
+        activeThread:    store.activeThread,
+        threadMessages:  store.threadMessages,
+        messageBody:     store.messageBody,
+        messagesLoading: store.messagesLoading,
+        messagesSending: store.messagesSending,
+        dmUnreadCount:   store.dmUnreadCount,
+        dmAlertActive:   store.dmAlertActive,
+        dmContacts,
+        ROLE_DISPLAY_NAMES,
+        LAST_REPORT_DATE,
+        openMessagesView, openThread, backToInbox, sendMessage,
+        dmAvatarClass, formatMsgTime,
     };
 }

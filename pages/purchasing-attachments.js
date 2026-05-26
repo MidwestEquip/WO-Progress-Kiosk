@@ -59,3 +59,16 @@ export async function deleteOrderAttachment(attachment) {
         logError('deleteOrderAttachment', err);
     }
 }
+
+// loadPurchasingPartFiles — load engineering prints (woFiles) for the open order's part #.
+// Only meaningful for request_type === 'part' orders. Read-only — uses the same
+// wo-files storage bucket as the fab/weld action panel.
+export async function loadPurchasingPartFiles() {
+    const partNumber = store.purchasingDetailOrder.value?.part_number?.trim().toUpperCase();
+    if (!partNumber) { store.woFiles.value = []; return; }
+    store.woFilesLoading.value = true;
+    const { data, error } = await db.listWoFiles(partNumber);
+    store.woFilesLoading.value = false;
+    if (error) { store.showToast('Could not load prints: ' + error.message); return; }
+    store.woFiles.value = data || [];
+}

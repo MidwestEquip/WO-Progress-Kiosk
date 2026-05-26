@@ -9,17 +9,28 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
+import { PURCHASING_3YR_START } from '../libs/config.js';
 
-// checkWoRequestPartMatch — on blur of Part # field, query open_orders for a row
-// with the same part number and a non-null sales_order. Sets woRequestSoHint if found.
+// checkWoRequestPartMatch — on blur of Part # field:
+//   1. Queries open_orders for a SO# hint.
+//   2. Auto-fills description from issues_receipts if the field is currently blank.
 export async function checkWoRequestPartMatch() {
     const part = (store.woRequestForm.value.part_number || '').trim().toUpperCase();
     if (!part) { store.woRequestSoHint.value = null; return; }
-    const { data } = await db.findOpenOrdersByPartNumber(part);
-    const match = (data || []).find(o => o.sales_order);
+
+    const [{ data: ooData }, { data: desc }] = await Promise.all([
+        db.findOpenOrdersByPartNumber(part),
+        db.fetchPartDescription(part),
+    ]);
+
+    const match = (ooData || []).find(o => o.sales_order);
     store.woRequestSoHint.value = match
         ? { salesOrder: match.sales_order, qty: match.to_ship, partNumber: match.part_number }
         : null;
+
+    if (desc && !store.woRequestForm.value.description) {
+        store.woRequestForm.value = { ...store.woRequestForm.value, description: desc };
+    }
 }
 
 // acceptSoHint — copies the hinted SO# into the WO Request form and clears the hint.
@@ -213,9 +224,14 @@ export async function openWoRequestDetail(req) {
     };
     loadWoFilesForRequest(req.part_number);
 
-    // Auto-fill usage summary + last 2 made (non-blocking)
-    store.woRequestHistoryLoading.value = true;
-    store.woRequestParentUsageLoading.value = true;
+    // Auto-fill usage summary + last 3 made (non-blocking)
+    const today      = new Date().toISOString().slice(0, 10);
+    const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    store.woRequestHistoryLoading.value      = true;
+    store.woRequestParentUsageLoading.value  = true;
+    store.woRequestHistoryLoading36mo.value  = true;
+    store.woRequestParentUsageLoading36mo.value = true;
     store.woRequestLastMade.value = [];
     store.woRequestSubparts.value = [];
     store.woRequestSubpartsLoading.value = true;
@@ -226,7 +242,7 @@ export async function openWoRequestDetail(req) {
         store.woRequestSubpartForms.value = r;
     }
 
-    // qty_used_in_mfg + qty_made_past_12mo from issues_receipts (manufacturing data)
+    // 1yr: qty_used_in_mfg + qty_made from issues_receipts (rolling 12mo)
     db.fetchPartUsageSummary12Mo(req.part_number).then(({ data, error }) => {
         store.woRequestHistoryLoading.value = false;
         if (error) {
@@ -238,26 +254,43 @@ export async function openWoRequestDetail(req) {
         store.woRequestDetailForm.value.qty_made_past_12mo = data.qty_made_past_12mo;
     });
 
-    // qty_sold_used_12mo from sales_analysis_lines (sales data)
-    db.fetchQtySoldFromSalesAnalysis([req.part_number]).then(({ data: salesMap, error }) => {
-        if (error) {
-            logError('openWoRequestDetail:qtySold', error, { part: req.part_number });
-            return;
-        }
-        const norm = (req.part_number || '').trim().toUpperCase();
+    // 1yr: qty_sold from sales_analysis_lines (rolling 12mo)
+    const norm = (req.part_number || '').trim().toUpperCase();
+    db.fetchQtySoldFromSalesAnalysis([req.part_number], oneYearAgo, today).then(({ data: salesMap, error }) => {
+        if (error) { logError('openWoRequestDetail:qtySold1yr', error, { part: req.part_number }); return; }
         store.woRequestDetailForm.value.qty_sold_used_12mo = salesMap[norm] || 0;
     });
+
+    // 1yr: parent BOM demand (rolling 12mo)
+    db.calculateRecursiveParentUsageDemand(req.part_number, oneYearAgo, today).then(({ data, error }) => {
+        store.woRequestParentUsageLoading.value = false;
+        if (error) { logError('openWoRequestDetail:parentUsage1yr', error, { part: req.part_number }); return; }
+        store.woRequestDetailForm.value.qty_sold_parent_usage_period = data.totalDemand;
+    });
+
+    // 3yr: qty_used_in_mfg + qty_made from issues_receipts (since 1/1/23)
+    db.fetchPartUsageSummary36Mo(req.part_number).then(({ data, error }) => {
+        store.woRequestHistoryLoading36mo.value = false;
+        if (error) { logError('openWoRequestDetail:history3yr', error, { part: req.part_number }); return; }
+        store.woRequestDetailForm.value.qty_used_in_mfg_36mo = data.qty_used_in_mfg_36mo;
+        store.woRequestDetailForm.value.qty_made_36mo        = data.qty_made_past_36mo;
+    });
+
+    // 3yr: qty_sold from sales_analysis_lines (since 1/1/23)
+    db.fetchQtySoldFromSalesAnalysis([req.part_number], PURCHASING_3YR_START, today).then(({ data: salesMap, error }) => {
+        if (error) { logError('openWoRequestDetail:qtySold3yr', error, { part: req.part_number }); return; }
+        store.woRequestDetailForm.value.qty_sold_36mo = salesMap[norm] || 0;
+    });
+
+    // 3yr: parent BOM demand (since 1/1/23)
+    db.calculateRecursiveParentUsageDemand(req.part_number, PURCHASING_3YR_START, today).then(({ data, error }) => {
+        store.woRequestParentUsageLoading36mo.value = false;
+        if (error) { logError('openWoRequestDetail:parentUsage3yr', error, { part: req.part_number }); return; }
+        store.woRequestDetailForm.value.qty_sold_parent_usage_36mo = data.totalDemand;
+    });
+
     db.fetchPartLastMade(req.part_number).then(({ data }) => {
         store.woRequestLastMade.value = data || [];
-    });
-    db.calculateRecursiveParentUsageDemand(req.part_number).then(({ data, error }) => {
-        store.woRequestParentUsageLoading.value = false;
-        if (error) {
-            logError('openWoRequestDetail:parentUsage', error, { part: req.part_number });
-            return;
-        }
-        store.woRequestDetailForm.value.qty_sold_parent_usage_period = data.totalDemand;
-        console.debug('[BOM rollup]', req.part_number, data);
     });
     db.fetchBomChildrenForParent(req.part_number).then(({ data, error }) => {
         store.woRequestSubpartsLoading.value = false;

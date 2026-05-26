@@ -55,15 +55,19 @@ import { enterCompletedOrdersView, loadCompletedOrders, restoreCompletedOrder } 
 import { loadPurchasingOrders, switchPurchasingTab,
          loadPurchasingCompleted, loadOrderEvents,
          openNewRequestForm, closeNewRequestForm, submitPurchasingRequest,
+         onPurchasingPartBlur,
          openOrderDetail, closeOrderDetail, saveOrderDetail,
          loadPartUsageForOrder,
          loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow } from './pages/purchasing-view.js';
 import { completeOrder, submitReceiving } from './pages/purchasing-receive.js';
 import { enterApprovalTab, approveOrder, cancelRevise, submitRevise } from './pages/purchasing-approval.js';
-import { uploadOrderAttachment, deleteOrderAttachment, loadOrderAttachments } from './pages/purchasing-attachments.js';
+import { uploadOrderAttachment, deleteOrderAttachment, loadOrderAttachments,
+         loadPurchasingPartFiles } from './pages/purchasing-attachments.js';
 import { openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
          stageQuoteFile, unstageQuoteFile,
          loadAllQuotes, openQuoteOrder, cancelQuoteOrder, submitQuoteOrder } from './pages/purchasing-quotes-view.js';
+import { openSupplierCatalogFromHistory, loadSupplierCatalog,
+         clearSupplierCatalog } from './pages/purchasing-research.js';
 import { enterPurchasingView, enterPoRequestView, enterApprovalQueueView } from './pages/splash-view.js';
 
 export function buildOpsExpose() {
@@ -143,9 +147,13 @@ export function buildOpsExpose() {
         woRequestInlineState:        store.woRequestInlineState,
         woRequestSoHint:             store.woRequestSoHint,
         woRequestDefaultsApplied:    store.woRequestDefaultsApplied,
-        woRequestHistoryLoading:       store.woRequestHistoryLoading,
-        woRequestParentUsageLoading:   store.woRequestParentUsageLoading,
-        woRequestLastMade:             store.woRequestLastMade,
+        woRequestHistoryLoading:         store.woRequestHistoryLoading,
+        woRequestParentUsageLoading:     store.woRequestParentUsageLoading,
+        woRequestHistoryLoading36mo:     store.woRequestHistoryLoading36mo,
+        woRequestParentUsageLoading36mo: store.woRequestParentUsageLoading36mo,
+        woRequestEstQtyInStock36mo:      store.woRequestEstQtyInStock36mo,
+        woRequestSuggestedQty36mo:       store.woRequestSuggestedQty36mo,
+        woRequestLastMade:               store.woRequestLastMade,
         woRequestSubparts:             store.woRequestSubparts,
         woRequestSubpartsLoading:      store.woRequestSubpartsLoading,
         woRequestSubpartsExpanded:     store.woRequestSubpartsExpanded,
@@ -277,6 +285,12 @@ export function buildOpsExpose() {
         purchasingPartPurchaseHistory:        store.purchasingPartPurchaseHistory,
         purchasingPartPurchaseHistoryLoading: store.purchasingPartPurchaseHistoryLoading,
         purchasingPartPurchaseHistoryError:   store.purchasingPartPurchaseHistoryError,
+        purchasingPartUsage36mo:              store.purchasingPartUsage36mo,
+        purchasingPartUsageLoading36mo:       store.purchasingPartUsageLoading36mo,
+        purchasingPartParentUsage36mo:        store.purchasingPartParentUsage36mo,
+        purchasingPartParentUsageLoading36mo: store.purchasingPartParentUsageLoading36mo,
+        purchasingPartEstQtyInStock36mo:      store.purchasingPartEstQtyInStock36mo,
+        purchasingPartSuggestedQty36mo:       store.purchasingPartSuggestedQty36mo,
         purchasingDetailQuotes:         store.purchasingDetailQuotes,
         purchasingDetailQuotesLoading:  store.purchasingDetailQuotesLoading,
         orderAttachments:          store.orderAttachments,
@@ -305,14 +319,22 @@ export function buildOpsExpose() {
         approvalReviseNote:      store.approvalReviseNote,
         enterPurchasingView, enterPoRequestView, enterApprovalQueueView, loadPurchasingOrders, switchPurchasingTab,
         loadPurchasingCompleted, loadOrderEvents,
-        openNewRequestForm, closeNewRequestForm, submitPurchasingRequest,
+        openNewRequestForm, closeNewRequestForm, submitPurchasingRequest, onPurchasingPartBlur,
         openOrderDetail, closeOrderDetail, saveOrderDetail, completeOrder, submitReceiving, loadPartUsageForOrder,
         loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow,
-        uploadOrderAttachment, deleteOrderAttachment, loadOrderAttachments,
+        uploadOrderAttachment, deleteOrderAttachment, loadOrderAttachments, loadPurchasingPartFiles,
         enterApprovalTab, approveOrder, cancelRevise, submitRevise,
         openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
         stageQuoteFile, unstageQuoteFile,
         loadAllQuotes, openQuoteOrder, cancelQuoteOrder, submitQuoteOrder,
+        supplierCatalogLoading:  store.supplierCatalogLoading,
+        supplierCatalogParts:    store.supplierCatalogParts,
+        supplierCatalogCoid:     store.supplierCatalogCoid,
+        supplierCatalogName:     store.supplierCatalogName,
+        supplierCatalogSearch:   store.supplierCatalogSearch,
+        supplierCatalogChoices:  store.supplierCatalogChoices,
+        filteredSupplierCatalog: store.filteredSupplierCatalog,
+        openSupplierCatalogFromHistory, loadSupplierCatalog, clearSupplierCatalog,
 
         // Open Orders
         openOrders:               store.openOrders,

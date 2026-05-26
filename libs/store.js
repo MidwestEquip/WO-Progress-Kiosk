@@ -12,7 +12,7 @@
 // ============================================================
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
-import { REEL_PART_NUMBERS } from './config.js';
+import { REEL_PART_NUMBERS, ROLE_DISPLAY_NAMES } from './config.js';
 import { detectTcMode, detectReelWeld, computePrintRoutingChain } from './utils.js';
 
 // Bring inventoryTab into scope for appTitle computed (one-way, no circular dep)
@@ -24,6 +24,7 @@ export * from './store-assy.js';
 export * from './store-inventory.js';
 export * from './store-engineering.js';
 export * from './store-purchasing.js';
+export * from './store-messages.js';
 
 // ── Version update banner ─────────────────────────────────────
 export const versionUpdateAvailable = ref(false);
@@ -239,6 +240,11 @@ export const appTitle = computed(() => {
     if (currentView.value === 'open_orders')  return 'Open Orders — Shipping';
     if (currentView.value === 'purchasing')   return 'Purchasing';
     if (currentView.value === 'po_request')   return 'PO Requests';
+    if (currentView.value === 'messages') {
+        if (messagesView.value === 'thread' && activeThread.value)
+            return `Messages — ${ROLE_DISPLAY_NAMES[activeThread.value] || activeThread.value}`;
+        return 'Messages';
+    }
     if (currentView.value === 'manager') {
         if (managerSubView.value === 'kpi')        return 'Manager Hub — KPIs';
         if (managerSubView.value === 'priorities') return 'Manager Hub — Priorities';
@@ -368,7 +374,7 @@ export const splashLinks          = ref([{ label: '', url: '' }]);
 export const splashLinksModalOpen = ref(false);
 export const splashLinksSaving    = ref(false);
 
-// managerSubView is re-exported from store-manager.js but appTitle references it.
-// Since store.js does export * from store-manager.js, managerSubView is available
-// in the module namespace — but not as a local binding. Import it directly:
+// managerSubView, messagesView, activeThread are re-exported via export * but not
+// available as local bindings — import them directly for use in appTitle.
 import { managerSubView } from './store-manager.js';
+import { messagesView, activeThread } from './store-messages.js';

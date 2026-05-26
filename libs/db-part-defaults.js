@@ -116,7 +116,44 @@ export async function fetchPartUsageSummary12Mo(partNumber) {
     };
 }
 
-// fetchPartLastMade — last 2 MO receipt rows for a part (doctype=MO, trantype=I),
+// fetchPartUsageSummary36Mo — calls get_part_usage_summary_36mo RPC for 3-year sums.
+// Returns { data: { qty_sold_used_36mo, qty_used_in_mfg_36mo, qty_made_past_36mo }, error }.
+export async function fetchPartUsageSummary36Mo(partNumber) {
+    const normalized = normalizePartNumber(partNumber);
+    if (!normalized) return { data: { qty_sold_used_36mo: 0, qty_used_in_mfg_36mo: 0, qty_made_past_36mo: 0 }, error: null };
+
+    const { data, error } = await withRetry(() =>
+        supabase.rpc('get_part_usage_summary_36mo', { p_part: normalized })
+    );
+    if (error) return { data: { qty_sold_used_36mo: 0, qty_used_in_mfg_36mo: 0, qty_made_past_36mo: 0 }, error };
+
+    const row = (data && data[0]) || {};
+    return {
+        data: {
+            qty_sold_used_36mo:  Number(row.qty_sold_36mo     ?? 0),
+            qty_used_in_mfg_36mo: Number(row.qty_used_mfg_36mo ?? 0),
+            qty_made_past_36mo:  Number(row.qty_made_36mo     ?? 0),
+        },
+        error: null,
+    };
+}
+
+// fetchPartPurchased36Mo — calls get_part_purchased_36mo RPC (SECURITY DEFINER).
+// Returns PO receipts for a part in the last 36 months.
+// Returns { qty_36mo (full sum), error }.
+export async function fetchPartPurchased36Mo(partNumber) {
+    const normalized = normalizePartNumber(partNumber);
+    if (!normalized) return { qty_36mo: 0, error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.rpc('get_part_purchased_36mo', { p_part: normalized })
+    );
+    if (error) return { qty_36mo: 0, error };
+    const rows = data || [];
+    const qty_36mo = rows.reduce((sum, r) => sum + (Number(r.qty) || 0), 0);
+    return { qty_36mo, error: null };
+}
+
+// fetchPartLastMade — last 3 MO receipt rows for a part (doctype=MO, trantype=I),
 // newest first. Uses SECURITY DEFINER RPC to bypass RLS on issues_receipts.
 // Returns { data: [{ txn_date, qty }], error }.
 export async function fetchPartLastMade(partNumber) {
@@ -284,7 +321,7 @@ export async function fetchPartPurchased12Mo(partNumber) {
     return { data: rows.slice(0, 2), qty_12mo, error: null };
 }
 
-// fetchLastTwoPurchasesWithSupplier — enriched last-2 PO receipts for a part.
+// fetchLastTwoPurchasesWithSupplier — enriched last-3 PO receipts for a part.
 // Joins issues_receipts → purchasing_suppliers via lateral join (best-match COID).
 // Returns { data: [{ txn_date, qty, cost, company_name, contact, phone, email,
 //   our_account_number, street, city, state, zip }], error }.
@@ -293,6 +330,18 @@ export async function fetchLastTwoPurchasesWithSupplier(partNumber) {
     if (!normalized) return { data: [], error: null };
     const { data, error } = await withRetry(() =>
         supabase.rpc('fetch_last_two_purchases_with_supplier', { p_part_number: normalized })
+    );
+    return { data: data || [], error };
+}
+
+// fetchCompanyPurchaseCatalog — all distinct parts purchased from a given supplier (all time).
+// Calls get_company_purchase_catalog RPC (SECURITY DEFINER), filtering issues_receipts by
+// poto = p_coid, doctype = 'PO', trantype = 'I'. Returns grouped part + qty + description.
+// Returns { data: [{ part_number_normalized, description, total_qty, last_purchased }], error }.
+export async function fetchCompanyPurchaseCatalog(coid) {
+    if (!coid) return { data: [], error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.rpc('get_company_purchase_catalog', { p_coid: coid })
     );
     return { data: data || [], error };
 }

@@ -10,6 +10,7 @@ import * as db     from '../libs/db.js';
 import { kioskSignIn, kioskSignOut } from '../libs/db.js';
 import { getPin } from '../libs/pins.js';
 import { logError } from '../libs/db-shared.js';
+import { refreshUnreadCount, resumeAudio } from './messages-view.js';
 
 // ── submitLogin ───────────────────────────────────────────────
 // Validates username/password against Supabase Auth and sets sessionRole.
@@ -32,6 +33,8 @@ export async function submitLogin() {
         store.currentView.value    = 'splash';
         store.splashLevel.value    = 0;
         store.splashCategory.value = '';
+        resumeAudio();
+        refreshUnreadCount();
     } catch {
         store.loginError.value = 'Incorrect username or password.';
     } finally {

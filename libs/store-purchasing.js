@@ -121,16 +121,24 @@ export const quoteOrderingId   = ref(null);   // quote.id currently showing PO# 
 export const quoteOrderPoNum   = ref('');
 export const quoteOrderSaving  = ref(false);
 
-// ── Part usage (Request Info tab, parts only) ─────────────────
-export const purchasingPartUsage              = ref(null); // { qty_sold, qty_used_mfg, qty_made, qty_purchased_12mo, recent_purchases }
+// ── Part usage (Research tab, parts only) ─────────────────────
+
+// 1-year data
+export const purchasingPartUsage              = ref(null); // { qty_sold, qty_used_mfg, qty_made, qty_purchased_12mo }
 export const purchasingPartUsageLoading       = ref(false);
-export const purchasingPartParentUsage        = ref(null); // numeric totalDemand
+export const purchasingPartParentUsage        = ref(null); // numeric totalDemand (1yr BOM period)
 export const purchasingPartParentUsageLoading = ref(false);
-export const purchasingPartPurchaseHistory        = ref([]); // enriched last-2 purchases with supplier info
+export const purchasingPartPurchaseHistory        = ref([]); // enriched last-3 purchases with supplier info
 export const purchasingPartPurchaseHistoryLoading = ref(false);
 export const purchasingPartPurchaseHistoryError   = ref(false);
 
-// purchasingPartEstQtyInStock — formula mirrors woRequestEstQtyInStock in store-inventory.js.
+// 3-year data
+export const purchasingPartUsage36mo              = ref(null); // { qty_sold, qty_used_mfg, qty_made, qty_purchased_36mo }
+export const purchasingPartUsageLoading36mo       = ref(false);
+export const purchasingPartParentUsage36mo        = ref(null); // numeric totalDemand (36mo rolling)
+export const purchasingPartParentUsageLoading36mo = ref(false);
+
+// purchasingPartEstQtyInStock — 1yr formula.
 export const purchasingPartEstQtyInStock = computed(() => {
     const u = purchasingPartUsage.value;
     if (!u) return null;
@@ -142,12 +150,35 @@ export const purchasingPartEstQtyInStock = computed(() => {
     return mfg - (sold + parent) + (purchased - mfg);
 });
 
-// purchasingPartSuggestedQty — total demand minus est. stock, + 5%.
+// purchasingPartSuggestedQty — 1yr total demand minus est. stock, + 5%.
 export const purchasingPartSuggestedQty = computed(() => {
     const u = purchasingPartUsage.value;
     if (!u) return null;
     const total  = (u.qty_sold || 0) + (purchasingPartParentUsage.value || 0);
     const est    = purchasingPartEstQtyInStock.value;
+    if (total === 0 || est === null) return null;
+    const needed = total - est;
+    return needed <= 0 ? null : Math.ceil(needed * 1.05);
+});
+
+// purchasingPartEstQtyInStock36mo — 3yr formula.
+export const purchasingPartEstQtyInStock36mo = computed(() => {
+    const u = purchasingPartUsage36mo.value;
+    if (!u) return null;
+    const sold      = u.qty_sold      || 0;
+    const parent    = purchasingPartParentUsage36mo.value || 0;
+    const mfg       = u.qty_used_mfg  || 0;
+    const purchased = u.qty_purchased_36mo || 0;
+    if (sold === 0 && parent === 0 && mfg === 0 && purchased === 0) return null;
+    return mfg - (sold + parent) + (purchased - mfg);
+});
+
+// purchasingPartSuggestedQty36mo — 3yr total demand minus est. stock, + 5%.
+export const purchasingPartSuggestedQty36mo = computed(() => {
+    const u = purchasingPartUsage36mo.value;
+    if (!u) return null;
+    const total  = (u.qty_sold || 0) + (purchasingPartParentUsage36mo.value || 0);
+    const est    = purchasingPartEstQtyInStock36mo.value;
     if (total === 0 || est === null) return null;
     const needed = total - est;
     return needed <= 0 ? null : Math.ceil(needed * 1.05);
@@ -228,3 +259,22 @@ export const poReceivedCounts = computed(() => ({
     supply: poReceivedOrders.value.filter(o => o.request_type === 'supply').length,
     steel:  poReceivedOrders.value.filter(o => o.request_type === 'steel').length,
 }));
+
+// ── Supplier catalog (Research tab: "all from this supplier") ─────────────────
+
+export const supplierCatalogLoading = ref(false);
+export const supplierCatalogParts   = ref([]);  // [{ part_number_normalized, description, total_qty, last_purchased }]
+export const supplierCatalogCoid    = ref(null); // active company coid
+export const supplierCatalogName    = ref('');   // active company display name
+export const supplierCatalogSearch  = ref('');   // filter input
+export const supplierCatalogChoices = ref([]);   // [{ poto, company_name }] — shown when multiple companies
+
+// filteredSupplierCatalog — catalog rows matching the search term (part # or description).
+export const filteredSupplierCatalog = computed(() => {
+    const q = supplierCatalogSearch.value.trim().toLowerCase();
+    if (!q) return supplierCatalogParts.value;
+    return supplierCatalogParts.value.filter(r =>
+        (r.part_number_normalized || '').toLowerCase().includes(q) ||
+        (r.description            || '').toLowerCase().includes(q)
+    );
+});

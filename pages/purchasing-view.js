@@ -9,7 +9,7 @@ import { watch } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-brow
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
-import { APP_LOCATION } from '../libs/config.js';
+import { APP_LOCATION, PURCHASING_3YR_START } from '../libs/config.js';
 import { _replaceInStore } from './purchasing-receive.js';
 
 // ── Autosave machinery ────────────────────────────────────────
@@ -100,6 +100,16 @@ export async function loadPurchasingCompleted() {
 }
 
 // ── New request form ──────────────────────────────────────────
+
+// onPurchasingPartBlur — on blur of Part # in the new PO request form (Part type only),
+// auto-fills description from issues_receipts if the description field is currently blank.
+export async function onPurchasingPartBlur() {
+    const form = store.purchasingRequestForm.value;
+    const part = (form.part_number || '').trim().toUpperCase();
+    if (!part || form.description) return;
+    const { data: desc } = await db.fetchPartDescription(part);
+    if (desc) store.purchasingRequestForm.value = { ...form, description: desc };
+}
 
 // openNewRequestForm — reset form and open the create request modal.
 export function openNewRequestForm() {
@@ -229,6 +239,13 @@ export function openOrderDetail(order, section = 'ordering') {
     store.purchasingPartPurchaseHistory.value         = [];
     store.purchasingPartPurchaseHistoryLoading.value  = false;
     store.purchasingPartPurchaseHistoryError.value    = false;
+    // Reset supplier catalog so stale data doesn't carry over between orders
+    store.supplierCatalogLoading.value = false;
+    store.supplierCatalogParts.value   = [];
+    store.supplierCatalogCoid.value    = null;
+    store.supplierCatalogName.value    = '';
+    store.supplierCatalogSearch.value  = '';
+    store.supplierCatalogChoices.value = [];
     store.purchasingDetailOrder.value   = order;
     store.purchasingDetailSection.value = section;
     store.purchasingDetailForm.value = {
@@ -325,13 +342,14 @@ export async function saveOrderDetail() {
 export { completeOrder, submitReceiving, _replaceInStore } from './purchasing-receive.js';
 export { enterApprovalTab, approveOrder, cancelRevise, submitRevise } from './purchasing-approval.js';
 
-// loadPartUsageForOrder — fetch 12mo usage + PO purchase history for Request Info tab.
-// Only fires for part orders. All 3 lookups run in parallel (non-blocking).
+// loadPartUsageForOrder — fetch 1yr + 3yr usage + PO purchase history for Research tab.
+// Only fires for part orders. All 6 lookups run non-blocking in parallel.
 export function loadPartUsageForOrder() {
     const order = store.purchasingDetailOrder.value;
     if (!order || order.request_type !== 'part' || !order.part_number) return;
     const pn = order.part_number.trim().toUpperCase();
 
+    // Reset 1yr state
     store.purchasingPartUsage.value                   = null;
     store.purchasingPartParentUsage.value             = null;
     store.purchasingPartUsageLoading.value            = true;
@@ -340,6 +358,13 @@ export function loadPartUsageForOrder() {
     store.purchasingPartPurchaseHistoryLoading.value  = true;
     store.purchasingPartPurchaseHistoryError.value    = false;
 
+    // Reset 3yr state
+    store.purchasingPartUsage36mo.value                   = null;
+    store.purchasingPartParentUsage36mo.value             = null;
+    store.purchasingPartUsageLoading36mo.value            = true;
+    store.purchasingPartParentUsageLoading36mo.value      = true;
+
+    // 1yr summary + purchased
     Promise.all([db.fetchPartUsageSummary12Mo(pn), db.fetchPartPurchased12Mo(pn)])
         .then(([rpc, hist]) => {
             store.purchasingPartUsage.value = {
@@ -347,19 +372,43 @@ export function loadPartUsageForOrder() {
                 qty_used_mfg:       rpc.data?.qty_used_in_mfg     || 0,
                 qty_made:           rpc.data?.qty_made_past_12mo  || 0,
                 qty_purchased_12mo: hist.qty_12mo                 || 0,
-                recent_purchases:   hist.data                     || [],
             };
             store.purchasingPartUsageLoading.value = false;
         })
-        .catch(err => { store.purchasingPartUsageLoading.value = false; logError('loadPartUsageForOrder', err); });
+        .catch(err => { store.purchasingPartUsageLoading.value = false; logError('loadPartUsageForOrder:1yr', err); });
 
-    db.calculateRecursiveParentUsageDemand(pn)
+    // 3yr summary + purchased
+    Promise.all([db.fetchPartUsageSummary36Mo(pn), db.fetchPartPurchased36Mo(pn)])
+        .then(([rpc, hist]) => {
+            store.purchasingPartUsage36mo.value = {
+                qty_sold:           rpc.data?.qty_sold_used_36mo   || 0,
+                qty_used_mfg:       rpc.data?.qty_used_in_mfg_36mo || 0,
+                qty_made:           rpc.data?.qty_made_past_36mo   || 0,
+                qty_purchased_36mo: hist.qty_36mo                  || 0,
+            };
+            store.purchasingPartUsageLoading36mo.value = false;
+        })
+        .catch(err => { store.purchasingPartUsageLoading36mo.value = false; logError('loadPartUsageForOrder:3yr', err); });
+
+    // 1yr parent BOM demand (rolling 12 months)
+    const today      = new Date().toISOString().slice(0, 10);
+    const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    db.calculateRecursiveParentUsageDemand(pn, oneYearAgo, today)
         .then(({ data, error }) => {
             store.purchasingPartParentUsageLoading.value = false;
             if (!error && data) store.purchasingPartParentUsage.value = data.totalDemand || null;
         })
-        .catch(err => { store.purchasingPartParentUsageLoading.value = false; logError('loadPartUsageForOrder:parent', err); });
+        .catch(err => { store.purchasingPartParentUsageLoading.value = false; logError('loadPartUsageForOrder:parent1yr', err); });
 
+    // 3yr parent BOM demand (fixed start 1/1/23, rolling end)
+    db.calculateRecursiveParentUsageDemand(pn, PURCHASING_3YR_START, today)
+        .then(({ data, error }) => {
+            store.purchasingPartParentUsageLoading36mo.value = false;
+            if (!error && data) store.purchasingPartParentUsage36mo.value = data.totalDemand || null;
+        })
+        .catch(err => { store.purchasingPartParentUsageLoading36mo.value = false; logError('loadPartUsageForOrder:parent3yr', err); });
+
+    // Enriched purchase history (not time-scoped — shows last 3 purchases)
     db.fetchLastTwoPurchasesWithSupplier(pn)
         .then(({ data, error }) => {
             store.purchasingPartPurchaseHistoryLoading.value = false;

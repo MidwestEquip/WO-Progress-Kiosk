@@ -27,6 +27,15 @@ export const KIOSK_USER_MAP = {
     manager: 'office@midmfg.com',
 };
 
+// ----- Direct messaging: display name per session role -----
+export const ROLE_DISPLAY_NAMES = {
+    fab:     'Fabrication',
+    weld:    'Weld',
+    assy:    'TC Assy',
+    office:  'Office',
+    manager: 'Manager',
+};
+
 // Gemini API calls go through a Cloudflare Worker so the key never touches the frontend.
 // After deploying workers/gemini-proxy.js, replace this with your Worker URL.
 export const GEMINI_WORKER_URL = 'https://gemini-proxy.project-85a.workers.dev';
@@ -149,6 +158,7 @@ export const PARTIAL_NAMES = [
     'view-engineering-prints',
     'view-purchasing',
     'view-po-request',
+    'view-messages',
     'modal-purchasing-detail',
     'modal-purchasing-quote',
     'main-close',
@@ -245,3 +255,9 @@ export const STAGING_AREAS = [
 // ----- WO Request BOM demand period (fixed; update here to change everywhere) -----
 export const BOM_PERIOD_START = '2025-01-01';
 export const BOM_PERIOD_END   = '2025-12-31';
+
+// ----- Purchasing Research tab: 3yr fixed start (data import origin; 1yr is always rolling) -----
+export const PURCHASING_3YR_START = '2023-01-01';
+
+// ----- Last Alere report upload date (update here when new data is imported) -----
+export const LAST_REPORT_DATE = 'May 22, 2026';

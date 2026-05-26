@@ -304,6 +304,18 @@ export async function assignJobNumberIfMissing(id) {
     );
 }
 
+// fetchPartDescription — look up a part's description from issues_receipts via RPC.
+// The RPC strips spaces/dashes before comparing so TC27261 matches TC-27261.
+// Returns { data: description string | null, error }.
+export async function fetchPartDescription(partNumber) {
+    if (!partNumber?.trim()) return { data: null, error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.rpc('get_part_description', { p_part: partNumber.trim().toUpperCase() })
+    );
+    if (error) return { data: null, error };
+    return { data: data || null, error: null };
+}
+
 // ── Open Orders queries ───────────────────────────────────────
 
 // findOpenOrderBySoAndPart — find a single open_orders row matching both SO# and part number.

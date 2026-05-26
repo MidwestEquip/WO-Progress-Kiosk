@@ -316,3 +316,20 @@ export function isPurchasingOrderLate(order) {
     today.setHours(0, 0, 0, 0);
     return new Date(order.expected_date) < today;
 }
+
+// formatMsgTime — compact timestamp for direct message display.
+// Today → "2:34 PM"; this year → "May 21"; older → "5/21/24". Input: ISO string. Output: string.
+export function formatMsgTime(dateStr) {
+    if (!dateStr) return '';
+    try {
+        const d   = new Date(dateStr);
+        const now = new Date();
+        if (d.toDateString() === now.toDateString()) {
+            return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        }
+        if (d.getFullYear() === now.getFullYear()) {
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+        return d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+    } catch { return ''; }
+}

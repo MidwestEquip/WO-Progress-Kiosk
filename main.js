@@ -29,6 +29,8 @@ import { loadOpenOrders, loadReminderEmail } from './pages/open-orders-view.js';
 import { loadCompletedOrders } from './pages/completed-orders-view.js';
 import { loadPurchasingOrders } from './pages/purchasing-view.js';
 import { loadAllQuotes } from './pages/purchasing-quotes-view.js';
+import { stopMessagesPoll, refreshUnreadCount,
+         startMessageAlert, stopMessageAlert } from './pages/messages-view.js';
 
 import { buildCoreExpose } from './expose-core.js';
 import { buildOpsExpose } from './expose-ops.js';
@@ -78,6 +80,18 @@ try {
             const versionInterval = setInterval(checkVersion, 60_000);
             onUnmounted(() => clearInterval(versionInterval));
 
+            // Global unread-message poll — keeps the alert live on any view
+            const unreadInterval = setInterval(() => {
+                if (store.sessionRole.value) refreshUnreadCount();
+            }, 15_000);
+            onUnmounted(() => clearInterval(unreadInterval));
+
+            // Drive the beep loop off the unread count (edge-flash is CSS via dmAlertActive)
+            watch(store.dmUnreadCount, (count) => {
+                if (count > 0) startMessageAlert();
+                else stopMessageAlert();
+            });
+
             // Offline detection
             async function probeConnectivity() {
                 store.isOffline.value = !(await checkConnectivity());
@@ -101,6 +115,7 @@ try {
                         store.sessionRole.value = role;
                         store.currentView.value = 'splash';
                         loadManagerAlerts();
+                        refreshUnreadCount();
                     }
                 }
                 await nextTick();
@@ -108,7 +123,8 @@ try {
             });
 
             // Load data on view entry
-            watch(store.currentView, (v) => {
+            watch(store.currentView, (v, oldV) => {
+                if (oldV === 'messages') stopMessagesPoll();
                 if (v !== 'dashboard') store.showingCompletedDept.value = false;
                 if (v !== 'wo_status') store.closeoutAuthorized.value = false;
                 if (v === 'wo_status')       loadReceivingEligible();
