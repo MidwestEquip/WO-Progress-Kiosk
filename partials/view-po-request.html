@@ -127,90 +127,45 @@
                     <select v-model="purchasingRequestForm.material_type"
                         :class="purchasingRequestFormErrors.material_type ? 'border-red-400 bg-red-50' : 'border-gray-300'"
                         class="w-full px-2 py-1.5 border rounded-lg text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
-                        <option value="">Select material…</option>
                         <option value="Carbon">Carbon</option>
-                        <option value="Aluminum">Aluminum</option>
-                        <option value="Galvanized">Galvanized</option>
                         <option value="Stainless">Stainless</option>
-                        <option value="__other__">Other…</option>
+                        <option value="Galvanized">Galvanized</option>
+                        <option value="Aluminum">Aluminum</option>
+                        <option value="Other">Other</option>
                     </select>
                     <p v-if="purchasingRequestFormErrors.material_type" class="text-red-500 text-xs mt-0.5">Required</p>
                 </div>
-                <div v-if="purchasingRequestForm.material_type === '__other__'">
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Describe Material *</label>
-                    <input v-model="purchasingRequestForm.material_type_other" type="text"
-                        placeholder="e.g. Copper, Brass…"
-                        :class="purchasingRequestFormErrors.material_type_other ? 'border-red-400 bg-red-50' : 'border-gray-300'"
-                        class="w-full px-2 py-1.5 border rounded-lg text-sm text-gray-800 focus:outline-none focus:border-amber-400">
-                    <p v-if="purchasingRequestFormErrors.material_type_other" class="text-red-500 text-xs mt-0.5">Required</p>
-                </div>
 
-                <!-- Material Form -->
+                <!-- Shape -->
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Form *</label>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Shape <span class="text-red-500">*</span></label>
                     <select v-model="purchasingRequestForm.steel_shape"
                         :class="purchasingRequestFormErrors.steel_shape ? 'border-red-400 bg-red-50' : 'border-gray-300'"
                         class="w-full px-2 py-1.5 border rounded-lg text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
-                        <option value="">Select form…</option>
+                        <option value="">Select shape…</option>
                         <option value="Sheet / Plate">Sheet / Plate</option>
                         <option value="Pipe / Tube">Pipe / Tube</option>
-                        <option value="Coil">Coil</option>
                         <option value="Flat Bar">Flat Bar</option>
                         <option value="Angle">Angle</option>
+                        <option value="Channel">Channel</option>
+                        <option value="Coil">Coil</option>
                         <option value="Wire">Wire</option>
                         <option value="Solid Round">Solid Round</option>
                         <option value="Solid Square">Solid Square</option>
-                        <option value="__other__">Other…</option>
+                        <option value="Other">Other</option>
                     </select>
                     <p v-if="purchasingRequestFormErrors.steel_shape" class="text-red-500 text-xs mt-0.5">Required</p>
                 </div>
-                <div v-if="purchasingRequestForm.steel_shape === '__other__'">
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Describe Form *</label>
-                    <input v-model="purchasingRequestForm.steel_shape_other" type="text"
-                        placeholder="e.g. Channel, Beam…"
-                        :class="purchasingRequestFormErrors.steel_shape_other ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+
+                <!-- Description -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Description <span class="text-red-500">*</span></label>
+                    <p class="text-xs text-gray-400 mb-1">Include Dimensions, Grade, Finish</p>
+                    <input v-model="purchasingRequestForm.material_description" type="text"
+                        placeholder='e.g. 2"×2" A36, 11ga HR'
+                        :class="purchasingRequestFormErrors.material_description ? 'border-red-400 bg-red-50' : 'border-gray-300'"
                         class="w-full px-2 py-1.5 border rounded-lg text-sm text-gray-800 focus:outline-none focus:border-amber-400">
-                    <p v-if="purchasingRequestFormErrors.steel_shape_other" class="text-red-500 text-xs mt-0.5">Required</p>
-                </div>
-
-                <!-- Size / Thickness -->
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Size *</label>
-                        <input v-model="purchasingRequestForm.material_size" type="text"
-                            placeholder='e.g. 2"×2"'
-                            :class="purchasingRequestFormErrors.material_size ? 'border-red-400 bg-red-50' : 'border-gray-300'"
-                            class="w-full px-2 py-1.5 border rounded-lg text-sm text-gray-800 focus:outline-none focus:border-amber-400">
-                        <p v-if="purchasingRequestFormErrors.material_size" class="text-red-500 text-xs mt-0.5">Required</p>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Thickness / Wall *</label>
-                        <input v-model="purchasingRequestForm.material_thickness" type="text"
-                            placeholder='e.g. 1/4"'
-                            :class="purchasingRequestFormErrors.material_thickness ? 'border-red-400 bg-red-50' : 'border-gray-300'"
-                            class="w-full px-2 py-1.5 border rounded-lg text-sm text-gray-800 focus:outline-none focus:border-amber-400">
-                        <p v-if="purchasingRequestFormErrors.material_thickness" class="text-red-500 text-xs mt-0.5">Required</p>
-                    </div>
-                </div>
-
-                <!-- Grade / Finish -->
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Grade *</label>
-                        <input v-model="purchasingRequestForm.material_grade" type="text"
-                            placeholder="e.g. A36, A514"
-                            :class="purchasingRequestFormErrors.material_grade ? 'border-red-400 bg-red-50' : 'border-gray-300'"
-                            class="w-full px-2 py-1.5 border rounded-lg text-sm text-gray-800 focus:outline-none focus:border-amber-400">
-                        <p v-if="purchasingRequestFormErrors.material_grade" class="text-red-500 text-xs mt-0.5">Required</p>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Finish *</label>
-                        <input v-model="purchasingRequestForm.material_finish" type="text"
-                            placeholder="e.g. CR, HR, HRPO"
-                            :class="purchasingRequestFormErrors.material_finish ? 'border-red-400 bg-red-50' : 'border-gray-300'"
-                            class="w-full px-2 py-1.5 border rounded-lg text-sm text-gray-800 focus:outline-none focus:border-amber-400">
-                        <p v-if="purchasingRequestFormErrors.material_finish" class="text-red-500 text-xs mt-0.5">Required</p>
-                    </div>
+                    <p v-if="purchasingRequestFormErrors.material_description" class="text-red-500 text-xs mt-0.5">Required</p>
                 </div>
 
                 <div>
@@ -295,14 +250,14 @@
                     <div class="flex-1 min-w-0">
                         <p class="font-bold text-gray-800 truncate text-sm">
                             <template v-if="order.request_type === 'steel'">
-                                {{ [order.material_grade, order.material_type, order.steel_shape, order.material_size, order.material_thickness].filter(Boolean).join(' · ') || '—' }}
+                                {{ [order.material_type !== 'Carbon' ? order.material_type : null, order.steel_shape].filter(Boolean).join(' · ') || '—' }}
                             </template>
                             <template v-else>
                                 {{ order.part_number || order.supply_item_name || '—' }}
                             </template>
                         </p>
                         <p class="text-xs text-gray-400 truncate">
-                            {{ order.request_type !== 'steel' ? (order.description || '') : '' }}
+                            {{ order.request_type === 'steel' ? (order.description || order.material_size || '') : (order.description || '') }}
                         </p>
                     </div>
 

@@ -153,6 +153,7 @@ export const PARTIAL_NAMES = [
     'view-splash', 'view-dashboard', 'view-office',
     'view-manager-home', 'view-manager-kpi', 'view-manager-priorities',
     'view-manager-ai', 'view-manager-problems', 'view-manager-delayed',
+    'view-manager-wo-approval',
     'view-cs', 'view-inventory', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-completed-orders',
     'view-engineering-inquiries', 'view-engineering-followup', 'view-engineering-completed',
     'view-engineering-prints',
@@ -161,6 +162,7 @@ export const PARTIAL_NAMES = [
     'view-messages',
     'modal-purchasing-detail',
     'modal-purchasing-quote',
+    'modal-rfq-draft',
     'main-close',
     'modal-pin', 'modal-action-panel',
     'modal-tc-unit', 'modal-tc-stock',
@@ -261,3 +263,15 @@ export const PURCHASING_3YR_START = '2023-01-01';
 
 // ----- Last Alere report upload date (update here when new data is imported) -----
 export const LAST_REPORT_DATE = 'May 22, 2026';
+
+// ----- WO Request status values -----
+export const WO_REQUEST_STATUS_MANAGER_REVIEW = 'manager_review';
+
+// ----- Steel ordering: ship-to location buckets (display order) -----
+export const STEEL_LOCATIONS = [
+    'Thorntown, IN',
+    'Brooten, MN',
+    'Wolcott, IN',
+    'Maysville, KY',
+    'Dakota City, NE',
+];

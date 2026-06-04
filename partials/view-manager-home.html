@@ -40,6 +40,20 @@
                             <span class="text-2xl font-bold uppercase" :class="woProblemCount > 0 ? 'text-red-600' : 'text-gray-900'">WO Problems</span>
                             <span class="text-gray-500 text-sm text-center">Open issues needing attention</span>
                         </button>
+                        <!-- Approve WO Creation — full-width tile -->
+                        <button @click="enterWoApprovalView"
+                            class="relative col-span-2 bg-white hover:bg-gray-50 rounded-2xl p-6 flex items-center gap-6 border-2 active:scale-95 transition-transform"
+                            :class="managerWoApprovalCount > 0 ? 'border-amber-400' : 'border-gray-300'">
+                            <span v-if="managerWoApprovalCount > 0"
+                                class="absolute top-3 right-3 bg-amber-500 text-white text-sm font-bold rounded-full min-w-[1.75rem] h-7 flex items-center justify-center px-1 shadow">
+                                {{ managerWoApprovalCount }}
+                            </span>
+                            <svg class="w-12 h-12 shrink-0" :class="managerWoApprovalCount > 0 ? 'text-amber-500' : 'text-gray-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <div class="text-left">
+                                <div class="text-2xl font-bold uppercase" :class="managerWoApprovalCount > 0 ? 'text-amber-700' : 'text-gray-900'">Approve WO Creation</div>
+                                <div class="text-gray-500 text-sm mt-0.5">Review &amp; give final approval before WOs go to the shop floor</div>
+                            </div>
+                        </button>
                     </div>
 
                     <!-- Alert Buckets: 2x2 grid below nav buttons -->

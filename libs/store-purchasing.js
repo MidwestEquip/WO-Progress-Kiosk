@@ -5,6 +5,7 @@
 // ============================================================
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
+import { STEEL_LOCATIONS } from './config.js';
 
 // Active tab: 'parts' | 'supplies' | 'steel' | 'completed'
 export const purchasingTab     = ref('parts');
@@ -24,6 +25,25 @@ export const filteredPurchasingOrders = computed(() => {
     if (tab === 'supplies') return open.filter(o => o.request_type === 'supply');
     if (tab === 'steel')    return open.filter(o => o.request_type === 'steel');
     return open;
+});
+
+// steelOrdersByLocation — open steel orders grouped by ship_to, in STEEL_LOCATIONS order.
+// Sections with no orders are omitted. Unrecognised ship_to values land in "Other".
+export const steelOrdersByLocation = computed(() => {
+    const open = purchasingOrders.value.filter(
+        o => o.request_type === 'steel' && !DONE_STATUSES.includes(o.status)
+    );
+    const map = {};
+    open.forEach(o => {
+        const loc = STEEL_LOCATIONS.includes(o.ship_to) ? o.ship_to : 'Other';
+        if (!map[loc]) map[loc] = [];
+        map[loc].push(o);
+    });
+    const result = STEEL_LOCATIONS
+        .filter(loc => map[loc])
+        .map(loc => ({ location: loc, orders: map[loc] }));
+    if (map['Other']) result.push({ location: 'Other', orders: map['Other'] });
+    return result;
 });
 
 // ── New request form ──────────────────────────────────────────
@@ -51,12 +71,10 @@ export const purchasingRequestForm = ref({
     supply_item_name:       '',
     supply_category:        '',
     // Steel
-    material_type:          '',
-    material_size:          '',
-    material_thickness:     '',
-    material_length:        '',
-    material_grade:         '',
+    material_type:          'Carbon',
     steel_shape:            '',
+    material_description:   '',
+    material_length:        '',
 });
 
 // ── Completed tab ─────────────────────────────────────────────
@@ -200,6 +218,37 @@ export const approvalOrders = computed(() =>
     purchasingOrders.value.filter(o => o.status === 'quoted')
 );
 
+// approvalOrdersByLocation — quoted orders grouped by ship_to in STEEL_LOCATIONS order.
+export const approvalOrdersByLocation = computed(() => {
+    const quoted = purchasingOrders.value.filter(o => o.status === 'quoted');
+    const map = {};
+    quoted.forEach(o => {
+        const loc = STEEL_LOCATIONS.includes(o.ship_to) ? o.ship_to : 'Other';
+        if (!map[loc]) map[loc] = [];
+        map[loc].push(o);
+    });
+    const result = STEEL_LOCATIONS
+        .filter(loc => map[loc])
+        .map(loc => ({ location: loc, orders: map[loc] }));
+    if (map['Other']) result.push({ location: 'Other', orders: map['Other'] });
+    return result;
+});
+
+// steelStatusPickerOpen — orderId whose inline status picker is open, or null.
+export const steelStatusPickerOpen = ref(null);
+
+// steelOrderPanelOpen — orderId with the "confirm order" detail panel expanded, or null.
+export const steelOrderPanelOpen  = ref(null);
+export const steelOrderSaving     = ref(false);
+export const steelOrderErrors     = ref({});
+export const steelOrderForm       = ref({
+    supplier_name:       '',
+    po_number:           '',
+    cost:                '',
+    qty_ordered:         '',
+    estimated_lead_time: '',
+});
+
 // ── Approval view ─────────────────────────────────────────────
 
 export const approvalManagerAuthed = ref(false);
@@ -259,6 +308,31 @@ export const poReceivedCounts = computed(() => ({
     supply: poReceivedOrders.value.filter(o => o.request_type === 'supply').length,
     steel:  poReceivedOrders.value.filter(o => o.request_type === 'steel').length,
 }));
+
+// ── RFQ Email Drafter ─────────────────────────────────────────
+export const rfqDraftOpen    = ref(false);
+export const rfqDraftSubject = ref('');
+export const rfqDraftText    = ref('');   // plain text shown in textarea
+export const rfqDraftHtml    = ref('');   // HTML version copied to clipboard
+export const rfqDraftCopied  = ref(false);
+export const rfqDraftOrders  = ref([]);   // order objects included in this draft
+export const rfqPickerOpen   = ref(false);
+export const rfqPickerSearch = ref('');
+
+// rfqPickerResults — open orders not yet in the current RFQ draft, filtered by search.
+export const rfqPickerResults = computed(() => {
+    const addedIds = new Set(rfqDraftOrders.value.map(o => o.id));
+    const q = rfqPickerSearch.value.trim().toLowerCase();
+    return purchasingOrders.value
+        .filter(o => !DONE_STATUSES.includes(o.status) && !addedIds.has(o.id))
+        .filter(o => !q ||
+            (o.part_number      || '').toLowerCase().includes(q) ||
+            (o.description      || '').toLowerCase().includes(q) ||
+            (o.material_type    || '').toLowerCase().includes(q) ||
+            (o.supply_item_name || '').toLowerCase().includes(q) ||
+            (o.steel_shape      || '').toLowerCase().includes(q)
+        );
+});
 
 // ── Supplier catalog (Research tab: "all from this supplier") ─────────────────
 

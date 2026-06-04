@@ -20,6 +20,7 @@ import { setPins } from './libs/pins.js';
 import { checkConnectivity, supabase } from './libs/db.js';
 import { loadHeaderLinks, loadSplashLinks } from './pages/splash-view.js';
 import { loadManagerAlerts } from './pages/manager-view.js';
+import { loadManagerPendingWoRequests } from './pages/wo-manager-approval.js';
 import { loadReceivingEligible } from './pages/wo-status-view.js';
 import { loadInventoryItems, loadPoReceiveOrders } from './pages/inventory-view.js';
 import { loadWoRequests } from './pages/wo-request-view.js';
@@ -128,7 +129,8 @@ try {
                 if (v !== 'dashboard') store.showingCompletedDept.value = false;
                 if (v !== 'wo_status') store.closeoutAuthorized.value = false;
                 if (v === 'wo_status')       loadReceivingEligible();
-                if (v === 'manager')         loadManagerAlerts();
+                if (v === 'manager')         { loadManagerAlerts(); loadManagerPendingWoRequests(); }
+                if (v === 'wo_approval')     loadManagerPendingWoRequests();
                 if (v === 'inventory' && store.inventoryMode.value === 'parts')     loadInventoryItems();
                 if (v === 'inventory' && store.inventoryMode.value === 'po_receive') loadPoReceiveOrders();
                 if (v === 'wo_request')      loadWoRequests();

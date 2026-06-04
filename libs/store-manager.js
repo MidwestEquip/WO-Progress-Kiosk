@@ -94,6 +94,15 @@ export const woProblemResolutionError   = ref(false);
 export const woProblemResolverName      = ref('');
 export const woProblemResolverNameError = ref(false);
 
+// ── Manager WO Approval Queue ─────────────────────────────
+export const managerWoApprovalList    = ref([]);
+export const managerWoApprovalLoading = ref(false);
+export const managerWoSelectedRequest = ref(null);
+export const managerWoDetailForm      = ref({});
+export const managerWoSendBackOpen    = ref(false);
+export const managerWoSendBackNote    = ref('');
+export const managerWoApprovalCount   = computed(() => managerWoApprovalList.value.length);
+
 // ── Time Report ───────────────────────────────────────────────
 export const timeReportSessions    = ref([]);
 export const timeReportFrom        = ref('');

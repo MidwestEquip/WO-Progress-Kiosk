@@ -27,23 +27,32 @@
                 </label>
                 <div class="grid grid-cols-3 gap-3">
                     <button v-for="t in [
-                            { value: 'part',   label: 'Part',   sub: 'Parts & components' },
-                            { value: 'supply', label: 'Supply', sub: 'Shop supplies'       },
-                            { value: 'steel',  label: 'Steel',  sub: 'Raw material'        },
+                            { value: 'part',   label: 'Part'   },
+                            { value: 'supply', label: 'Supply' },
+                            { value: 'steel',  label: 'Steel'  },
                         ]"
                         :key="t.value"
                         type="button"
                         @click="purchasingRequestForm.request_type = t.value"
-                        class="py-3 px-4 rounded-xl border-2 text-left transition-all"
+                        class="py-3 px-4 rounded-xl border-2 text-center font-bold text-sm transition-all"
                         :class="purchasingRequestForm.request_type === t.value
-                            ? 'border-amber-500 bg-amber-50'
+                            ? 'border-amber-500 bg-amber-50 text-amber-700'
                             : purchasingRequestFormErrors.request_type
-                                ? 'border-red-300 bg-red-50'
-                                : 'border-gray-200 hover:border-amber-300'">
-                        <p class="font-bold text-gray-800 text-sm">{{ t.label }}</p>
-                        <p class="text-xs text-gray-400">{{ t.sub }}</p>
+                                ? 'border-red-300 bg-red-50 text-gray-700'
+                                : 'border-gray-200 hover:border-amber-300 text-gray-700'">
+                        {{ t.label }}
                     </button>
                 </div>
+                <!-- Description shown below buttons once a type is selected -->
+                <p v-if="purchasingRequestForm.request_type === 'part'" class="text-xs text-gray-500 mt-2 leading-relaxed">
+                    <span class="font-semibold text-gray-700">Part:</span> Purchased parts, products, or hardware used on units we sell.
+                </p>
+                <p v-else-if="purchasingRequestForm.request_type === 'supply'" class="text-xs text-gray-500 mt-2 leading-relaxed">
+                    <span class="font-semibold text-gray-700">Supply:</span> Items we purchase that are <em>not</em> used in production — paper towels, toilet paper, cleaning products, etc.
+                </p>
+                <p v-else-if="purchasingRequestForm.request_type === 'steel'" class="text-xs text-gray-500 mt-2 leading-relaxed">
+                    <span class="font-semibold text-gray-700">Steel:</span> Raw material used in fabrication — sheet, pipe, tube, bar, etc.
+                </p>
                 <p v-if="purchasingRequestFormErrors.request_type" class="text-red-500 text-xs mt-1">Select a request type.</p>
             </div>
 
@@ -156,13 +165,11 @@
                         <select v-model="purchasingRequestForm.material_type"
                             class="w-full border rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400"
                             :class="purchasingRequestFormErrors.material_type ? 'border-red-400 bg-red-50' : 'border-gray-300'">
-                            <option value="">Select type…</option>
-                            <option>Hot Roll Steel</option>
-                            <option>Cold Roll Steel</option>
-                            <option>Stainless Steel</option>
-                            <option>Galvanized Steel</option>
-                            <option>Aluminum</option>
-                            <option>Other</option>
+                            <option value="Carbon">Carbon</option>
+                            <option value="Stainless">Stainless</option>
+                            <option value="Galvanized">Galvanized</option>
+                            <option value="Aluminum">Aluminum</option>
+                            <option value="Other">Other</option>
                         </select>
                         <p v-if="purchasingRequestFormErrors.material_type" class="text-red-500 text-xs mt-0.5">Required.</p>
                     </div>
@@ -184,29 +191,17 @@
                             <option>Other</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Size</label>
-                        <input v-model="purchasingRequestForm.material_size" type="text"
+                    <div class="col-span-2">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                        <input v-model="purchasingRequestForm.material_description" type="text"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
-                            placeholder='e.g. 2" × 2"'>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Thickness / Gauge</label>
-                        <input v-model="purchasingRequestForm.material_thickness" type="text"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
-                            placeholder='e.g. 0.125" or 11ga'>
+                            placeholder='e.g. 2"×2" A36, 11ga HR'>
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 mb-1">Length</label>
                         <input v-model="purchasingRequestForm.material_length" type="text"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
                             placeholder="e.g. 20 ft">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">Grade / Spec</label>
-                        <input v-model="purchasingRequestForm.material_grade" type="text"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
-                            placeholder="e.g. A36, A500">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-600 mb-1">Qty Needed</label>

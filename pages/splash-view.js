@@ -237,9 +237,8 @@ export function enterPoRequestView() {
         estimated_qty_in_stock: '', request_location: '', bin_location: '',
         current_production_run: '',
         supply_item_name: '', supply_category: '',
-        material_type: '', material_type_other: '',
-        steel_shape: '', steel_shape_other: '',
-        material_size: '', material_thickness: '', material_grade: '', material_finish: '',
+        material_type: 'Carbon', steel_shape: '',
+        material_description: '', material_length: '',
     };
     store.purchasingRequestFormErrors.value = {};
     store.currentView.value              = 'po_request';

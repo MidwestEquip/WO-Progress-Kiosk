@@ -429,27 +429,28 @@ export async function saveWoRequestDetail() {
     }
 }
 
-// approveWoRequest — validate all 10 required production fields, assign job #, set status='in production',
-// and create work_orders immediately using JOB-{n} as the internal wo_number placeholder.
+// sendToManagerApproval — validate all 11 required routing fields, save the detail form,
+// then set status='manager_review'. Does NOT assign a job number or create work_orders —
+// that happens when the manager gives final approval in the Manager Hub.
 // Required: qty_to_make, estimated_lead_time, date_to_start, weld, weld_print,
-//           fab, fab_print, bent_rolled_part, set_up_time, assy_wo.
-export async function approveWoRequest() {
+//           fab, fab_print, bent_rolled_part, set_up_time, assy_wo, staging_area.
+export async function sendToManagerApproval() {
     const id   = store.selectedWoRequest.value?.id;
     const form = store.woRequestDetailForm.value;
     if (!id) return;
 
     const missing = [];
-    if (form.qty_to_make        === '' || form.qty_to_make        == null) missing.push('Qty to Make');
-    if (form.estimated_lead_time === '' || form.estimated_lead_time == null) missing.push('Est. Lead Time');
-    if (!form.date_to_start)                                                missing.push('Date to Start');
-    if (!form.weld)                                                         missing.push('Weld');
-    if (!form.weld_print)                                                   missing.push('Weld Print');
-    if (!form.fab)                                                          missing.push('Fab');
-    if (!form.fab_print)                                                    missing.push('Fab Print');
-    if (!form.bent_rolled_part)                                             missing.push('Bent / Rolled Part');
-    if (form.set_up_time        === '' || form.set_up_time        == null) missing.push('Set Up Time');
-    if (!form.assy_wo)                                                      missing.push('Assy WO');
-    if (!form.staging_area)                                                 missing.push('Staging Area');
+    if (form.qty_to_make         === '' || form.qty_to_make        == null) missing.push('Qty to Make');
+    if (form.estimated_lead_time  === '' || form.estimated_lead_time == null) missing.push('Est. Lead Time');
+    if (!form.date_to_start)                                                  missing.push('Date to Start');
+    if (!form.weld)                                                           missing.push('Weld');
+    if (!form.weld_print)                                                     missing.push('Weld Print');
+    if (!form.fab)                                                            missing.push('Fab');
+    if (!form.fab_print)                                                      missing.push('Fab Print');
+    if (!form.bent_rolled_part)                                               missing.push('Bent / Rolled Part');
+    if (form.set_up_time         === '' || form.set_up_time        == null)  missing.push('Set Up Time');
+    if (!form.assy_wo)                                                        missing.push('Assy WO');
+    if (!form.staging_area)                                                   missing.push('Staging Area');
 
     if (missing.length > 0) {
         store.showToast('Missing required: ' + missing.join(', '), 'error', 7000);
@@ -458,112 +459,22 @@ export async function approveWoRequest() {
 
     store.loading.value = true;
     try {
-        // Assign job number before saving — RPC is idempotent; safe to retry on re-approve
-        const { data: jobNumber, error: jobErr } = await db.assignJobNumberIfMissing(id);
-        if (jobErr) throw jobErr;
-
-        const today   = new Date().toISOString().slice(0, 10);
-        const updates = { ..._buildDetailUpdates(form), status: 'in production', created_date: today };
+        const plans = {};
+        Object.entries(store.woRequestSubpartForms.value).forEach(([n, { expanded, defaultsLoaded, ...d }]) => { plans[n] = d; });
+        const updates = {
+            ..._buildDetailUpdates(form),
+            status: 'manager_review',
+            subpart_plans: Object.keys(plans).length ? plans : null,
+        };
         const { error } = await db.updateWoRequest(id, updates);
         if (error) throw error;
-
-        // Create work_orders immediately — JOB-{n} is the internal placeholder until official WO# is set
-        const req = store.selectedWoRequest.value;
-        const approvalReq = {
-            id:                 req.id,
-            part_number:        req.part_number,
-            description:        req.description,
-            sales_order_number: req.sales_order_number,
-            traveller_id:       req.traveller_id,
-            job_number:         jobNumber,
-            qty_to_make:        updates.qty_to_make,
-            fab:                updates.fab,
-            fab_print:          updates.fab_print,
-            weld:               updates.weld,
-            weld_print:         updates.weld_print,
-            assy_wo:            updates.assy_wo,
-            production_notes:   updates.production_notes,
-            staging_area:       updates.staging_area,
-        };
-        const { error: routeErr } = await db.insertWorkOrdersFromRequest(approvalReq);
-        if (routeErr) throw routeErr;
-
-        // Fire-and-forget: learn routing defaults for this part (never blocks approval)
-        const partNum = (store.selectedWoRequest.value?.part_number || '').trim();
-        if (partNum) {
-            db.learnPartApprovalDefaults(partNum, {
-                fab:              updates.fab,
-                fab_print:        updates.fab_print,
-                weld:             updates.weld,
-                weld_print:       updates.weld_print,
-                assy_wo:          updates.assy_wo,
-                color:            updates.color,
-                bent_rolled_part: updates.bent_rolled_part,
-            }).catch(err => logError('approveWoRequest:learnDefaults', err, { part: partNum }));
-        }
-
-        // Sync est. lead time as a date to the matching open order's Est. Leadtime column
-        const leadDays = parseFloat(form.estimated_lead_time);
-        const soNum    = (req.sales_order_number || '').trim();
-        const part     = (req.part_number        || '').trim().toUpperCase();
-        if (soNum && part && leadDays > 0) {
-            const { data: oo } = await db.findOpenOrderBySoAndPart(soNum, part);
-            if (oo) {
-                const leadDate = new Date();
-                leadDate.setDate(leadDate.getDate() + leadDays);
-                await db.updateOpenOrder(oo.id, { deadline: leadDate.toISOString().split('T')[0] });
-            }
-        }
-
-        // Traveller: create group + subpart requests for weld WOs with filled subpart forms
-        const subpartEntries = Object.entries(store.woRequestSubpartForms.value)
-            .filter(([, f]) => parseFloat(f.qty_to_make) > 0);
-        if (store.woRequestSubpartMode.value === 'weld' && subpartEntries.length > 0) {
-            const { data: trav, error: tErr } = await db.insertTraveller();
-            if (tErr) throw tErr;
-            await db.updateWoRequest(id, { traveller_id: trav.id });
-            const descs = store.woRequestSubpartDescs.value;
-            const today = new Date().toISOString().split('T')[0];
-            const subRows = subpartEntries.map(([n, f]) => {
-                const sub = store.woRequestSubparts.value.find(s => s.item_child_normalized === n);
-                return {
-                    part_number:         (sub?.item_child || n).trim().toUpperCase(),
-                    description:         descs[n] || '',
-                    qty_to_make:         parseFloat(f.qty_to_make),
-                    fab:                 f.fab          || null,
-                    fab_print:           f.fab_print     || null,
-                    weld:                f.weld          || null,
-                    weld_print:          f.weld_print    || null,
-                    assy_wo:             f.assy_wo       || null,
-                    color:               f.color         || null,
-                    bent_rolled_part:    f.bent_rolled_part === 'yes' ? true : f.bent_rolled_part === 'no' ? false : null,
-                    date_to_start:       f.date_to_start || null,
-                    estimated_lead_time: f.estimated_lead_time !== '' ? parseFloat(f.estimated_lead_time) : null,
-                    set_up_time:         f.set_up_time   !== '' ? parseFloat(f.set_up_time) : null,
-                    traveller_id:        trav.id,
-                    parent_request_id:   id,
-                    status:              'approved',
-                    submitted_by:        'System',
-                    request_date:        today,
-                };
-            });
-            const { data: subData, error: subErr } = await db.batchInsertWoRequests(subRows);
-            if (subErr) throw subErr;
-
-            // Assign job numbers and create work_orders for each subpart immediately
-            await Promise.all((subData || []).map(async sub => {
-                const { data: subJobNum, error: sjErr } = await db.assignJobNumberIfMissing(sub.id);
-                if (sjErr) { logError('approveWoRequest:subJobNum', sjErr, { id: sub.id }); return; }
-                const { error: swErr } = await db.insertWorkOrdersFromRequest({ ...sub, job_number: subJobNum });
-                if (swErr) logError('approveWoRequest:subWorkOrders', swErr, { id: sub.id });
-            }));
-        }
-
-        store.showToast('Approved — Job #' + jobNumber + ' in production.', 'success');
-        await _syncAfterSave(id);
+        store.showToast('Sent to manager for final approval.', 'success');
+        store.selectedWoRequest.value = null;
+        store.woRequestReadOnly.value = false;
+        await loadWoRequests();
     } catch (err) {
-        store.showToast('Failed to approve: ' + err.message, 'error');
-        logError('approveWoRequest', err, { id });
+        store.showToast('Failed to send for approval: ' + err.message, 'error');
+        logError('sendToManagerApproval', err, { id });
     } finally {
         store.loading.value = false;
     }

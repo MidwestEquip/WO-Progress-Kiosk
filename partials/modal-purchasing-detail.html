@@ -35,7 +35,8 @@
 
         <!-- ── Section tabs ────────────────────────────────── -->
         <div class="shrink-0 flex border-b border-gray-200 px-6">
-            <button @click="purchasingDetailSection = 'quoting'; loadOrderQuotes(); loadOrderAttachments()"
+            <button v-if="purchasingDetailOrder.request_type !== 'steel'"
+                @click="purchasingDetailSection = 'quoting'; loadOrderQuotes(); loadOrderAttachments()"
                 class="px-4 py-3 text-sm font-semibold border-b-2 transition-colors"
                 :class="purchasingDetailSection === 'quoting'
                     ? 'border-amber-500 text-amber-700'
@@ -381,6 +382,10 @@
                             <p class="text-xs text-gray-400">Shape</p>
                             <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.steel_shape }}</p>
                         </div>
+                        <div v-if="purchasingDetailOrder.description">
+                            <p class="text-xs text-gray-400">Description</p>
+                            <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.description }}</p>
+                        </div>
                         <div v-if="purchasingDetailOrder.material_size">
                             <p class="text-xs text-gray-400">Size</p>
                             <p class="font-semibold text-gray-800">{{ purchasingDetailOrder.material_size }}</p>
@@ -664,10 +669,14 @@
                     class="flex-1 border border-amber-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-500 resize-none"></textarea>
             </div>
             <!-- Button row -->
-            <div class="flex items-center gap-3 px-6 py-4">
+            <div class="flex items-center gap-3 px-6 py-4 flex-wrap">
                 <button @click="closeOrderDetail"
                     class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm transition-colors">
                     Close
+                </button>
+                <button @click="openRfqDraft"
+                    class="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-xl text-sm border border-blue-200 transition-colors">
+                    ✉ RFQ Email Draft
                 </button>
                 <!-- Autosave status (ordering tab, non-approval only) -->
                 <div v-if="purchasingDetailSection === 'ordering' && purchasingTab !== 'approval'" class="flex items-center gap-1.5 text-xs">

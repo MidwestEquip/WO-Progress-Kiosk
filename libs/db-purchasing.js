@@ -234,3 +234,21 @@ export async function uploadMasterQuoteAttachment(quoteId, file) {
         .upload(path, file, { upsert: true });
     return { data, error };
 }
+
+// uploadSteelQuoteAttachment — upload a quote file for an inline steel quote slot.
+// Path: {orderId}/steel_quotes/{filename}. Returns { path, error }
+export async function uploadSteelQuoteAttachment(orderId, file) {
+    const path = `${orderId}/steel_quotes/${file.name}`;
+    const { data, error } = await supabase.storage
+        .from('purchasing-attachments')
+        .upload(path, file, { upsert: true });
+    return { path, error };
+}
+
+// getSteelQuoteSignedUrl — generate a 1-hour signed URL for a steel quote file path.
+export async function getSteelQuoteSignedUrl(filePath) {
+    const { data, error } = await supabase.storage
+        .from('purchasing-attachments')
+        .createSignedUrl(filePath, 3600);
+    return { url: data?.signedUrl || null, error };
+}

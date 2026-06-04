@@ -1,0 +1,240 @@
+            <!-- ── Approve WO Creation ────────────────────────────── -->
+            <div v-if="currentView === 'wo_approval'"
+                 class="h-full w-full bg-gray-50 overflow-hidden absolute inset-0 flex flex-col">
+
+                <!-- Header -->
+                <div class="flex items-center gap-4 px-6 py-4 bg-white border-b border-gray-200 shrink-0">
+                    <button @click="exitWoApprovalView"
+                            class="flex items-center gap-1.5 text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                        Back
+                    </button>
+                    <div class="w-px h-5 bg-gray-300"></div>
+                    <h2 class="text-lg font-bold text-gray-900">Approve WO Creation</h2>
+                    <span v-if="managerWoApprovalCount > 0"
+                          class="bg-amber-100 text-amber-700 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                        {{ managerWoApprovalCount }} pending
+                    </span>
+                    <button @click="loadManagerPendingWoRequests"
+                            class="ml-auto text-gray-400 hover:text-gray-600 text-sm font-medium transition-colors">
+                        ↻ Refresh
+                    </button>
+                </div>
+
+                <!-- Card grid -->
+                <div class="flex-1 overflow-y-auto p-6">
+                    <div v-if="managerWoApprovalLoading" class="flex justify-center pt-16">
+                        <div class="text-gray-400 text-sm">Loading...</div>
+                    </div>
+                    <div v-else-if="managerWoApprovalList.length === 0"
+                         class="flex flex-col items-center justify-center pt-24 text-gray-400">
+                        <svg class="w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <p class="text-sm font-medium">No WOs awaiting approval</p>
+                    </div>
+                    <div v-else class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <button v-for="req in managerWoApprovalList" :key="req.id"
+                                @click="openManagerWoDetail(req)"
+                                class="bg-white rounded-2xl border-2 border-gray-200 hover:border-amber-400 hover:shadow-md p-5 text-left transition-all active:scale-95 flex flex-col gap-2">
+                            <!-- Part + badge -->
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="font-extrabold text-gray-900 text-lg leading-tight">{{ req.part_number }}</div>
+                                <span class="shrink-0 bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">Pending</span>
+                            </div>
+                            <!-- Description -->
+                            <div class="text-gray-500 text-sm leading-snug line-clamp-2 min-h-[2.5rem]">{{ req.description || '—' }}</div>
+                            <!-- Key fields -->
+                            <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mt-1">
+                                <div class="text-gray-400">Qty to Make</div>
+                                <div class="font-semibold text-gray-700">{{ req.qty_to_make ?? '—' }}</div>
+                                <div v-if="req.sales_order_number" class="text-gray-400">Sales Order</div>
+                                <div v-if="req.sales_order_number" class="font-semibold text-gray-700">{{ req.sales_order_number }}</div>
+                                <div v-if="req.date_to_start" class="text-gray-400">Start Date</div>
+                                <div v-if="req.date_to_start" class="font-semibold text-gray-700">{{ req.date_to_start }}</div>
+                            </div>
+                            <!-- Footer -->
+                            <div class="flex items-center justify-between mt-auto pt-2 border-t border-gray-100 text-xs text-gray-400">
+                                <span>{{ req.submitted_by }}</span>
+                                <span>{{ req.request_date }}</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Approve WO Detail Modal ─────────────────────────── -->
+            <div v-if="currentView === 'wo_approval' && managerWoSelectedRequest"
+                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                 @click.self="closeManagerWoDetail">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col max-h-[90vh]">
+
+                    <!-- Modal header -->
+                    <div class="flex items-start justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+                        <div>
+                            <div class="text-xl font-extrabold text-gray-900">{{ managerWoSelectedRequest.part_number }}</div>
+                            <div class="text-gray-500 text-sm mt-0.5">{{ managerWoSelectedRequest.description }}</div>
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-gray-400">
+                                <span v-if="managerWoSelectedRequest.sales_order_number">SO# {{ managerWoSelectedRequest.sales_order_number }}</span>
+                                <span>By <strong class="text-gray-600">{{ managerWoSelectedRequest.submitted_by }}</strong></span>
+                                <span>{{ managerWoSelectedRequest.request_date }}</span>
+                            </div>
+                        </div>
+                        <button @click="closeManagerWoDetail"
+                                class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none ml-4 shrink-0">✕</button>
+                    </div>
+
+                    <!-- Modal body (scrollable) -->
+                    <div class="overflow-y-auto flex-1 p-6">
+
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Routing &amp; Production Fields <span class="text-red-400">★ = required</span></div>
+                        <div class="grid grid-cols-3 gap-4">
+
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Qty to Make <span class="text-red-400">★</span></label>
+                                <input v-model="managerWoDetailForm.qty_to_make" type="number" min="1"
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Est. Lead Time (days) <span class="text-red-400">★</span></label>
+                                <input v-model="managerWoDetailForm.estimated_lead_time" type="number" min="1"
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Date to Start <span class="text-red-400">★</span></label>
+                                <input v-model="managerWoDetailForm.date_to_start" type="date"
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Fab <span class="text-red-400">★</span></label>
+                                <select v-model="managerWoDetailForm.fab"
+                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                                    <option value="">— Select —</option>
+                                    <option value="yes">Yes</option>
+                                    <option value="no">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Fab Print <span class="text-red-400">★</span></label>
+                                <select v-model="managerWoDetailForm.fab_print"
+                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                                    <option value="">— Select —</option>
+                                    <option value="yes">Yes</option>
+                                    <option value="no">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Set Up Time (hrs) <span class="text-red-400">★</span></label>
+                                <input v-model="managerWoDetailForm.set_up_time" type="number" min="0" step="0.5"
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Weld <span class="text-red-400">★</span></label>
+                                <select v-model="managerWoDetailForm.weld"
+                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                                    <option value="">— Select —</option>
+                                    <option value="Paint">Paint</option>
+                                    <option value="Urgent">Urgent</option>
+                                    <option value="Welder 1 Area 1">Welder 1 Area 1</option>
+                                    <option value="Welder 2 Area 1">Welder 2 Area 1</option>
+                                    <option value="Welder 3 Area 1">Welder 3 Area 1</option>
+                                    <option value="Ind. Robot Area 1">Ind. Robot Area 1</option>
+                                    <option value="New Robot Area 1">New Robot Area 1</option>
+                                    <option value="Area 2">Area 2</option>
+                                    <option value="Area 3">Area 3</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Weld Print <span class="text-red-400">★</span></label>
+                                <select v-model="managerWoDetailForm.weld_print"
+                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                                    <option value="">— Select —</option>
+                                    <option value="yes">Yes</option>
+                                    <option value="no">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Assy WO <span class="text-red-400">★</span></label>
+                                <select v-model="managerWoDetailForm.assy_wo"
+                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                                    <option value="">— Select —</option>
+                                    <option value="Trac Vac Assy">Trac Vac Assy</option>
+                                    <option value="Tru Cut Assy">Tru Cut Assy</option>
+                                    <option value="Non Assy WO">Non Assy WO</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Bent / Rolled Part <span class="text-red-400">★</span></label>
+                                <select v-model="managerWoDetailForm.bent_rolled_part"
+                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                                    <option value="">— Select —</option>
+                                    <option value="yes">Yes</option>
+                                    <option value="no">No</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Color</label>
+                                <input v-model="managerWoDetailForm.color" type="text"
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">Alere Bin</label>
+                                <input v-model="managerWoDetailForm.alere_bin" type="text"
+                                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                            </div>
+
+                            <div class="col-span-3">
+                                <label class="block text-xs text-gray-500 mb-1">Staging Area <span class="text-red-400">★</span></label>
+                                <select v-model="managerWoDetailForm.staging_area"
+                                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400">
+                                    <option value="">— Select —</option>
+                                    <option v-for="area in STAGING_AREAS" :key="area" :value="area">{{ area }}</option>
+                                </select>
+                            </div>
+
+                            <div class="col-span-3">
+                                <label class="block text-xs text-gray-500 mb-1">Production Notes</label>
+                                <textarea v-model="managerWoDetailForm.production_notes" rows="2"
+                                          placeholder="Notes visible to shop floor..."
+                                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 resize-none"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Send-back note panel -->
+                        <div v-if="managerWoSendBackOpen"
+                             class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mt-5">
+                            <div class="text-sm font-bold text-amber-800 mb-2">Note for Planner (required)</div>
+                            <textarea v-model="managerWoSendBackNote" rows="3"
+                                      placeholder="Explain what needs to be revised before final approval..."
+                                      class="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 resize-none mb-3"></textarea>
+                            <div class="flex gap-2 justify-end">
+                                <button @click="cancelManagerWoSendBack" :disabled="loading"
+                                        class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-xl text-sm font-bold active:scale-95 transition-all disabled:opacity-40">
+                                    Cancel
+                                </button>
+                                <button @click="submitManagerWoSendBack" :disabled="loading"
+                                        class="bg-amber-500 hover:bg-amber-400 text-white px-5 py-2 rounded-xl text-sm font-bold active:scale-95 transition-all disabled:opacity-40">
+                                    Send Back to Planner
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal footer -->
+                    <div class="flex items-center gap-3 justify-end px-6 py-4 border-t border-gray-200 shrink-0">
+                        <button @click="saveManagerWoDetail" :disabled="loading"
+                                class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                            Save
+                        </button>
+                        <button v-if="!managerWoSendBackOpen" @click="openManagerWoSendBack" :disabled="loading"
+                                class="bg-amber-100 hover:bg-amber-200 text-amber-700 px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                            Send Back
+                        </button>
+                        <button @click="managerFinalApproveWo" :disabled="loading"
+                                class="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                            ✓ Final Approve — Send to Shop
+                        </button>
+                    </div>
+                </div>
+            </div>

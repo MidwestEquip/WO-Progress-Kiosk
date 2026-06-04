@@ -42,7 +42,7 @@ import { loadInventoryItems, switchInventoryTab,
          loadPoReceivedOrders, unreceivePoOrder } from './pages/inventory-view.js';
 import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          openWoRequestDetail, closeWoRequestDetail,
-         saveWoRequestDetail, approveWoRequest,
+         saveWoRequestDetail, sendToManagerApproval,
          saveWoRequestInlineFields,
          checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
          openSendToForecast, closeSendToForecast, submitSendToForecast,
@@ -58,9 +58,18 @@ import { loadPurchasingOrders, switchPurchasingTab,
          onPurchasingPartBlur,
          openOrderDetail, closeOrderDetail, saveOrderDetail,
          loadPartUsageForOrder,
-         loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow } from './pages/purchasing-view.js';
+         loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow,
+         saveSteelField, saveSteelQuotes, addSteelQuote, toggleBestQuote, removeSteelQuote,
+         toggleSteelStatusPicker, setSteelStatus,
+         selectSteelQuoteForOrder, closeSteelOrderPanel, confirmSteelOrder,
+         uploadSteelQuoteFile, openSteelQuoteFile, removeSteelQuoteFile } from './pages/purchasing-view.js';
 import { completeOrder, submitReceiving } from './pages/purchasing-receive.js';
 import { enterApprovalTab, approveOrder, cancelRevise, submitRevise } from './pages/purchasing-approval.js';
+import { enterWoApprovalView, exitWoApprovalView, loadManagerPendingWoRequests,
+         openManagerWoDetail, closeManagerWoDetail, saveManagerWoDetail,
+         managerFinalApproveWo,
+         openManagerWoSendBack, cancelManagerWoSendBack,
+         submitManagerWoSendBack } from './pages/wo-manager-approval.js';
 import { uploadOrderAttachment, deleteOrderAttachment, loadOrderAttachments,
          loadPurchasingPartFiles } from './pages/purchasing-attachments.js';
 import { openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
@@ -68,6 +77,8 @@ import { openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
          loadAllQuotes, openQuoteOrder, cancelQuoteOrder, submitQuoteOrder } from './pages/purchasing-quotes-view.js';
 import { openSupplierCatalogFromHistory, loadSupplierCatalog,
          clearSupplierCatalog } from './pages/purchasing-research.js';
+import { openRfqDraft, closeRfqDraft, copyRfqDraft,
+         addOrderToRfq, removeOrderFromRfq } from './pages/purchasing-rfq.js';
 import { enterPurchasingView, enterPoRequestView, enterApprovalQueueView } from './pages/splash-view.js';
 
 export function buildOpsExpose() {
@@ -172,7 +183,7 @@ export function buildOpsExpose() {
         openWoRequestDetail,
         closeWoRequestDetail,
         saveWoRequestDetail,
-        approveWoRequest,
+        sendToManagerApproval,
         saveWoRequestInlineFields,
         checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
         openSubpartWoForm,
@@ -261,6 +272,13 @@ export function buildOpsExpose() {
         purchasingOrders:           store.purchasingOrders,
         purchasingLoading:          store.purchasingLoading,
         filteredPurchasingOrders:   store.filteredPurchasingOrders,
+        steelOrdersByLocation:      store.steelOrdersByLocation,
+        approvalOrdersByLocation:   store.approvalOrdersByLocation,
+        steelStatusPickerOpen:      store.steelStatusPickerOpen,
+        steelOrderPanelOpen:        store.steelOrderPanelOpen,
+        steelOrderSaving:           store.steelOrderSaving,
+        steelOrderErrors:           store.steelOrderErrors,
+        steelOrderForm:             store.steelOrderForm,
         purchasingTabCounts:        store.purchasingTabCounts,
         purchasingRequestModalOpen:  store.purchasingRequestModalOpen,
         purchasingRequestSaving:     store.purchasingRequestSaving,
@@ -322,8 +340,36 @@ export function buildOpsExpose() {
         openNewRequestForm, closeNewRequestForm, submitPurchasingRequest, onPurchasingPartBlur,
         openOrderDetail, closeOrderDetail, saveOrderDetail, completeOrder, submitReceiving, loadPartUsageForOrder,
         loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow,
+        saveSteelField, saveSteelQuotes, addSteelQuote, toggleBestQuote, removeSteelQuote,
+        toggleSteelStatusPicker, setSteelStatus,
+        selectSteelQuoteForOrder, closeSteelOrderPanel, confirmSteelOrder,
+        uploadSteelQuoteFile, openSteelQuoteFile, removeSteelQuoteFile,
         uploadOrderAttachment, deleteOrderAttachment, loadOrderAttachments, loadPurchasingPartFiles,
         enterApprovalTab, approveOrder, cancelRevise, submitRevise,
+        openRfqDraft, closeRfqDraft, copyRfqDraft, addOrderToRfq, removeOrderFromRfq,
+        rfqDraftOpen:     store.rfqDraftOpen,
+        rfqDraftSubject:  store.rfqDraftSubject,
+        rfqDraftText:     store.rfqDraftText,
+        rfqDraftHtml:     store.rfqDraftHtml,
+        rfqDraftCopied:   store.rfqDraftCopied,
+        rfqDraftOrders:   store.rfqDraftOrders,
+        rfqPickerOpen:    store.rfqPickerOpen,
+        rfqPickerSearch:  store.rfqPickerSearch,
+        rfqPickerResults: store.rfqPickerResults,
+
+        // Manager WO Approval Queue
+        managerWoApprovalList:    store.managerWoApprovalList,
+        managerWoApprovalLoading: store.managerWoApprovalLoading,
+        managerWoSelectedRequest: store.managerWoSelectedRequest,
+        managerWoDetailForm:      store.managerWoDetailForm,
+        managerWoSendBackOpen:    store.managerWoSendBackOpen,
+        managerWoSendBackNote:    store.managerWoSendBackNote,
+        managerWoApprovalCount:   store.managerWoApprovalCount,
+        enterWoApprovalView, exitWoApprovalView, loadManagerPendingWoRequests,
+        openManagerWoDetail, closeManagerWoDetail, saveManagerWoDetail,
+        managerFinalApproveWo,
+        openManagerWoSendBack, cancelManagerWoSendBack, submitManagerWoSendBack,
+
         openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
         stageQuoteFile, unstageQuoteFile,
         loadAllQuotes, openQuoteOrder, cancelQuoteOrder, submitQuoteOrder,

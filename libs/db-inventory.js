@@ -226,6 +226,18 @@ export async function fetchWoRequests() {
     );
 }
 
+// fetchManagerPendingWoRequests — requests awaiting manager final approval (status='manager_review').
+export async function fetchManagerPendingWoRequests() {
+    return withRetry(() =>
+        supabase.from('wo_requests')
+            .select('*')
+            .eq('status', 'manager_review')
+            .eq('forecasted', false)
+            .order('request_date', { ascending: true })
+            .order('created_at',   { ascending: true })
+    );
+}
+
 // fetchForecastedRequests — returns all wo_requests rows marked forecasted=true.
 export async function fetchForecastedRequests() {
     return withRetry(() =>
