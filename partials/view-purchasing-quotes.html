@@ -1,0 +1,107 @@
+<!-- ============================================================
+     view-purchasing-quotes.html — All Quotes tab.
+     Teleports into #po-tab-body (view-purchasing.html).
+     ============================================================ -->
+<Teleport v-if="currentView === 'purchasing' && purchasingTab === 'all_quotes'" to="#po-tab-body">
+<div class="absolute inset-0 overflow-y-auto p-6 flex flex-col gap-4">
+
+    <div v-if="allQuotesLoading" class="flex items-center justify-center h-48">
+        <svg class="animate-spin w-8 h-8 text-purple-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+    </div>
+
+    <div v-else-if="allQuotes.length === 0"
+        class="flex flex-col items-center justify-center h-48 text-gray-400 gap-2">
+        <p class="text-sm">No quotes yet</p>
+    </div>
+
+    <div v-else class="flex flex-col gap-3">
+        <div v-for="quote in allQuotes" :key="quote.id"
+            class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+
+            <!-- Quote header -->
+            <div class="px-5 py-3 flex items-center gap-4 border-b border-gray-100">
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-gray-800 text-sm">{{ quote.supplier_name || '—' }}</p>
+                    <p class="text-xs text-gray-400">
+                        <span v-if="quote.quote_ref">Quote #{{ quote.quote_ref }} · </span>
+                        <span v-if="quote.terms">{{ quote.terms }} · </span>
+                        {{ quote.created_at?.slice(0,10) }}
+                    </p>
+                </div>
+                <span class="shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
+                    :class="quote.status === 'active'  ? 'bg-purple-100 text-purple-700' :
+                            quote.status === 'ordered' ? 'bg-violet-100 text-violet-700' :
+                                                         'bg-gray-100 text-gray-500'">
+                    {{ quote.status }}
+                </span>
+                <div class="shrink-0 text-right">
+                    <p class="text-xs text-gray-400">Shipping</p>
+                    <p class="text-sm font-semibold text-gray-700">${{ quote.shipping_price ?? '—' }}</p>
+                </div>
+                <button v-if="quote.status === 'active' && quoteOrderingId !== quote.id"
+                    @click="openQuoteOrder(quote.id)"
+                    class="shrink-0 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold rounded-lg transition-colors">
+                    Place Order
+                </button>
+            </div>
+
+            <!-- Inline PO# entry -->
+            <div v-if="quoteOrderingId === quote.id"
+                class="px-5 py-3 bg-violet-50 border-b border-violet-200 flex items-center gap-3">
+                <span class="text-xs font-bold text-violet-700">Enter PO #</span>
+                <input v-model="quoteOrderPoNum" type="text"
+                    class="flex-1 border border-violet-300 rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:border-violet-500"
+                    placeholder="PO number">
+                <button @click="submitQuoteOrder(quote)" :disabled="quoteOrderSaving"
+                    class="px-4 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors">
+                    {{ quoteOrderSaving ? 'Saving…' : 'Confirm Order' }}
+                </button>
+                <button @click="cancelQuoteOrder"
+                    class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg transition-colors">
+                    Cancel
+                </button>
+            </div>
+
+            <!-- Line items -->
+            <div class="divide-y divide-gray-50">
+                <div v-for="item in quote.purchasing_quote_items" :key="item.id"
+                    class="px-5 py-2.5 flex items-center gap-4">
+                    <span class="shrink-0 w-14 text-center px-1.5 py-0.5 rounded text-xs font-bold uppercase"
+                        :class="item.purchasing_orders?.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
+                                item.purchasing_orders?.request_type === 'supply' ? 'bg-green-100 text-green-700' :
+                                                                                     'bg-orange-100 text-orange-700'">
+                        {{ item.purchasing_orders?.request_type }}
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-gray-800 truncate">
+                            <template v-if="item.purchasing_orders?.request_type === 'steel'">
+                                {{ [item.purchasing_orders?.material_type !== 'Carbon' ? item.purchasing_orders?.material_type : null, item.purchasing_orders?.steel_shape, item.purchasing_orders?.description || [item.purchasing_orders?.material_size, item.purchasing_orders?.material_thickness, item.purchasing_orders?.material_grade].filter(Boolean).join(' · ')].filter(Boolean).join(' · ') || '—' }}
+                            </template>
+                            <template v-else>
+                                {{ item.purchasing_orders?.part_number || item.purchasing_orders?.supply_item_name || '—' }}
+                            </template>
+                        </p>
+                        <p class="text-xs text-gray-400 truncate">{{ item.purchasing_orders?.description || '' }}</p>
+                    </div>
+                    <div class="shrink-0 text-center w-16">
+                        <p class="text-sm font-semibold text-gray-700">{{ item.qty ?? '—' }}</p>
+                        <p class="text-xs text-gray-400">qty</p>
+                    </div>
+                    <div class="shrink-0 text-center w-20">
+                        <p class="text-sm font-semibold text-gray-700">${{ item.price ?? '—' }}</p>
+                        <p class="text-xs text-gray-400">unit price</p>
+                    </div>
+                    <div class="shrink-0 text-center w-20">
+                        <p class="text-sm font-semibold text-gray-700">{{ item.lead_time || '—' }}</p>
+                        <p class="text-xs text-gray-400">lead time</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</Teleport>

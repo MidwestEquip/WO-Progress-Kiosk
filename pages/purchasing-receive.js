@@ -49,6 +49,7 @@ export async function completeOrder() {
         supplier_name:        form.supplier_name.trim(),
         supplier_part_number: form.supplier_part_number?.trim() || null,
         po_number:            form.po_number.trim(),
+        date_ordered:         form.date_ordered                 || null,
         qty_ordered:          parseFloat(form.qty_ordered),
         cost:                 parseFloat(form.cost),
         estimated_lead_time:  parseFloat(form.estimated_lead_time) || null,

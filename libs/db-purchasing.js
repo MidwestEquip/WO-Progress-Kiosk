@@ -7,24 +7,26 @@
 
 import { supabase } from './db-shared.js';
 
-// fetchPurchasingOrders — active ordering-stage orders (not yet placed), newest first.
+// fetchPurchasingOrders — active ordering-stage orders (not forecasted), newest first.
 // Returns { data, error }
 export async function fetchPurchasingOrders() {
     const { data, error } = await supabase
         .from('purchasing_orders')
         .select('*')
         .in('status', ['requested', 'quoting', 'quoted', 'approved', 'not_approved'])
+        .eq('forecasted', false)
         .order('created_at', { ascending: false });
     return { data: data || [], error };
 }
 
-// fetchPoReceiveOrders — all open orders pending physical receipt (excludes received/canceled).
+// fetchPoReceiveOrders — open orders pending receipt (excludes received/canceled/forecasted).
 // Returns { data, error }
 export async function fetchPoReceiveOrders() {
     const { data, error } = await supabase
         .from('purchasing_orders')
         .select('*')
         .not('status', 'in', '(received,canceled)')
+        .eq('forecasted', false)
         .order('last_status_update', { ascending: false });
     return { data: data || [], error };
 }
@@ -55,6 +57,26 @@ export async function fetchCompletedPurchasingOrders(fromDate, toDate) {
     if (toDate)   q = q.lte('last_status_update', toDate + 'T23:59:59');
     const { data, error } = await q;
     return { data: data || [], error };
+}
+
+// fetchForecastedOrders — all orders with forecasted=true, newest first.
+// Returns { data, error }
+export async function fetchForecastedOrders() {
+    const { data, error } = await supabase
+        .from('purchasing_orders')
+        .select('*')
+        .eq('forecasted', true)
+        .order('created_at', { ascending: false });
+    return { data: data || [], error };
+}
+
+// deletePurchasingOrder — permanently delete an order by id. Returns { error }
+export async function deletePurchasingOrder(id) {
+    const { error } = await supabase
+        .from('purchasing_orders')
+        .delete()
+        .eq('id', id);
+    return { error };
 }
 
 // insertPurchasingOrder — create a new request. Returns { data, error }

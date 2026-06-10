@@ -98,6 +98,7 @@ export const purchasingDetailForm = ref({
     supplier_name:        '',
     supplier_part_number: '',
     po_number:            '',
+    date_ordered:         '',
     estimated_lead_time:  '',
     expected_date:        '',
     qty_ordered:          '',
@@ -218,6 +219,51 @@ export const approvalOrders = computed(() =>
     purchasingOrders.value.filter(o => o.status === 'quoted')
 );
 
+// partOrdersByLocation — open part orders grouped by ship_to in STEEL_LOCATIONS order.
+export const partOrdersByLocation = computed(() => {
+    const open = purchasingOrders.value.filter(
+        o => o.request_type === 'part' && !DONE_STATUSES.includes(o.status)
+    );
+    const map = {};
+    open.forEach(o => {
+        const loc = STEEL_LOCATIONS.includes(o.ship_to) ? o.ship_to : 'Other';
+        if (!map[loc]) map[loc] = [];
+        map[loc].push(o);
+    });
+    const result = STEEL_LOCATIONS.filter(loc => map[loc]).map(loc => ({ location: loc, orders: map[loc] }));
+    if (map['Other']) result.push({ location: 'Other', orders: map['Other'] });
+    return result;
+});
+
+// supplyOrdersByLocation — open supply orders grouped by ship_to in STEEL_LOCATIONS order.
+export const supplyOrdersByLocation = computed(() => {
+    const open = purchasingOrders.value.filter(
+        o => o.request_type === 'supply' && !DONE_STATUSES.includes(o.status)
+    );
+    const map = {};
+    open.forEach(o => {
+        const loc = STEEL_LOCATIONS.includes(o.ship_to) ? o.ship_to : 'Other';
+        if (!map[loc]) map[loc] = [];
+        map[loc].push(o);
+    });
+    const result = STEEL_LOCATIONS.filter(loc => map[loc]).map(loc => ({ location: loc, orders: map[loc] }));
+    if (map['Other']) result.push({ location: 'Other', orders: map['Other'] });
+    return result;
+});
+
+// poForecastOrdersByLocation — forecasted orders grouped by ship_to in STEEL_LOCATIONS order.
+export const poForecastOrdersByLocation = computed(() => {
+    const map = {};
+    poForecastOrders.value.forEach(o => {
+        const loc = STEEL_LOCATIONS.includes(o.ship_to) ? o.ship_to : 'Other';
+        if (!map[loc]) map[loc] = [];
+        map[loc].push(o);
+    });
+    const result = STEEL_LOCATIONS.filter(loc => map[loc]).map(loc => ({ location: loc, orders: map[loc] }));
+    if (map['Other']) result.push({ location: 'Other', orders: map['Other'] });
+    return result;
+});
+
 // approvalOrdersByLocation — quoted orders grouped by ship_to in STEEL_LOCATIONS order.
 export const approvalOrdersByLocation = computed(() => {
     const quoted = purchasingOrders.value.filter(o => o.status === 'quoted');
@@ -244,6 +290,7 @@ export const steelOrderErrors     = ref({});
 export const steelOrderForm       = ref({
     supplier_name:       '',
     po_number:           '',
+    date_ordered:        '',
     cost:                '',
     qty_ordered:         '',
     estimated_lead_time: '',
@@ -333,6 +380,19 @@ export const rfqPickerResults = computed(() => {
             (o.steel_shape      || '').toLowerCase().includes(q)
         );
 });
+
+// ── PO Forecasting ────────────────────────────────────────────
+
+export const poForecastOrders    = ref([]);
+export const poForecastLoading   = ref(false);
+export const poForecastDeleteId  = ref(null);
+export const poForecastMoveBackId = ref(null);
+
+// Send-to-forecast confirmation dialog (opened from order detail modal)
+export const poForecastSendOpen   = ref(false);
+export const poForecastSendSaving = ref(false);
+export const poForecastSendErrors = ref({});
+export const poForecastSendForm   = ref({ revisit_date: '', reason: '' });
 
 // ── Supplier catalog (Research tab: "all from this supplier") ─────────────────
 

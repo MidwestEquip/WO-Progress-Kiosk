@@ -24,18 +24,61 @@ export function exitWoApprovalView() {
 }
 
 // loadManagerPendingWoRequests — fetch all status='manager_review' requests into store.
+// Also refreshes partsWithFiles so cards can show a "Files attached" indicator.
 export async function loadManagerPendingWoRequests() {
     store.managerWoApprovalLoading.value = true;
     try {
-        const { data, error } = await db.fetchManagerPendingWoRequests();
+        const [{ data, error }, partsSet] = await Promise.all([
+            db.fetchManagerPendingWoRequests(),
+            db.fetchPartsWithFiles()
+        ]);
         if (error) throw error;
         store.managerWoApprovalList.value = data || [];
+        store.partsWithFiles.value        = partsSet;
     } catch (err) {
         store.showToast('Failed to load WO approval queue: ' + err.message, 'error');
         logError('loadManagerPendingWoRequests', err);
     } finally {
         store.managerWoApprovalLoading.value = false;
     }
+}
+
+// loadManagerWoFiles — fetch part prints for the given part number into store.woFiles.
+export async function loadManagerWoFiles(partNumber) {
+    if (!partNumber) { store.woFiles.value = []; return; }
+    store.woFilesLoading.value = true;
+    const { data, error } = await db.listWoFiles(partNumber);
+    store.woFilesLoading.value = false;
+    if (error) { store.showToast('Could not load files: ' + error.message, 'error'); return; }
+    store.woFiles.value = data || [];
+}
+
+// handleManagerWoFileUpload — upload a file for the selected request's part number,
+// then refresh the file list and the partsWithFiles indicator set.
+export async function handleManagerWoFileUpload(event) {
+    const file       = event.target.files[0];
+    const partNumber = store.managerWoSelectedRequest.value?.part_number;
+    if (!file || !partNumber) return;
+    event.target.value = '';   // reset so the same file can be re-uploaded
+    store.woFilesLoading.value = true;
+    const { error } = await db.uploadWoFile(partNumber, file);
+    store.woFilesLoading.value = false;
+    if (error) { store.showToast('Upload failed: ' + error.message, 'error'); return; }
+    store.showToast('File uploaded.', 'success');
+    await loadManagerWoFiles(partNumber);
+    store.partsWithFiles.value = await db.fetchPartsWithFiles();
+}
+
+// handleManagerWoFileDelete — remove a file from the selected request's part folder.
+export async function handleManagerWoFileDelete(filename) {
+    const partNumber = store.managerWoSelectedRequest.value?.part_number;
+    if (!partNumber) return;
+    store.woFilesLoading.value = true;
+    const { error } = await db.deleteWoFile(partNumber, filename);
+    store.woFilesLoading.value = false;
+    if (error) { store.showToast('Delete failed: ' + error.message, 'error'); return; }
+    await loadManagerWoFiles(partNumber);
+    store.partsWithFiles.value = await db.fetchPartsWithFiles();
 }
 
 // _boolToYesNo — maps boolean DB value to 'yes'/'no'/'' for <select> binding.
@@ -66,6 +109,7 @@ export function openManagerWoDetail(req) {
         staging_area:        req.staging_area        || '',
         production_notes:    req.production_notes    || '',
     };
+    loadManagerWoFiles(req.part_number);
 }
 
 // closeManagerWoDetail — deselect the request and reset panel state.
@@ -74,6 +118,7 @@ export function closeManagerWoDetail() {
     store.managerWoDetailForm.value      = {};
     store.managerWoSendBackOpen.value    = false;
     store.managerWoSendBackNote.value    = '';
+    store.woFiles.value                  = [];
 }
 
 // _buildUpdates — convert the manager detail form to DB update shape.
@@ -128,6 +173,12 @@ export async function managerFinalApproveWo() {
     const req  = store.managerWoSelectedRequest.value;
     const form = store.managerWoDetailForm.value;
     if (!req) return;
+
+    // Only managers may send a WO to production. Office can view/save/send-back.
+    if (store.sessionRole.value !== 'manager') {
+        store.showToast('Manager login required to send to production.', 'error');
+        return;
+    }
 
     const missing = [];
     if (form.qty_to_make         === '' || form.qty_to_make        == null) missing.push('Qty to Make');

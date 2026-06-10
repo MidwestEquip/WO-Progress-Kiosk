@@ -341,9 +341,11 @@ export async function setSteelStatus(orderId, newStatus) {
         store.steelStatusPickerOpen.value = null;
         const best = (order.steel_quotes || []).find(q => q.best)
                   || (order.steel_quotes || []).find(q => q.supplier);
+        const todayStr = new Date().toISOString().split('T')[0];
         store.steelOrderForm.value = {
             supplier_name:       best?.supplier              || order.supplier_name        || '',
             po_number:           order.po_number             || '',
+            date_ordered:        order.date_ordered          || todayStr,
             cost:                best?.price                 || (order.cost        != null ? String(order.cost)                 : ''),
             qty_ordered:         order.qty_ordered != null   ? String(order.qty_ordered)   : (order.qty_needed != null ? String(order.qty_needed) : ''),
             estimated_lead_time: best?.lead_time             || (order.estimated_lead_time != null ? String(order.estimated_lead_time) : ''),
@@ -414,6 +416,7 @@ export async function confirmSteelOrder(orderId) {
             status:               'ordered',
             supplier_name:        form.supplier_name.trim(),
             po_number:            form.po_number.trim(),
+            date_ordered:         form.date_ordered          || null,
             cost:                 parseFloat(form.cost)     || null,
             qty_ordered:          parseFloat(form.qty_ordered) || null,
             estimated_lead_time:  leadDays,
@@ -483,12 +486,14 @@ export function openOrderDetail(order, section = 'ordering') {
     store.supplierCatalogChoices.value = [];
     store.purchasingDetailOrder.value   = order;
     store.purchasingDetailSection.value = section;
+    const today = new Date().toISOString().split('T')[0];
     store.purchasingDetailForm.value = {
         status:               order.status               || 'requested',
         ship_to:              order.ship_to              || APP_LOCATION,
         supplier_name:        order.supplier_name        || '',
         supplier_part_number: order.supplier_part_number || '',
         po_number:            order.po_number            || '',
+        date_ordered:         order.date_ordered         || today,
         estimated_lead_time:  order.estimated_lead_time  ?? '',
         expected_date:        order.expected_date        || '',
         qty_ordered:          order.qty_ordered          ?? '',
@@ -511,6 +516,31 @@ export function closeOrderDetail() {
     store.purchasingDetailOpen.value = false;
 }
 
+// syncDetailFromRealtime — called by the realtime handler when a purchasing_orders UPDATE
+// arrives. Refreshes the open modal form without triggering autosave. No-op if modal is
+// closed or a different order is open.
+export function syncDetailFromRealtime(row) {
+    if (!store.purchasingDetailOpen.value) return;
+    if (!store.purchasingDetailOrder.value || store.purchasingDetailOrder.value.id !== row.id) return;
+    store.purchasingDetailOrder.value = row;
+    store.purchasingDetailForm.value = {
+        status:               row.status               || 'requested',
+        ship_to:              row.ship_to              || APP_LOCATION,
+        supplier_name:        row.supplier_name        || '',
+        supplier_part_number: row.supplier_part_number || '',
+        po_number:            row.po_number            || '',
+        date_ordered:         row.date_ordered         || '',
+        estimated_lead_time:  row.estimated_lead_time  ?? '',
+        expected_date:        row.expected_date        || '',
+        qty_ordered:          row.qty_ordered          ?? '',
+        cost:                 row.cost                 ?? '',
+        purchaser_notes:      row.purchaser_notes      || '',
+        purchaser_questions:  row.purchaser_questions  || '',
+        production_notes:     row.production_notes     || '',
+    };
+    _formSnapshot = JSON.stringify(store.purchasingDetailForm.value);
+}
+
 // _doSave — internal save: persists ordering fields, updates snapshot, no modal close.
 async function _doSave() {
     const order = store.purchasingDetailOrder.value;
@@ -523,6 +553,7 @@ async function _doSave() {
         supplier_name:        form.supplier_name?.trim()           || null,
         supplier_part_number: form.supplier_part_number?.trim()    || null,
         po_number:            form.po_number?.trim()               || null,
+        date_ordered:         form.date_ordered                    || null,
         estimated_lead_time:  parseFloat(form.estimated_lead_time) || null,
         expected_date:        form.expected_date                   || null,
         qty_ordered:          parseFloat(form.qty_ordered)         || null,

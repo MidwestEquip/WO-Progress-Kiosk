@@ -51,6 +51,12 @@
                                 <div v-if="req.date_to_start" class="text-gray-400">Start Date</div>
                                 <div v-if="req.date_to_start" class="font-semibold text-gray-700">{{ req.date_to_start }}</div>
                             </div>
+                            <!-- File attachment indicator -->
+                            <div v-if="partsWithFiles.has(sanitizePartKey(req.part_number))"
+                                 class="flex items-center gap-1 text-xs text-blue-600 font-semibold mt-1">
+                                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                Files attached
+                            </div>
                             <!-- Footer -->
                             <div class="flex items-center justify-between mt-auto pt-2 border-t border-gray-100 text-xs text-gray-400">
                                 <span>{{ req.submitted_by }}</span>
@@ -78,8 +84,15 @@
                                 <span>{{ managerWoSelectedRequest.request_date }}</span>
                             </div>
                         </div>
-                        <button @click="closeManagerWoDetail"
-                                class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none ml-4 shrink-0">✕</button>
+                        <div class="flex items-center gap-2 shrink-0 ml-4">
+                            <label class="cursor-pointer bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                Attach File
+                                <input type="file" class="sr-only" accept=".pdf,.dxf,.dwg,.png,.jpg" @change="handleManagerWoFileUpload($event)">
+                            </label>
+                            <button @click="closeManagerWoDetail"
+                                    class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none shrink-0">✕</button>
+                        </div>
                     </div>
 
                     <!-- Modal body (scrollable) -->
@@ -201,6 +214,27 @@
                             </div>
                         </div>
 
+                        <!-- Prints & Files -->
+                        <div class="mt-5 pt-4 border-t border-gray-100">
+                            <div class="flex items-center gap-3">
+                                <span class="text-gray-500 font-bold text-xs uppercase tracking-widest shrink-0">&#128206; Prints &amp; Files</span>
+                                <span v-if="woFilesLoading" class="text-gray-400 text-xs">&#8987; Loading...</span>
+                                <div v-else class="flex items-center gap-2 flex-1 min-w-0 overflow-x-auto">
+                                    <span v-if="woFiles.length === 0" class="text-gray-400 text-xs italic">No files for this part yet</span>
+                                    <template v-else>
+                                        <div v-for="f in woFiles" :key="f.name"
+                                             class="flex items-center gap-1.5 bg-gray-100 border border-gray-200 rounded px-2 py-1 shrink-0">
+                                            <span class="text-xs font-bold text-gray-500 uppercase">{{ f.name.split('.').pop() }}</span>
+                                            <a :href="f.signedUrl" target="_blank"
+                                               class="text-blue-600 hover:text-blue-500 text-xs font-medium max-w-[160px] truncate">{{ f.name }}</a>
+                                            <button @click="handleManagerWoFileDelete(f.name)"
+                                                    class="text-red-400 hover:text-red-600 text-xs font-bold shrink-0">✕</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Send-back note panel -->
                         <div v-if="managerWoSendBackOpen"
                              class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mt-5">
@@ -231,10 +265,13 @@
                                 class="bg-amber-100 hover:bg-amber-200 text-amber-700 px-5 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                             Send Back
                         </button>
-                        <button @click="managerFinalApproveWo" :disabled="loading"
+                        <button v-if="sessionRole === 'manager'" @click="managerFinalApproveWo" :disabled="loading"
                                 class="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                             ✓ Final Approve — Send to Shop
                         </button>
+                        <span v-else class="text-xs font-medium text-gray-400 italic px-2">
+                            Manager login required to send to production.
+                        </span>
                     </div>
                 </div>
             </div>

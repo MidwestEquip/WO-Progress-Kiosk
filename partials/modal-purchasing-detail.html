@@ -194,12 +194,12 @@
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1">Status</label>
                     <select v-model="purchasingDetailForm.status"
-                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400">
+                        :disabled="purchasingDetailOrder && purchasingDetailOrder.forecasted"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-amber-400 disabled:opacity-60 disabled:cursor-not-allowed">
                         <option value="requested">Requested / Needs Review</option>
                         <option value="quoting">Quoting</option>
                         <option value="quoted">Quoted / Needs Approved</option>
                         <option value="approved">Approved</option>
-                        <option value="ordered">Ordered</option>
                         <option value="not_approved">Not Approved — See Notes</option>
                         <option value="received">Received / Completed</option>
                     </select>
@@ -236,6 +236,16 @@
                         <input v-model="purchasingDetailForm.po_number" type="text"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400"
                             placeholder="Purchase order number">
+                    </div>
+
+                    <!-- Date Ordered -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">
+                            Date Ordered
+                            <span class="text-gray-400 font-normal ml-1">— auto-fills today</span>
+                        </label>
+                        <input v-model="purchasingDetailForm.date_ordered" type="date"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400">
                     </div>
 
                     <!-- Qty Ordered -->
@@ -691,12 +701,17 @@
                     <span v-else class="text-gray-400">Auto-saves as you type</span>
                 </div>
                 <div class="flex-1"></div>
-                <!-- Standard Complete Order (non-approval) -->
-                <button v-if="purchasingDetailSection === 'ordering' && purchasingTab !== 'approval'"
-                    @click="completeOrder" :disabled="purchasingDetailSaving"
-                    class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
-                    {{ purchasingDetailSaving ? 'Saving…' : 'Complete Order ✓' }}
-                </button>
+                <!-- Standard Complete Order + Send to Forecast (non-approval) -->
+                <template v-if="purchasingDetailSection === 'ordering' && purchasingTab !== 'approval'">
+                    <button @click="openPoForecastSend" :disabled="purchasingDetailSaving"
+                        class="px-5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-sm border border-indigo-200 transition-colors disabled:opacity-50">
+                        Forecast for Later
+                    </button>
+                    <button @click="completeOrder" :disabled="purchasingDetailSaving"
+                        class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
+                        {{ purchasingDetailSaving ? 'Saving…' : 'Complete Order ✓' }}
+                    </button>
+                </template>
                 <!-- Approval actions -->
                 <template v-if="purchasingDetailSection === 'ordering' && purchasingTab === 'approval'">
                     <template v-if="approvalReviseOpen">

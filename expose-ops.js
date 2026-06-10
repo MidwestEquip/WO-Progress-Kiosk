@@ -69,7 +69,9 @@ import { enterWoApprovalView, exitWoApprovalView, loadManagerPendingWoRequests,
          openManagerWoDetail, closeManagerWoDetail, saveManagerWoDetail,
          managerFinalApproveWo,
          openManagerWoSendBack, cancelManagerWoSendBack,
-         submitManagerWoSendBack } from './pages/wo-manager-approval.js';
+         submitManagerWoSendBack,
+         loadManagerWoFiles, handleManagerWoFileUpload,
+         handleManagerWoFileDelete } from './pages/wo-manager-approval.js';
 import { uploadOrderAttachment, deleteOrderAttachment, loadOrderAttachments,
          loadPurchasingPartFiles } from './pages/purchasing-attachments.js';
 import { openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
@@ -80,6 +82,11 @@ import { openSupplierCatalogFromHistory, loadSupplierCatalog,
 import { openRfqDraft, closeRfqDraft, copyRfqDraft,
          addOrderToRfq, removeOrderFromRfq } from './pages/purchasing-rfq.js';
 import { enterPurchasingView, enterPoRequestView, enterApprovalQueueView } from './pages/splash-view.js';
+import { enterPoForecastingView, exitPoForecastingView, loadPoForecast,
+         openPoForecastDeleteConfirm, cancelPoForecastDelete, confirmPoForecastDelete,
+         openPoForecastMoveBack, cancelPoForecastMoveBack, confirmPoForecastMoveBack,
+         openPoForecastSend, closePoForecastSend, submitPoForecastSend,
+         openForecastOrderDetail, checkForecastRevisits } from './pages/purchasing-forecast.js';
 
 export function buildOpsExpose() {
     return {
@@ -271,9 +278,12 @@ export function buildOpsExpose() {
         purchasingTab:              store.purchasingTab,
         purchasingOrders:           store.purchasingOrders,
         purchasingLoading:          store.purchasingLoading,
-        filteredPurchasingOrders:   store.filteredPurchasingOrders,
-        steelOrdersByLocation:      store.steelOrdersByLocation,
-        approvalOrdersByLocation:   store.approvalOrdersByLocation,
+        filteredPurchasingOrders:    store.filteredPurchasingOrders,
+        steelOrdersByLocation:       store.steelOrdersByLocation,
+        partOrdersByLocation:        store.partOrdersByLocation,
+        supplyOrdersByLocation:      store.supplyOrdersByLocation,
+        poForecastOrdersByLocation:  store.poForecastOrdersByLocation,
+        approvalOrdersByLocation:    store.approvalOrdersByLocation,
         steelStatusPickerOpen:      store.steelStatusPickerOpen,
         steelOrderPanelOpen:        store.steelOrderPanelOpen,
         steelOrderSaving:           store.steelOrderSaving,
@@ -335,6 +345,21 @@ export function buildOpsExpose() {
         approvalPinError:        store.approvalPinError,
         approvalReviseOpen:      store.approvalReviseOpen,
         approvalReviseNote:      store.approvalReviseNote,
+        // PO Forecasting
+        poForecastOrders:     store.poForecastOrders,
+        poForecastLoading:    store.poForecastLoading,
+        poForecastDeleteId:   store.poForecastDeleteId,
+        poForecastMoveBackId: store.poForecastMoveBackId,
+        poForecastSendOpen:   store.poForecastSendOpen,
+        poForecastSendSaving: store.poForecastSendSaving,
+        poForecastSendErrors: store.poForecastSendErrors,
+        poForecastSendForm:   store.poForecastSendForm,
+        enterPoForecastingView, exitPoForecastingView, loadPoForecast,
+        openPoForecastDeleteConfirm, cancelPoForecastDelete, confirmPoForecastDelete,
+        openPoForecastMoveBack, cancelPoForecastMoveBack, confirmPoForecastMoveBack,
+        openPoForecastSend, closePoForecastSend, submitPoForecastSend,
+        openForecastOrderDetail, checkForecastRevisits,
+
         enterPurchasingView, enterPoRequestView, enterApprovalQueueView, loadPurchasingOrders, switchPurchasingTab,
         loadPurchasingCompleted, loadOrderEvents,
         openNewRequestForm, closeNewRequestForm, submitPurchasingRequest, onPurchasingPartBlur,
@@ -369,6 +394,7 @@ export function buildOpsExpose() {
         openManagerWoDetail, closeManagerWoDetail, saveManagerWoDetail,
         managerFinalApproveWo,
         openManagerWoSendBack, cancelManagerWoSendBack, submitManagerWoSendBack,
+        loadManagerWoFiles, handleManagerWoFileUpload, handleManagerWoFileDelete,
 
         openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
         stageQuoteFile, unstageQuoteFile,

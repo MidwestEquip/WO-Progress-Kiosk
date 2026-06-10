@@ -15,7 +15,7 @@ import {
 
 import * as store from './libs/store.js';
 import { PARTIAL_NAMES } from './libs/config.js';
-import { fetchAppPins } from './libs/db-shared.js';
+import { fetchAppPins, normalizeDept, DEPT_ALIASES } from './libs/db-shared.js';
 import { setPins } from './libs/pins.js';
 import { checkConnectivity, supabase } from './libs/db.js';
 import { loadHeaderLinks, loadSplashLinks } from './pages/splash-view.js';
@@ -28,10 +28,14 @@ import { loadForecastedItems } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems } from './pages/create-wo-view.js';
 import { loadOpenOrders, loadReminderEmail } from './pages/open-orders-view.js';
 import { loadCompletedOrders } from './pages/completed-orders-view.js';
-import { loadPurchasingOrders } from './pages/purchasing-view.js';
+import { loadPurchasingOrders, loadOrderEvents, loadOrderQuotes, syncDetailFromRealtime } from './pages/purchasing-view.js';
+import { loadPoForecast, checkForecastRevisits } from './pages/purchasing-forecast.js';
 import { loadAllQuotes } from './pages/purchasing-quotes-view.js';
 import { stopMessagesPoll, refreshUnreadCount,
          startMessageAlert, stopMessageAlert } from './pages/messages-view.js';
+import { startAppRealtime, stopAppRealtime } from './libs/realtime.js';
+import { loadEngFollowups, loadEngFollowupEvents } from './pages/engineering-followup.js';
+import { loadEngInquiries } from './pages/engineering-view.js';
 
 import { buildCoreExpose } from './expose-core.js';
 import { buildOpsExpose } from './expose-ops.js';
@@ -64,7 +68,7 @@ try {
                     hour: '2-digit', minute: '2-digit'
                 });
             }, 1000);
-            onUnmounted(() => clearInterval(clockInterval));
+            onUnmounted(() => { clearInterval(clockInterval); stopAppRealtime(); });
 
             // Version poller — reload when version.json changes
             let _seenVersion = null;
@@ -109,7 +113,19 @@ try {
 
             onMounted(async () => {
                 probeConnectivity();
-                const { data: { session } } = await supabase.auth.getSession();
+                let session = null;
+                try {
+                    const { data, error } = await supabase.auth.getSession();
+                    if (error) {
+                        console.warn('[Auth] stale session, clearing:', error.message);
+                        await supabase.auth.signOut();
+                    } else {
+                        session = data.session;
+                    }
+                } catch (err) {
+                    console.warn('[Auth] getSession threw, clearing:', err.message);
+                    await supabase.auth.signOut();
+                }
                 if (session?.user) {
                     const role = session.user.app_metadata?.role || null;
                     if (role) {
@@ -117,6 +133,76 @@ try {
                         store.currentView.value = 'splash';
                         loadManagerAlerts();
                         refreshUnreadCount();
+                        startAppRealtime({
+                            work_orders: ({ eventType, new: row, old }) => {
+                                if (store.currentView.value !== 'dashboard') return;
+                                const dept = store.selectedDept.value;
+                                const deptFilter = new Set([dept, ...(DEPT_ALIASES[dept] || [])]);
+                                const rawDept = row?.department || old?.department;
+                                if (!rawDept || !deptFilter.has(rawDept)) return;
+                                if (eventType === 'UPDATE') {
+                                    const norm = normalizeDept(row);
+                                    const idx = store.orders.value.findIndex(o => o.id === norm.id);
+                                    if (norm.status === 'completed') {
+                                        if (idx !== -1) store.orders.value.splice(idx, 1);
+                                    } else if (idx !== -1) {
+                                        store.orders.value.splice(idx, 1, norm);
+                                        if (store.activeOrder.value?.id === norm.id) store.activeOrder.value = norm;
+                                    }
+                                } else if (eventType === 'INSERT') {
+                                    const norm = normalizeDept(row);
+                                    if (norm.status !== 'completed' && !store.orders.value.find(o => o.id === norm.id))
+                                        store.orders.value.push(norm);
+                                } else if (eventType === 'DELETE') {
+                                    store.orders.value = store.orders.value.filter(o => o.id !== old.id);
+                                }
+                            },
+                            purchasing_orders: ({ eventType, new: row }) => {
+                                console.log('[RT] purchasing_orders', eventType, row?.id, 'view:', store.currentView.value, 'modalOpen:', store.purchasingDetailOpen.value, 'openId:', store.purchasingDetailOrder.value?.id);
+                                const v = store.currentView.value;
+                                if (v === 'purchasing' || v === 'po_request') {
+                                    loadPurchasingOrders();
+                                    if (eventType === 'UPDATE' && row) syncDetailFromRealtime(row);
+                                } else if (v === 'po_forecasting') loadPoForecast();
+                            },
+                            wo_requests: () => {
+                                const v = store.currentView.value;
+                                if (v === 'wo_request') loadWoRequests();
+                                else if (v === 'wo_approval' || v === 'manager') loadManagerPendingWoRequests();
+                            },
+                            open_orders: () => {
+                                if (store.currentView.value === 'open_orders') loadOpenOrders();
+                            },
+                            engineering_followups: () => {
+                                if (store.currentView.value === 'engineering' && store.engView.value === 'followup')
+                                    loadEngFollowups();
+                            },
+                            eng_inquiries: () => {
+                                if (store.currentView.value === 'engineering' && store.engView.value === 'inquiries')
+                                    loadEngInquiries();
+                            },
+                            wo_status_tracking: () => {
+                                if (store.currentView.value === 'wo_status') loadReceivingEligible();
+                            },
+                            direct_messages: () => {
+                                if (store.sessionRole.value === 'manager') refreshUnreadCount();
+                            },
+                            purchasing_quotes: () => {
+                                if (store.currentView.value === 'po_request') loadAllQuotes();
+                            },
+                            purchasing_order_events: () => {
+                                if (store.purchasingDetailOpen.value) loadOrderEvents();
+                            },
+                            purchasing_order_quotes: () => {
+                                if (store.purchasingDetailOpen.value) loadOrderQuotes();
+                            },
+                            engineering_followup_events: () => {
+                                if (store.engFollowupModalOpen.value && store.engFollowupSelected.value?.id)
+                                    loadEngFollowupEvents(store.engFollowupSelected.value.id);
+                            },
+                            wo_progress_events: () => { /* append-only log — no list view to refresh */ },
+                            wo_errors:          () => { /* error log — no list view to refresh */ },
+                        });
                     }
                 }
                 await nextTick();
@@ -138,8 +224,9 @@ try {
                 if (v === 'create_wo')       loadCreateWoItems();
                 if (v === 'open_orders')     { loadOpenOrders(); loadReminderEmail(); }
                 if (v === 'completed_orders') loadCompletedOrders();
-                if (v === 'purchasing')       loadPurchasingOrders();
-                if (v === 'po_request')       loadPurchasingOrders();
+                if (v === 'purchasing')       { checkForecastRevisits(); loadPurchasingOrders(); }
+                if (v === 'po_request')       { checkForecastRevisits(); loadPurchasingOrders(); }
+                if (v === 'po_forecasting')   { checkForecastRevisits(); loadPoForecast(); }
             });
             watch(store.managerSubView, (v) => {
                 if (v === 'home' && store.currentView.value === 'manager') loadManagerAlerts();

@@ -1,0 +1,63 @@
+<!-- ============================================================
+     modal-purchasing-forecast-send.html — "Send to Forecast" dialog
+     Appears on top of the detail modal (z-60) when the user clicks
+     "Forecast for Later" on an open order.
+     ============================================================ -->
+<div v-if="poForecastSendOpen"
+    class="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+    style="z-index: 60"
+    @click.self="closePoForecastSend">
+
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 flex flex-col">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+            <div>
+                <h2 class="text-base font-extrabold text-gray-800">Forecast for Later</h2>
+                <p class="text-xs text-gray-400 mt-0.5">This order will be deferred to the PO Forecasting view</p>
+            </div>
+            <button @click="closePoForecastSend" class="text-gray-400 hover:text-gray-600 p-1 text-2xl leading-none">&times;</button>
+        </div>
+
+        <!-- Body -->
+        <div class="p-6 flex flex-col gap-5">
+
+            <!-- Revisit Date -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                    Date to Revisit <span class="text-red-500">*</span>
+                </label>
+                <input v-model="poForecastSendForm.revisit_date" type="date"
+                    class="w-full border rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-indigo-400"
+                    :class="poForecastSendErrors.revisit_date ? 'border-red-400 bg-red-50' : 'border-gray-300'">
+                <p v-if="poForecastSendErrors.revisit_date" class="text-red-500 text-xs mt-0.5">Required.</p>
+            </div>
+
+            <!-- Reason -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                    Reason <span class="text-red-500">*</span>
+                </label>
+                <textarea v-model="poForecastSendForm.reason" rows="3"
+                    class="w-full border rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:border-indigo-400 resize-none"
+                    :class="poForecastSendErrors.reason ? 'border-red-400 bg-red-50' : 'border-gray-300'"
+                    placeholder="Why is this being deferred? (e.g. not needed until Q3, waiting on design approval)"></textarea>
+                <p v-if="poForecastSendErrors.reason" class="text-red-500 text-xs mt-0.5">Required.</p>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="flex gap-3 px-6 py-4 border-t border-gray-100">
+            <button @click="closePoForecastSend"
+                class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm transition-colors">
+                Cancel
+            </button>
+            <button @click="submitPoForecastSend" :disabled="poForecastSendSaving"
+                class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors">
+                {{ poForecastSendSaving ? 'Saving…' : 'Confirm — Send to Forecast' }}
+            </button>
+        </div>
+
+    </div>
+</div>

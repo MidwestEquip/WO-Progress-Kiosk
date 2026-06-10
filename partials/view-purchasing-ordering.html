@@ -1,0 +1,321 @@
+<!-- ============================================================
+     view-purchasing-ordering.html — Parts, Supplies, Steel ordering tabs.
+     Teleports content into #po-tab-body (defined in view-purchasing.html).
+     All three tabs are grouped by ship-to location.
+     ============================================================ -->
+<Teleport v-if="currentView === 'purchasing' && ['parts','supplies','steel'].includes(purchasingTab)" to="#po-tab-body">
+<div class="absolute inset-0 overflow-y-auto p-6 flex flex-col gap-4">
+
+    <!-- Loading spinner -->
+    <div v-if="purchasingLoading" class="flex items-center justify-center h-48">
+        <svg class="animate-spin w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+    </div>
+
+    <!-- ── Parts & Supplies — shared location-grouped list ──────────────── -->
+    <template v-else-if="purchasingTab === 'parts' || purchasingTab === 'supplies'">
+
+        <!-- Empty state -->
+        <div v-if="(purchasingTab === 'parts' ? partOrdersByLocation : supplyOrdersByLocation).length === 0"
+            class="flex flex-col items-center justify-center h-48 text-gray-400 gap-3">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <p class="text-sm font-medium">No open orders here</p>
+        </div>
+
+        <!-- Location sections -->
+        <template v-else v-for="section in (purchasingTab === 'parts' ? partOrdersByLocation : supplyOrdersByLocation)" :key="section.location">
+            <div class="flex items-center gap-3">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">{{ section.location }}</span>
+                <div class="flex-1 h-px bg-gray-200"></div>
+                <span class="text-xs text-gray-400">{{ section.orders.length }} order{{ section.orders.length !== 1 ? 's' : '' }}</span>
+            </div>
+            <div class="flex flex-col gap-2">
+                <div v-for="order in section.orders" :key="order.id"
+                    @click="openOrderDetail(order)"
+                    class="rounded-xl border shadow-sm px-5 py-4 flex items-center gap-4 hover:border-amber-300 hover:shadow-md cursor-pointer transition-all"
+                    :class="order.status === 'approved' ? 'bg-green-100/60 border-green-300' : 'bg-white border-gray-200'">
+
+                    <!-- Status badge -->
+                    <span class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-extrabold capitalize whitespace-nowrap"
+                        :class="order.status === 'requested'          ? 'bg-gray-100 text-gray-700'     :
+                                order.status === 'quoting'            ? 'bg-purple-100 text-purple-800' :
+                                order.status === 'quoted'             ? 'bg-amber-100 text-amber-800'   :
+                                order.status === 'approved'           ? 'bg-green-700 text-white'       :
+                                order.status === 'ordered'            ? 'bg-violet-100 text-violet-800' :
+                                order.status === 'not_approved'       ? 'bg-red-100 text-red-800'       :
+                                order.status === 'partially_received' ? 'bg-orange-100 text-orange-800' :
+                                                                        'bg-gray-100 text-gray-600'">
+                        {{ order.status.replace(/_/g, ' ') }}
+                    </span>
+
+                    <!-- Primary identifier -->
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-gray-800 truncate text-sm">
+                            {{ order.part_number || order.supply_item_name || '—' }}
+                        </p>
+                        <p class="text-xs text-gray-400 truncate">{{ order.description || order.supply_category || '' }}</p>
+                    </div>
+
+                    <!-- SO / WO context (parts only) -->
+                    <div v-if="order.request_type === 'part' && (order.sales_order || order.wo_number)"
+                        class="shrink-0 text-xs text-gray-500 text-right leading-5">
+                        <div v-if="order.sales_order">SO: {{ order.sales_order }}</div>
+                        <div v-if="order.wo_number">WO: {{ order.wo_number }}</div>
+                    </div>
+
+                    <!-- Qty -->
+                    <div class="shrink-0 text-center w-16">
+                        <p class="text-sm font-semibold text-gray-700">{{ order.qty_needed ?? '—' }}</p>
+                        <p class="text-xs text-gray-400">qty</p>
+                    </div>
+
+                    <!-- Expected / needed date -->
+                    <div class="shrink-0 text-center w-24">
+                        <template v-if="order.expected_date">
+                            <p class="text-xs font-semibold" :class="isPurchasingOrderLate(order) ? 'text-red-600' : 'text-gray-600'">
+                                {{ order.expected_date }}
+                            </p>
+                            <p class="text-xs" :class="isPurchasingOrderLate(order) ? 'text-red-500 font-bold' : 'text-gray-400'">
+                                {{ isPurchasingOrderLate(order) ? 'OVERDUE' : 'expected' }}
+                            </p>
+                        </template>
+                        <template v-else-if="order.needed_by">
+                            <p class="text-xs font-semibold text-gray-600">{{ order.needed_by }}</p>
+                            <p class="text-xs text-gray-400">needed by</p>
+                        </template>
+                    </div>
+
+                    <!-- Type badge -->
+                    <span class="shrink-0 w-14 text-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide"
+                        :class="order.request_type === 'part' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'">
+                        {{ order.request_type }}
+                    </span>
+
+                    <!-- Requested by -->
+                    <span class="shrink-0 text-xs text-gray-400 w-20 text-right truncate">{{ order.requested_by || '' }}</span>
+                </div>
+            </div>
+        </template>
+
+    </template>
+
+    <!-- ── Steel — location-grouped inline cards ─────────────────────────── -->
+    <template v-else-if="purchasingTab === 'steel'">
+
+        <!-- Empty state -->
+        <div v-if="steelOrdersByLocation.length === 0"
+            class="flex flex-col items-center justify-center h-48 text-gray-400 gap-3">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <p class="text-sm font-medium">No open steel orders</p>
+        </div>
+
+        <template v-else v-for="section in steelOrdersByLocation" :key="section.location">
+
+            <!-- Location header -->
+            <div class="flex items-center gap-3">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">{{ section.location }}</span>
+                <div class="flex-1 h-px bg-gray-200"></div>
+                <span class="text-xs text-gray-400">{{ section.orders.length }} order{{ section.orders.length !== 1 ? 's' : '' }}</span>
+            </div>
+
+            <div v-for="order in section.orders" :key="order.id"
+                class="rounded-xl border shadow-sm px-4 py-2.5 flex gap-3 items-start"
+                :class="order.status === 'approved' ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200'">
+
+                <!-- Left: info stacked -->
+                <div class="flex flex-col gap-1.5 flex-1 min-w-0">
+
+                    <!-- Line 1: status · description · qty · date · req'd by · view -->
+                    <div class="flex items-center gap-3">
+                        <div class="relative shrink-0">
+                            <button @click.stop="toggleSteelStatusPicker(order.id)"
+                                class="px-2.5 py-1 rounded-lg text-xs font-extrabold capitalize whitespace-nowrap"
+                                :class="order.status === 'requested'    ? 'bg-gray-100 text-gray-700'     :
+                                        order.status === 'quoting'      ? 'bg-purple-100 text-purple-800' :
+                                        order.status === 'quoted'       ? 'bg-amber-100 text-amber-800'   :
+                                        order.status === 'approved'     ? 'bg-green-700 text-white'       :
+                                        order.status === 'ordered'      ? 'bg-violet-100 text-violet-800' :
+                                        order.status === 'not_approved' ? 'bg-red-100 text-red-800'       :
+                                                                          'bg-gray-100 text-gray-600'">
+                                {{ order.status.replace(/_/g, ' ') }}
+                            </button>
+                            <div v-if="steelStatusPickerOpen === order.id"
+                                @click.stop
+                                class="absolute top-full left-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36">
+                                <button v-for="s in ['requested','quoting','quoted','approved','ordered','not_approved']" :key="s"
+                                    @click="setSteelStatus(order.id, s)"
+                                    class="w-full text-left px-3 py-1.5 text-xs font-semibold capitalize hover:bg-gray-50 transition-colors whitespace-nowrap"
+                                    :class="order.status === s ? 'text-amber-600 font-extrabold' : 'text-gray-700'">
+                                    {{ s.replace(/_/g, ' ') }}
+                                </button>
+                            </div>
+                        </div>
+                        <p class="flex-1 min-w-0 font-bold text-gray-800 truncate text-sm">
+                            {{ [order.material_type !== 'Carbon' ? order.material_type : null, order.steel_shape, order.description || [order.material_size, order.material_thickness, order.material_grade].filter(Boolean).join(' · ')].filter(Boolean).join(' · ') || '—' }}
+                        </p>
+                        <span v-if="order.qty_needed" class="shrink-0 text-xs text-gray-500 font-semibold">{{ order.qty_needed }} qty</span>
+                        <span v-if="order.needed_by" class="shrink-0 text-xs text-gray-400">{{ order.needed_by }}</span>
+                        <span v-if="order.requested_by" class="shrink-0 text-xs text-gray-400 truncate max-w-[7rem]">{{ order.requested_by }}</span>
+                        <button @click="openOrderDetail(order)"
+                            class="shrink-0 px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg transition-colors">
+                            View
+                        </button>
+                    </div>
+
+                    <!-- Line 2: RFQ fields · notes -->
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="shrink-0 text-xs text-gray-400 font-semibold">To RFQ:</span>
+                        <input v-model="order.rfq_suppliers" type="text" placeholder="Suppliers…"
+                            @blur="saveSteelField(order.id, 'rfq_suppliers', order.rfq_suppliers)"
+                            class="shrink-0 w-32 border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 focus:outline-none focus:border-amber-400">
+                        <span class="shrink-0 text-xs text-gray-400 font-semibold ml-1">Recv'd:</span>
+                        <input v-model="order.rfq_received_from" type="text" placeholder="Received from…"
+                            @blur="saveSteelField(order.id, 'rfq_received_from', order.rfq_received_from)"
+                            class="shrink-0 w-32 border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 focus:outline-none focus:border-amber-400">
+                        <span class="shrink-0 text-gray-300 mx-1 select-none">|</span>
+                        <span class="shrink-0 text-xs text-gray-400 font-semibold">Notes:</span>
+                        <input v-model="order.purchaser_notes" type="text" placeholder="Notes…"
+                            @blur="saveSteelField(order.id, 'purchaser_notes', order.purchaser_notes)"
+                            class="w-48 shrink-0 border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 focus:outline-none focus:border-amber-400">
+                    </div>
+
+                    <!-- Order details panel -->
+                    <div v-if="steelOrderPanelOpen === order.id"
+                        class="mt-1 pt-2.5 border-t border-violet-200 flex flex-col gap-2.5">
+
+                        <!-- Quote pre-fill -->
+                        <div v-if="(order.steel_quotes || []).some(q => q.supplier)"
+                            class="flex items-center gap-2 flex-wrap">
+                            <span class="text-xs font-bold text-gray-500 shrink-0">Use quote:</span>
+                            <button v-for="(q, qi) in (order.steel_quotes || []).filter(q => q.supplier)" :key="qi"
+                                @click="selectSteelQuoteForOrder(order.id, (order.steel_quotes || []).indexOf(q))"
+                                class="px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all"
+                                :class="steelOrderForm.supplier_name === q.supplier
+                                    ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
+                                    : 'bg-gray-50 border-gray-200 hover:border-violet-300 text-gray-600'">
+                                {{ q.supplier }}{{ q.price ? ' · $' + q.price : '' }}{{ q.lead_time ? ' · ' + q.lead_time : '' }}
+                            </button>
+                        </div>
+
+                        <!-- Fields -->
+                        <div class="flex items-end gap-2 flex-wrap">
+                            <div>
+                                <p class="text-xs text-gray-400 mb-0.5">Supplier *</p>
+                                <input v-model="steelOrderForm.supplier_name" type="text" placeholder="Supplier name"
+                                    class="border rounded-lg px-2 py-1 text-xs w-36 focus:outline-none"
+                                    :class="steelOrderErrors.supplier_name ? 'border-red-400' : 'border-gray-300 focus:border-violet-400'">
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-0.5">PO # *</p>
+                                <input v-model="steelOrderForm.po_number" type="text" placeholder="PO number"
+                                    class="border rounded-lg px-2 py-1 text-xs w-28 focus:outline-none"
+                                    :class="steelOrderErrors.po_number ? 'border-red-400' : 'border-gray-300 focus:border-violet-400'">
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-0.5">Date Ordered</p>
+                                <input v-model="steelOrderForm.date_ordered" type="date"
+                                    class="border border-gray-300 rounded-lg px-2 py-1 text-xs w-32 focus:outline-none focus:border-violet-400">
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-0.5">Cost *</p>
+                                <input v-model="steelOrderForm.cost" type="text" placeholder="0.00"
+                                    class="border rounded-lg px-2 py-1 text-xs w-20 focus:outline-none"
+                                    :class="steelOrderErrors.cost ? 'border-red-400' : 'border-gray-300 focus:border-violet-400'">
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-0.5">Qty Ordered *</p>
+                                <input v-model="steelOrderForm.qty_ordered" type="text" placeholder="0"
+                                    class="border rounded-lg px-2 py-1 text-xs w-20 focus:outline-none"
+                                    :class="steelOrderErrors.qty_ordered ? 'border-red-400' : 'border-gray-300 focus:border-violet-400'">
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400 mb-0.5">Lead Time (days) *</p>
+                                <input v-model="steelOrderForm.estimated_lead_time" type="text" placeholder="days"
+                                    class="border rounded-lg px-2 py-1 text-xs w-24 focus:outline-none"
+                                    :class="steelOrderErrors.estimated_lead_time ? 'border-red-400' : 'border-gray-300 focus:border-violet-400'">
+                            </div>
+                            <button @click="confirmSteelOrder(order.id)" :disabled="steelOrderSaving"
+                                class="px-4 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors">
+                                {{ steelOrderSaving ? 'Saving…' : 'Confirm Order' }}
+                            </button>
+                            <button @click="closeSteelOrderPanel()"
+                                class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg transition-colors">
+                                Cancel
+                            </button>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- Right: Quote cards -->
+                <div class="flex flex-wrap items-start gap-1.5 pb-0.5">
+                    <div v-for="(quote, idx) in (order.steel_quotes || [])" :key="idx"
+                        @click="toggleBestQuote(order.id, idx)"
+                        class="shrink-0 flex flex-col gap-1 rounded-lg border p-1.5 w-36 cursor-pointer transition-all select-none"
+                        :class="quote.best
+                            ? 'bg-emerald-50 border-emerald-400'
+                            : 'bg-gray-50 border-gray-200 hover:border-amber-300'">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold" :class="quote.best ? 'text-emerald-700' : 'text-gray-400'">Q{{ idx + 1 }}</span>
+                            <div class="flex items-center gap-1">
+                                <span v-if="quote.best" class="text-xs font-bold text-emerald-600">✓ Best</span>
+                                <button @click.stop="removeSteelQuote(order.id, idx)"
+                                    class="text-gray-300 hover:text-red-400 font-bold leading-none text-sm transition-colors">&times;</button>
+                            </div>
+                        </div>
+                        <input v-model="quote.supplier" type="text" placeholder="Supplier"
+                            @click.stop @blur="saveSteelQuotes(order.id)"
+                            class="w-full border rounded px-1.5 py-0.5 text-xs text-gray-700 focus:outline-none"
+                            :class="quote.best ? 'border-emerald-300 bg-white focus:border-emerald-500' : 'border-gray-200 bg-white focus:border-amber-400'">
+                        <div class="flex gap-1">
+                            <input v-model="quote.price" type="text" placeholder="$"
+                                @click.stop @blur="saveSteelQuotes(order.id)"
+                                class="w-14 border rounded px-1.5 py-0.5 text-xs text-gray-700 focus:outline-none"
+                                :class="quote.best ? 'border-emerald-300 bg-white focus:border-emerald-500' : 'border-gray-200 bg-white focus:border-amber-400'">
+                            <input v-model="quote.lead_time" type="text" placeholder="LT"
+                                @click.stop @blur="saveSteelQuotes(order.id)"
+                                class="w-12 border rounded px-1.5 py-0.5 text-xs text-gray-700 focus:outline-none"
+                                :class="quote.best ? 'border-emerald-300 bg-white focus:border-emerald-500' : 'border-gray-200 bg-white focus:border-amber-400'">
+                        </div>
+                        <input v-model="quote.notes" type="text" placeholder="Notes…"
+                            @click.stop @blur="saveSteelQuotes(order.id)"
+                            class="w-full border rounded px-1.5 py-0.5 text-xs text-gray-700 focus:outline-none"
+                            :class="quote.best ? 'border-emerald-300 bg-white focus:border-emerald-500' : 'border-gray-200 bg-white focus:border-amber-400'">
+                        <div @click.stop class="flex items-center gap-1 mt-0.5">
+                            <template v-if="quote.file_path">
+                                <button @click="openSteelQuoteFile(quote.file_path)"
+                                    class="flex-1 min-w-0 text-left text-xs text-amber-600 hover:text-amber-800 font-medium truncate">
+                                    📎 {{ quote.file_name || 'File' }}
+                                </button>
+                                <button @click="removeSteelQuoteFile(order.id, idx)"
+                                    class="shrink-0 text-gray-300 hover:text-red-400 font-bold leading-none text-sm transition-colors">&times;</button>
+                            </template>
+                            <template v-else>
+                                <label v-if="!quote._uploading" class="cursor-pointer text-xs text-gray-400 hover:text-amber-600 transition-colors w-full">
+                                    📎 Attach quote
+                                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="hidden"
+                                        @change="e => { uploadSteelQuoteFile(order.id, idx, e.target.files[0]); e.target.value = ''; }">
+                                </label>
+                                <span v-else class="text-xs text-gray-400 italic">Uploading…</span>
+                            </template>
+                        </div>
+                    </div>
+                    <button @click="addSteelQuote(order.id)"
+                        class="shrink-0 w-6 h-5 bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs font-bold rounded flex items-center justify-center transition-colors">+</button>
+                </div>
+
+            </div>
+
+        </template>
+
+    </template>
+
+</div>
+</Teleport>

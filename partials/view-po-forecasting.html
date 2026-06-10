@@ -1,0 +1,155 @@
+<!-- ============================================================
+     view-po-forecasting.html — PO Forecasting standalone view
+     Shows purchasing_orders with forecasted=true.
+     Actions: Move to Ordering (sets forecasted=false) or Remove (delete).
+     ============================================================ -->
+<div v-if="currentView === 'po_forecasting'"
+    class="h-full w-full bg-gray-50 absolute inset-0 flex flex-col overflow-hidden">
+
+    <!-- Header bar -->
+    <div class="bg-white border-b border-gray-200 shrink-0 px-6 py-4 flex items-center gap-4">
+        <button @click="exitPoForecastingView"
+            class="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl p-2 active:scale-95 transition-transform flex items-center justify-center shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <h2 class="text-2xl font-extrabold text-gray-800">PO Forecasting</h2>
+        <span class="text-sm text-gray-400 ml-2">Purchase orders planned for a future need</span>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto p-4">
+
+        <div v-if="poForecastLoading" class="flex items-center justify-center h-32 text-gray-400 text-sm">
+            Loading...
+        </div>
+
+        <div v-else-if="poForecastOrders.length === 0"
+            class="flex flex-col items-center justify-center h-32 text-gray-400 text-sm gap-2">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <p>No forecasted orders. Use "Forecast for Later" on any open order to defer it here.</p>
+        </div>
+
+        <div v-else class="flex flex-col gap-6">
+
+            <!-- Column headers (sticky above all sections) -->
+            <div class="hidden md:grid grid-cols-[5rem_1fr_9rem_10rem_1fr_13rem] gap-4 px-5 pb-1 text-xs font-bold text-gray-400 uppercase tracking-wide">
+                <span>Type</span>
+                <span>Item</span>
+                <span class="text-center">Revisit Date</span>
+                <span>Requested By</span>
+                <span>Reason</span>
+                <span></span>
+            </div>
+
+            <!-- Location sections -->
+            <template v-for="section in poForecastOrdersByLocation" :key="section.location">
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest whitespace-nowrap">{{ section.location }}</span>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                        <span class="text-xs text-gray-400">{{ section.orders.length }} item{{ section.orders.length !== 1 ? 's' : '' }}</span>
+                    </div>
+
+            <div v-for="order in section.orders" :key="order.id"
+                @click="openForecastOrderDetail(order)"
+                class="bg-white border border-gray-200 rounded-xl px-5 py-3 grid grid-cols-[5rem_1fr_9rem_10rem_1fr_13rem] gap-4 items-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+
+                <!-- Type badge -->
+                <span class="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide text-center"
+                    :class="order.request_type === 'part'   ? 'bg-blue-100 text-blue-700'   :
+                            order.request_type === 'supply' ? 'bg-green-100 text-green-700' :
+                                                              'bg-orange-100 text-orange-700'">
+                    {{ order.request_type }}
+                </span>
+
+                <!-- Item identifier -->
+                <div class="min-w-0">
+                    <p class="font-extrabold text-gray-800 text-sm truncate font-mono">
+                        <template v-if="order.request_type === 'steel'">
+                            {{ [order.material_type !== 'Carbon' ? order.material_type : null, order.steel_shape, order.description].filter(Boolean).join(' · ') || '—' }}
+                        </template>
+                        <template v-else>{{ order.part_number || order.supply_item_name || '—' }}</template>
+                    </p>
+                    <p class="text-xs text-gray-400 truncate">
+                        {{ order.request_type === 'part' ? (order.description || '') :
+                           order.request_type === 'supply' ? (order.supply_category || '') : '' }}
+                    </p>
+                </div>
+
+                <!-- Revisit Date -->
+                <div class="text-sm font-semibold text-indigo-600 text-center">{{ order.forecast_revisit_date || '—' }}</div>
+
+                <!-- Requested By + submitted date -->
+                <div class="text-xs">
+                    <div class="font-semibold text-gray-700">{{ order.requested_by || '—' }}</div>
+                    <div class="text-gray-400">{{ order.created_at?.slice(0, 10) || '' }}</div>
+                </div>
+
+                <!-- Forecast Reason -->
+                <div class="text-xs text-gray-500 truncate">{{ order.forecast_reason || '—' }}</div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-2 shrink-0" @click.stop>
+                    <button @click="openPoForecastMoveBack(order.id)" :disabled="poForecastLoading"
+                        class="text-xs text-blue-500 hover:text-blue-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-40 whitespace-nowrap">
+                        Move to Ordering
+                    </button>
+                    <button @click="openPoForecastDeleteConfirm(order.id)" :disabled="poForecastLoading"
+                        class="text-xs text-red-400 hover:text-red-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40">
+                        Remove
+                    </button>
+                </div>
+            </div>
+
+                </div>
+            </template>
+
+        </div>
+    </div>
+
+    <!-- Delete confirmation modal -->
+    <div v-if="poForecastDeleteId"
+        class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+            <div class="text-center">
+                <h3 class="text-lg font-extrabold text-gray-800 mb-1">Delete this forecasted order?</h3>
+                <p class="text-sm text-gray-500">This will permanently delete the request. This cannot be undone.</p>
+            </div>
+            <div class="flex flex-col gap-2">
+                <button @click="cancelPoForecastDelete"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-base active:scale-95 transition-transform">
+                    No, do not delete
+                </button>
+                <button @click="confirmPoForecastDelete" :disabled="poForecastLoading"
+                    class="w-full text-red-500 hover:text-red-700 font-semibold py-2 rounded-xl text-sm hover:bg-red-50 transition-colors disabled:opacity-40">
+                    Yes, delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move-back confirmation modal -->
+    <div v-if="poForecastMoveBackId"
+        class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-5">
+            <div class="text-center">
+                <h3 class="text-lg font-extrabold text-gray-800 mb-1">Move to active ordering?</h3>
+                <p class="text-sm text-gray-500">This order will appear in the ordering tabs for purchasing to action.</p>
+            </div>
+            <div class="flex flex-col gap-2">
+                <button @click="confirmPoForecastMoveBack" :disabled="poForecastLoading"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40">
+                    Yes, move to ordering
+                </button>
+                <button @click="cancelPoForecastMoveBack"
+                    class="w-full text-gray-500 hover:text-gray-700 font-semibold py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors">
+                    No, keep in forecast
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
