@@ -1,0 +1,198 @@
+        <!-- ── MODAL: WO Request Detail — Subparts column (Teleported) ───────── -->
+        <!-- Teleported into #wo-request-subpart-body inside the detail modal body -->
+        <!-- (modal-wo-request.html). Gated by selectedWoRequest so it only mounts -->
+        <!-- when the modal is open; inner content self-gates on woRequestSubpartMode. -->
+        <Teleport to="#wo-request-subpart-body" v-if="selectedWoRequest">
+
+                    <!-- Vertical divider — only when subparts panel is visible -->
+                    <div v-if="woRequestSubpartMode === 'weld' || woRequestSubpartMode === 'assy'" class="border-r border-gray-200 shrink-0"></div>
+
+                    <!-- ── Right column: Subparts panel ── -->
+                    <div v-if="woRequestSubpartMode === 'weld' || woRequestSubpartMode === 'assy'" class="flex-1 px-5 py-4">
+                        <div class="flex items-center gap-2 mb-0.5">
+                            <p class="text-base font-extrabold text-gray-700 uppercase tracking-wide">Subparts</p>
+                            <span v-if="!woRequestSubpartsLoading && woRequestSubparts.length > 0"
+                                class="bg-gray-200 text-gray-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                                {{ woRequestSubparts.length }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-400 italic mb-3">Components of this part from bill of materials</p>
+
+                        <!-- Loading -->
+                        <div v-if="woRequestSubpartsLoading" class="flex items-center gap-2 text-gray-400 text-sm py-4">
+                            <svg class="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                            </svg>
+                            Loading subparts…
+                        </div>
+
+                        <!-- Empty state -->
+                        <div v-else-if="woRequestSubparts.length === 0"
+                            class="flex flex-col items-center justify-center py-10 text-gray-300">
+                            <svg class="w-9 h-9 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            </svg>
+                            <p class="text-sm text-gray-400">No subparts found</p>
+                        </div>
+
+                        <!-- Subpart list: Assy mode — Part# | Description | Bin | Qty/Assy -->
+                        <div v-else-if="woRequestSubpartMode === 'assy'">
+                            <div class="grid pb-1 mb-0.5 border-b border-gray-200" style="grid-template-columns: auto 1fr 5rem 3.5rem;">
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide pr-3">Part #</span>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Description</span>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Bin</span>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">Qty/Assy</span>
+                            </div>
+                            <div v-for="sub in (woRequestSubpartsExpanded ? woRequestSubparts : woRequestSubparts.slice(0, 15))"
+                                :key="sub.item_child_normalized"
+                                class="grid items-center py-1.5 border-b border-gray-100 last:border-0"
+                                style="grid-template-columns: auto 1fr 5rem 3.5rem;">
+                                <span class="font-mono text-xs text-gray-800 pr-3" :title="sub.item_child">{{ sub.item_child }}</span>
+                                <span class="text-xs text-gray-500 truncate pr-2" :title="woRequestSubpartDescs[sub.item_child_normalized]">
+                                    {{ (woRequestSubpartDescs[sub.item_child_normalized] || '—').slice(0, 30) }}
+                                </span>
+                                <span class="text-center">
+                                    <span v-if="woRequestSubpartBins[sub.item_child_normalized]"
+                                        class="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-mono">
+                                        {{ woRequestSubpartBins[sub.item_child_normalized] }}
+                                    </span>
+                                </span>
+                                <span class="text-xs font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded text-center justify-self-end">× {{ sub.qty_per_assy }}</span>
+                            </div>
+                            <button v-if="woRequestSubparts.length > 15"
+                                @click="woRequestSubpartsExpanded = !woRequestSubpartsExpanded"
+                                class="text-blue-600 hover:text-blue-500 text-xs font-semibold mt-2 py-1">
+                                {{ woRequestSubpartsExpanded ? 'Show less' : `Show ${woRequestSubparts.length - 15} more…` }}
+                            </button>
+                        </div>
+
+                        <!-- Subpart list: Weld mode — full columns + Set up WO -->
+                        <div v-else>
+                            <div class="grid pb-1 mb-0.5 border-b border-gray-200" style="grid-template-columns: 6rem 1fr 3.5rem 3.5rem 3.5rem 5rem 3.5rem 5.5rem;">
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide pr-3">Part #</span>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Description</span>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right pr-1">Tot. Sold</span>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right pr-1">Made</span>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right pr-1">Est. Have</span>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Bin</span>
+                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right pr-2">Qty/Assy</span>
+                                <span></span>
+                            </div>
+                            <div v-for="sub in (woRequestSubpartsExpanded ? woRequestSubparts : woRequestSubparts.slice(0, 15))"
+                                :key="sub.item_child_normalized"
+                                class="border-b border-gray-100 last:border-0">
+                                <!-- Data row -->
+                                <div class="grid items-center py-1.5" style="grid-template-columns: 6rem 1fr 3.5rem 3.5rem 3.5rem 5rem 3.5rem 5.5rem;">
+                                    <span class="font-mono text-xs text-gray-800 truncate pr-3" :title="sub.item_child">{{ sub.item_child }}</span>
+                                    <span class="text-xs text-gray-500 truncate pr-2" :title="woRequestSubpartDescs[sub.item_child_normalized]">
+                                        {{ (woRequestSubpartDescs[sub.item_child_normalized] || '—').slice(0, 30) }}
+                                    </span>
+                                    <span class="text-xs font-bold text-right pr-1"
+                                        :class="(woRequestSubpartStats[sub.item_child_normalized]?.sold ?? 0) + (woRequestSubpartStats[sub.item_child_normalized]?.parent ?? 0) > 0 ? 'text-slate-600' : 'text-gray-300'">
+                                        {{ (woRequestSubpartStats[sub.item_child_normalized]?.sold ?? 0) + (woRequestSubpartStats[sub.item_child_normalized]?.parent ?? 0) || '—' }}
+                                    </span>
+                                    <span class="text-xs font-bold text-right pr-1"
+                                        :class="woRequestSubpartStats[sub.item_child_normalized]?.made > 0 ? 'text-slate-600' : 'text-gray-300'">
+                                        {{ woRequestSubpartStats[sub.item_child_normalized]?.made || '—' }}
+                                    </span>
+                                    <span class="text-xs font-bold text-right pr-1"
+                                        :class="woRequestSubpartEstHave[sub.item_child_normalized] == null ? 'text-gray-300' : woRequestSubpartEstHave[sub.item_child_normalized] >= 0 ? 'text-slate-600' : 'text-amber-600'">
+                                        {{ woRequestSubpartEstHave[sub.item_child_normalized] ?? '—' }}
+                                    </span>
+                                    <span class="text-center">
+                                        <span v-if="woRequestSubpartBins[sub.item_child_normalized]"
+                                            class="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-mono">
+                                            {{ woRequestSubpartBins[sub.item_child_normalized] }}
+                                        </span>
+                                    </span>
+                                    <span class="text-xs font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded text-center justify-self-end mr-2">× {{ sub.qty_per_assy }}</span>
+                                    <button @click="openSubpartWoForm(sub)"
+                                        class="text-xs font-semibold px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
+                                        :class="woRequestSubpartForms[sub.item_child_normalized]?.expanded ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'">
+                                        {{ woRequestSubpartForms[sub.item_child_normalized]?.expanded ? 'Close' : 'Set up WO' }}
+                                    </button>
+                                </div>
+                                <!-- Expandable WO form -->
+                                <div v-if="woRequestSubpartForms[sub.item_child_normalized]?.expanded"
+                                    class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2 mx-1">
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <label class="text-xs font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">Qty to Make</label>
+                                        <input type="number" min="0"
+                                            v-model="woRequestSubpartForms[sub.item_child_normalized].qty_to_make"
+                                            class="w-24 px-2 py-1 border border-gray-300 rounded text-sm font-bold text-gray-800 focus:outline-none focus:border-blue-400"
+                                            placeholder="0">
+                                    </div>
+                                    <!-- Routing -->
+                                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Routing</p>
+                                    <div class="grid grid-cols-5 gap-2 mb-3">
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Fab</label>
+                                            <select v-model="woRequestSubpartForms[sub.item_child_normalized].fab" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Fab Print</label>
+                                            <select v-model="woRequestSubpartForms[sub.item_child_normalized].fab_print" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Where to Bring After Fab</label>
+                                            <select v-model="woRequestSubpartForms[sub.item_child_normalized].weld" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option>Paint</option><option>Urgent</option><option>Welder 1 Area 1</option><option>Welder 2 Area 1</option><option>Welder 3 Area 1</option><option>Ind. Robot Area 1</option><option>New Robot Area 1</option><option>Area 2</option><option>Area 3</option><option>Assemble</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Weld Print</label>
+                                            <select v-model="woRequestSubpartForms[sub.item_child_normalized].weld_print" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Assy WO</label>
+                                            <select v-model="woRequestSubpartForms[sub.item_child_normalized].assy_wo" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option value="Trac Vac Assy">Trac Vac</option><option value="Tru Cut Assy">Tru Cut</option><option value="Non Assy WO">Non Assy</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <!-- Appearance + Planning -->
+                                    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Appearance & Planning</p>
+                                    <div class="grid grid-cols-5 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Color</label>
+                                            <select v-model="woRequestSubpartForms[sub.item_child_normalized].color" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option>Black</option><option>Red</option><option>Grey</option><option>Zinc</option><option>None</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Bent/Rolled</label>
+                                            <select v-model="woRequestSubpartForms[sub.item_child_normalized].bent_rolled_part" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Date to Start</label>
+                                            <input v-model="woRequestSubpartForms[sub.item_child_normalized].date_to_start" type="date" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Lead Time</label>
+                                            <input v-model="woRequestSubpartForms[sub.item_child_normalized].estimated_lead_time" type="text" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400" placeholder="—">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Setup Time</label>
+                                            <input v-model="woRequestSubpartForms[sub.item_child_normalized].set_up_time" type="text" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-400" placeholder="—">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button v-if="woRequestSubparts.length > 15"
+                                @click="woRequestSubpartsExpanded = !woRequestSubpartsExpanded"
+                                class="text-blue-600 hover:text-blue-500 text-xs font-semibold mt-2 py-1">
+                                {{ woRequestSubpartsExpanded ? 'Show less' : `Show ${woRequestSubparts.length - 15} more…` }}
+                            </button>
+                        </div>
+                    </div>
+
+        </Teleport>

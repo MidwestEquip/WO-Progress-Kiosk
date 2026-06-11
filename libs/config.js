@@ -173,7 +173,7 @@ export const PARTIAL_NAMES = [
     'modal-pin', 'modal-action-panel',
     'modal-tc-unit', 'modal-tc-stock',
     'modal-tv-unit', 'modal-tv-stock',
-    'modal-wo-request',
+    'modal-wo-request', 'modal-wo-request-subparts',
     'modal-misc', 'modal-open-orders-add',
     'modal-action-panel-print',
     'modal-eng-inquiry',

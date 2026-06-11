@@ -1,15 +1,16 @@
 // ============================================================
-// pages/wo-request-view.js — WO Request form logic
+// pages/wo-request-view.js — WO Request list + form logic
 //
-// Handles: loading requests, submitting, inline field saves,
-//          selecting for detail editing, save, approve.
+// Handles: loading the request list, the New Request form, inline
+//          field saves, detail-form save/send-to-manager, forecast,
+//          and delete. Detail-modal open/populate lives in
+//          wo-request-detail.js (split for the 500-line cap).
 // Imports from store + db only. Never imported by other page files.
 // ============================================================
 
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
-import { PURCHASING_3YR_START } from '../libs/config.js';
 
 // checkWoRequestPartMatch — on blur of Part # field:
 //   1. Queries open_orders for a SO# hint.
@@ -63,6 +64,9 @@ export async function loadWoRequests() {
                 alere_bin:          (prev[r.id]?.alere_bin          ?? '') !== '' ? prev[r.id].alere_bin          : (r.alere_bin          || ''),
                 qty_sold_used_12mo: (prev[r.id]?.qty_sold_used_12mo ?? '') !== '' ? prev[r.id].qty_sold_used_12mo : (r.qty_sold_used_12mo ?? ''),
                 where_used:         (prev[r.id]?.where_used         ?? '') !== '' ? prev[r.id].where_used         : (r.where_used         || ''),
+                // status_notes always mirrors the DB value (no preserve-prev): it is also
+                // editable in the detail modal, so a reload must reflect the latest saved note.
+                status_notes:       r.status_notes ?? '',
             };
         });
         store.woRequestInlineState.value = state;
@@ -80,7 +84,7 @@ export function resetWoRequestForm() {
     store.woRequestForm.value = {
         part_number: '', description: '', sales_order_number: '',
         qty_on_order: '', qty_in_stock: '', qty_used_per_unit: '',
-        submitted_by: ''
+        submitted_by: '', is_assembly: false
     };
     store.woRequestFormErrors.value = { part_number: false, qty_in_stock: false, qty_used_per_unit: false, submitted_by: false };
 }
@@ -122,7 +126,7 @@ export async function submitWoRequestForm() {
     }
 }
 
-// saveWoRequestInlineFields — silently save the 4 inline card fields for a request row.
+// saveWoRequestInlineFields — silently save the inline card fields for a request row.
 // Called on @blur of any inline input. Updates the list item in place so the modal
 // sees fresh values if opened immediately after.
 export async function saveWoRequestInlineFields(id) {
@@ -133,6 +137,7 @@ export async function saveWoRequestInlineFields(id) {
         alere_bin:          (s.alere_bin || '').trim()  || null,
         qty_sold_used_12mo: s.qty_sold_used_12mo  !== '' ? parseFloat(s.qty_sold_used_12mo) : null,
         where_used:         (s.where_used || '').trim()  || null,
+        status_notes:       (s.status_notes || '').trim().slice(0, 300) || null,
     };
     try {
         const { error } = await db.updateWoRequest(id, updates);
@@ -147,231 +152,6 @@ export async function saveWoRequestInlineFields(id) {
         logError('saveWoRequestInlineFields', err, { id });
     }
 }
-
-// boolToYesNo — maps a boolean DB value to 'yes'/'no'/'' for dropdown binding.
-function boolToYesNo(val) {
-    if (val === true)  return 'yes';
-    if (val === false) return 'no';
-    return '';
-}
-
-const SUBPART_FORM_BLANK = () => ({ expanded: false, defaultsLoaded: false, qty_to_make: '', fab: '', fab_print: '', weld: '', weld_print: '', assy_wo: '', color: '', bent_rolled_part: '', date_to_start: '', estimated_lead_time: '', set_up_time: '' });
-
-// openSubpartWoForm — toggle inline WO form for a subpart row; auto-fills defaults on first open.
-export async function openSubpartWoForm(sub) {
-    const n = sub.item_child_normalized;
-    const forms = store.woRequestSubpartForms.value;
-    if (!forms[n]) forms[n] = SUBPART_FORM_BLANK();
-    forms[n].expanded = !forms[n].expanded;
-    store.woRequestSubpartForms.value = { ...forms };
-    if (forms[n].expanded && !forms[n].defaultsLoaded) {
-        forms[n].defaultsLoaded = true;
-        const { data: d } = await db.fetchPartApprovalDefault(sub.item_child);
-        if (d) {
-            const F = ['fab','fab_print','weld','weld_print','assy_wo','color','bent_rolled_part'];
-            F.forEach(f => { if (!forms[n][f] && d[f]) forms[n][f] = d[f]; });
-            store.woRequestSubpartForms.value = { ...forms };
-        }
-    }
-}
-
-// calcSubpartStats — batch-fetch made/sold/parent demand for all BOM children concurrently.
-async function calcSubpartStats(subparts) {
-    const norms = subparts.map(s => s.item_child_normalized);
-    const [[{ data: madeMap }, { data: sales }], demands] = await Promise.all([
-        Promise.all([db.fetchPartsMadeAllTime(norms), db.fetchQtySoldFromSalesAnalysis(norms)]),
-        Promise.all(norms.map(n => db.calculateRecursiveParentUsageDemand(n).then(r => r.data?.totalDemand || 0))),
-    ]);
-    const stats = {};
-    subparts.forEach((s, i) => {
-        const n = s.item_child_normalized;
-        stats[n] = { made: (madeMap || {})[n] || 0, sold: +(sales || {})[n] || 0, parent: demands[i] };
-    });
-    return stats;
-}
-
-// openWoRequestDetail — select a request and populate the manager detail form.
-// Boolean DB fields (fab, weld, bent_rolled_part) are mapped to 'yes'/'no' strings
-// to support <select> binding. fab_print/weld_print store 'yes'/'no' as text.
-// Also loads any existing part prints into woFiles so they show in the modal.
-// After populating from the request, fetches part_approval_defaults and fills
-// only blank routing fields — never overwrites values already on the request.
-export async function openWoRequestDetail(req) {
-    store.selectedWoRequest.value        = req;
-    store.woRequestDefaultsApplied.value = false;
-    store.woRequestDetailForm.value = {
-        alere_qty:                     req.alere_qty                     ?? '',
-        qty_sold_used_12mo:            req.qty_sold_used_12mo            ?? '',
-        qty_sold_parent_usage_period:  req.qty_sold_parent_usage_period  ?? '',
-        qty_used_in_mfg:               req.qty_used_in_mfg               ?? '',
-        qty_made_past_12mo:            req.qty_made_past_12mo            ?? '',
-        where_used:                    req.where_used                    || '',
-        qty_to_make:         req.qty_to_make         ?? '',
-        fab:                 req.fab       || '',   // TEXT 'yes'/'no' after migration
-        fab_print:           req.fab_print === 'yes' ? 'yes' : req.fab_print === 'no' ? 'no' : '',
-        weld:                req.weld      || '',   // TEXT area name after migration
-        weld_print:          req.weld_print === 'yes' ? 'yes' : req.weld_print === 'no' ? 'no' : '',
-        assy_wo:             req.assy_wo             || '',
-        color:               req.color               || '',
-        bent_rolled_part:    boolToYesNo(req.bent_rolled_part),
-        set_up_time:         req.set_up_time         ?? '',
-        alere_bin:           req.alere_bin           || '',
-        estimated_lead_time: req.estimated_lead_time ?? '',
-        sent_to_production:  req.sent_to_production  ?? false,
-        date_to_start:       req.date_to_start       || '',
-        production_notes:    req.production_notes    || '',
-        staging_area:        req.staging_area        || ''
-    };
-    loadWoFilesForRequest(req.part_number);
-
-    // Auto-fill usage summary + last 3 made (non-blocking)
-    const today      = new Date().toISOString().slice(0, 10);
-    const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
-    store.woRequestHistoryLoading.value      = true;
-    store.woRequestParentUsageLoading.value  = true;
-    store.woRequestHistoryLoading36mo.value  = true;
-    store.woRequestParentUsageLoading36mo.value = true;
-    store.woRequestLastMade.value = [];
-    store.woRequestSubparts.value = [];
-    store.woRequestSubpartsLoading.value = true;
-    store.woRequestSubpartsExpanded.value = false;
-    if (req.subpart_plans) {
-        const r = {};
-        Object.entries(req.subpart_plans).forEach(([n, v]) => { r[n] = { ...v, expanded: false, defaultsLoaded: true }; });
-        store.woRequestSubpartForms.value = r;
-    }
-
-    // 1yr: qty_used_in_mfg + qty_made from issues_receipts (rolling 12mo)
-    db.fetchPartUsageSummary12Mo(req.part_number).then(({ data, error }) => {
-        store.woRequestHistoryLoading.value = false;
-        if (error) {
-            store.showToast('Could not load part history: ' + error.message, 'error');
-            logError('openWoRequestDetail:history', error, { part: req.part_number });
-            return;
-        }
-        store.woRequestDetailForm.value.qty_used_in_mfg    = data.qty_used_in_mfg;
-        store.woRequestDetailForm.value.qty_made_past_12mo = data.qty_made_past_12mo;
-    });
-
-    // 1yr: qty_sold from sales_analysis_lines (rolling 12mo)
-    const norm = (req.part_number || '').trim().toUpperCase();
-    db.fetchQtySoldFromSalesAnalysis([req.part_number], oneYearAgo, today).then(({ data: salesMap, error }) => {
-        if (error) { logError('openWoRequestDetail:qtySold1yr', error, { part: req.part_number }); return; }
-        store.woRequestDetailForm.value.qty_sold_used_12mo = salesMap[norm] || 0;
-    });
-
-    // 1yr: parent BOM demand (rolling 12mo)
-    db.calculateRecursiveParentUsageDemand(req.part_number, oneYearAgo, today).then(({ data, error }) => {
-        store.woRequestParentUsageLoading.value = false;
-        if (error) { logError('openWoRequestDetail:parentUsage1yr', error, { part: req.part_number }); return; }
-        store.woRequestDetailForm.value.qty_sold_parent_usage_period = data.totalDemand;
-    });
-
-    // 3yr: qty_used_in_mfg + qty_made from issues_receipts (since 1/1/23)
-    db.fetchPartUsageSummary36Mo(req.part_number).then(({ data, error }) => {
-        store.woRequestHistoryLoading36mo.value = false;
-        if (error) { logError('openWoRequestDetail:history3yr', error, { part: req.part_number }); return; }
-        store.woRequestDetailForm.value.qty_used_in_mfg_36mo = data.qty_used_in_mfg_36mo;
-        store.woRequestDetailForm.value.qty_made_36mo        = data.qty_made_past_36mo;
-    });
-
-    // 3yr: qty_sold from sales_analysis_lines (since 1/1/23)
-    db.fetchQtySoldFromSalesAnalysis([req.part_number], PURCHASING_3YR_START, today).then(({ data: salesMap, error }) => {
-        if (error) { logError('openWoRequestDetail:qtySold3yr', error, { part: req.part_number }); return; }
-        store.woRequestDetailForm.value.qty_sold_36mo = salesMap[norm] || 0;
-    });
-
-    // 3yr: parent BOM demand (since 1/1/23)
-    db.calculateRecursiveParentUsageDemand(req.part_number, PURCHASING_3YR_START, today).then(({ data, error }) => {
-        store.woRequestParentUsageLoading36mo.value = false;
-        if (error) { logError('openWoRequestDetail:parentUsage3yr', error, { part: req.part_number }); return; }
-        store.woRequestDetailForm.value.qty_sold_parent_usage_36mo = data.totalDemand;
-    });
-
-    db.fetchPartLastMade(req.part_number).then(({ data }) => {
-        store.woRequestLastMade.value = data || [];
-    });
-    db.fetchBomChildrenForParent(req.part_number).then(({ data, error }) => {
-        store.woRequestSubpartsLoading.value = false;
-        if (error) {
-            logError('openWoRequestDetail:subparts', error, { part: req.part_number });
-            return;
-        }
-        const subparts = data || [];
-        store.woRequestSubparts.value = subparts;
-        if (subparts.length > 0) {
-            const normalized = subparts.map(s => s.item_child_normalized);
-            db.fetchBinAndDescForParts(normalized).then(({ data: bd, error: bdErr }) => {
-                if (bdErr) { logError('openWoRequestDetail:bins', bdErr); return; }
-                store.woRequestSubpartBins.value  = bd.bins;
-                store.woRequestSubpartDescs.value = bd.descs;
-            });
-            calcSubpartStats(subparts)
-                .then(s => { store.woRequestSubpartStats.value = s; })
-                .catch(err => logError('openWoRequestDetail:subpartStats', err));
-        }
-    });
-
-    // Auto-fill blank routing fields from stored part defaults (fire-and-forget safe)
-    try {
-        const { data: defaults } = await db.fetchPartApprovalDefault(req.part_number);
-        if (defaults) {
-            const form   = store.woRequestDetailForm.value;
-            const FIELDS = ['fab', 'fab_print', 'weld', 'weld_print', 'assy_wo', 'color'];
-            let applied  = false;
-            FIELDS.forEach(f => {
-                if (!form[f] && defaults[f]) { form[f] = defaults[f]; applied = true; }
-            });
-            // bent_rolled_part: stored as BOOLEAN, form uses 'yes'/'no'
-            if (!form.bent_rolled_part && defaults.bent_rolled_part !== null && defaults.bent_rolled_part !== undefined) {
-                form.bent_rolled_part = defaults.bent_rolled_part ? 'yes' : 'no';
-                applied = true;
-            }
-            store.woRequestDefaultsApplied.value = applied;
-        }
-    } catch (err) {
-        logError('openWoRequestDetail:defaults', err, { part: req.part_number });
-    }
-}
-
-// loadWoFilesForRequest — fetch part prints for the given part number into woFiles.
-export async function loadWoFilesForRequest(partNumber) {
-    if (!partNumber) { store.woFiles.value = []; return; }
-    store.woFilesLoading.value = true;
-    const { data, error } = await db.listWoFiles(partNumber);
-    store.woFilesLoading.value = false;
-    if (error) { store.showToast('Could not load files: ' + error.message); return; }
-    store.woFiles.value = data || [];
-}
-
-// handleWoFileUploadForRequest — upload a file for the selected request's part number.
-export async function handleWoFileUploadForRequest(event) {
-    const file = event.target.files[0];
-    const partNumber = store.selectedWoRequest.value?.part_number;
-    if (!file || !partNumber) return;
-    event.target.value = '';
-    store.woFilesLoading.value = true;
-    const { error } = await db.uploadWoFile(partNumber, file);
-    store.woFilesLoading.value = false;
-    if (error) { store.showToast('Upload failed: ' + error.message); return; }
-    store.showToast('File uploaded.', 'success');
-    await loadWoFilesForRequest(partNumber);
-}
-
-export function closeWoRequestDetail() {
-    store.selectedWoRequest.value        = null;
-    store.woRequestReadOnly.value        = false;
-    store.woRequestDefaultsApplied.value = false;
-    store.woRequestSubparts.value         = [];
-    store.woRequestSubpartsLoading.value  = false;
-    store.woRequestSubpartsExpanded.value = false;
-    store.woRequestSubpartBins.value      = {};
-    store.woRequestSubpartDescs.value     = {};
-    store.woRequestSubpartStats.value     = {};
-    store.woRequestSubpartForms.value     = {};
-}
-
 
 // _buildDetailUpdates — shared helper to convert the detail form to DB update shape.
 function _buildDetailUpdates(form) {
@@ -397,6 +177,8 @@ function _buildDetailUpdates(form) {
         date_to_start:       form.date_to_start       || null,
         production_notes:    form.production_notes.trim() || null,
         staging_area:        form.staging_area         || null,
+        status_notes:        (form.status_notes || '').trim().slice(0, 300) || null,
+        on_hold:             !!form.on_hold,
     };
 }
 
@@ -426,6 +208,57 @@ export async function saveWoRequestDetail() {
         logError('saveWoRequestDetail', err, { id });
     } finally {
         store.loading.value = false;
+    }
+}
+
+// toggleWoRequestOnHold — flip the on-hold flag and persist immediately (saving the
+// current status note as the reason). No manual Save click needed. Updates the open
+// record and its list row in place so the badges/inline note refresh.
+export async function toggleWoRequestOnHold() {
+    const id   = store.selectedWoRequest.value?.id;
+    const form = store.woRequestDetailForm.value;
+    if (!id) return;
+    form.on_hold = !form.on_hold;
+    const updates = {
+        on_hold:      !!form.on_hold,
+        status_notes: (form.status_notes || '').trim().slice(0, 300) || null,
+    };
+    try {
+        const { error } = await db.updateWoRequest(id, updates);
+        if (error) throw error;
+        store.selectedWoRequest.value = { ...store.selectedWoRequest.value, ...updates };
+        const idx = store.woRequests.value.findIndex(r => r.id === id);
+        if (idx !== -1) store.woRequests.value[idx] = { ...store.woRequests.value[idx], ...updates };
+        if (store.woRequestInlineState.value[id]) {
+            store.woRequestInlineState.value[id].status_notes = updates.status_notes ?? '';
+        }
+        store.showToast(form.on_hold ? 'Put on hold.' : 'Hold removed.', 'success');
+    } catch (err) {
+        form.on_hold = !form.on_hold; // revert optimistic flip on failure
+        store.showToast('Failed to update hold: ' + err.message, 'error');
+        logError('toggleWoRequestOnHold', err, { id });
+    }
+}
+
+// saveWoRequestStatusNote — persist the detail-modal status note on blur (no Save click).
+// Updates the open record, list row, and inline state in place so the row note matches.
+export async function saveWoRequestStatusNote() {
+    const id   = store.selectedWoRequest.value?.id;
+    const form = store.woRequestDetailForm.value;
+    if (!id) return;
+    const note = (form.status_notes || '').trim().slice(0, 300) || null;
+    try {
+        const { error } = await db.updateWoRequest(id, { status_notes: note });
+        if (error) throw error;
+        store.selectedWoRequest.value = { ...store.selectedWoRequest.value, status_notes: note };
+        const idx = store.woRequests.value.findIndex(r => r.id === id);
+        if (idx !== -1) store.woRequests.value[idx] = { ...store.woRequests.value[idx], status_notes: note };
+        if (store.woRequestInlineState.value[id]) {
+            store.woRequestInlineState.value[id].status_notes = note ?? '';
+        }
+    } catch (err) {
+        store.showToast('Failed to save note: ' + err.message, 'error');
+        logError('saveWoRequestStatusNote', err, { id });
     }
 }
 

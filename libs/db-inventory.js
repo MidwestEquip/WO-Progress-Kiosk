@@ -262,6 +262,7 @@ export async function submitWoRequest(form) {
             qty_used_per_unit:  form.qty_used_per_unit  ? parseFloat(form.qty_used_per_unit)  : null,
             request_date:       new Date().toISOString().slice(0, 10),
             submitted_by:       form.submitted_by.trim(),
+            is_assembly:        !!form.is_assembly,
             status:             'pending'
         }]).select()
     );

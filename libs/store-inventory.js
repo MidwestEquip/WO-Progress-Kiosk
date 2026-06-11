@@ -33,7 +33,7 @@ export const woRequestSoHint      = ref(null); // { salesOrder, qty, partNumber 
 export const woRequestForm        = ref({
     part_number: '', description: '', sales_order_number: '',
     qty_on_order: '', qty_in_stock: '', qty_used_per_unit: '',
-    submitted_by: ''
+    submitted_by: '', is_assembly: false
 });
 export const woRequestFormErrors = ref({ part_number: false, submitted_by: false });
 export const woRequestSearch          = ref('');
@@ -76,7 +76,7 @@ export const woRequestDetailForm = ref({
     fab: '', fab_print: '', weld: '', weld_print: '',
     assy_wo: '', color: '', bent_rolled_part: '', set_up_time: '',
     alere_bin: '', estimated_lead_time: '', sent_to_production: false, date_to_start: '',
-    production_notes: '', staging_area: '',
+    production_notes: '', staging_area: '', status_notes: '', on_hold: false,
     // 3yr read-only reference data (not saved in approval snapshot)
     qty_sold_36mo: '', qty_sold_parent_usage_36mo: '', qty_used_in_mfg_36mo: '', qty_made_36mo: '',
 });

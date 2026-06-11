@@ -41,12 +41,12 @@ import { loadInventoryItems, switchInventoryTab,
          loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive,
          loadPoReceivedOrders, unreceivePoOrder } from './pages/inventory-view.js';
 import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
-         openWoRequestDetail, closeWoRequestDetail,
-         saveWoRequestDetail, sendToManagerApproval,
+         saveWoRequestDetail, sendToManagerApproval, toggleWoRequestOnHold, saveWoRequestStatusNote,
          saveWoRequestInlineFields,
          checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
-         openSendToForecast, closeSendToForecast, submitSendToForecast,
-         handleWoFileUploadForRequest, openSubpartWoForm } from './pages/wo-request-view.js';
+         openSendToForecast, closeSendToForecast, submitSendToForecast } from './pages/wo-request-view.js';
+import { openWoRequestDetail, closeWoRequestDetail,
+         handleWoFileUploadForRequest, openSubpartWoForm } from './pages/wo-request-detail.js';
 import { loadForecastedItems,
          openDeleteConfirm, cancelDeleteForecast, confirmDeleteForecast,
          openMoveBackConfirm, cancelMoveBack, confirmMoveBack } from './pages/wo-forecasting-view.js';
@@ -191,6 +191,8 @@ export function buildOpsExpose() {
         closeWoRequestDetail,
         saveWoRequestDetail,
         sendToManagerApproval,
+        toggleWoRequestOnHold,
+        saveWoRequestStatusNote,
         saveWoRequestInlineFields,
         checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
         openSubpartWoForm,
