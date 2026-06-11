@@ -41,7 +41,11 @@
       "mcp__plugin_supabase_supabase__execute_sql",
       "Bash(curl -s \"https://jxxumifkxhfoxgfsduns.supabase.co/rest/v1/work_orders?limit=1\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4eHVtaWZreGhmb3hnZnNkdW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1OTE0OTMsImV4cCI6MjA5MTE2NzQ5M30.bq-7ETLp1w1rBVM22LR8BamEfNyLRLrVYsxR8KHqkFE\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4eHVtaWZreGhmb3hnZnNkdW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1OTE0OTMsImV4cCI6MjA5MTE2NzQ5M30.bq-7ETLp1w1rBVM22LR8BamEfNyLRLrVYsxR8KHqkFE\")",
       "Bash(python3 -c \"import sys,json; row=json.load\\(sys.stdin\\); print\\('\\\\n'.join\\(row[0].keys\\(\\)\\)\\) if row else print\\('no rows'\\)\")",
-      "mcp__plugin_supabase_supabase__list_tables"
+      "mcp__plugin_supabase_supabase__list_tables",
+      "Bash(node --check pages/wo-request-view.js)",
+      "Bash(node --check pages/wo-request-detail.js)",
+      "Bash(node --check expose-ops.js)",
+      "Bash(node --check libs/store-inventory.js)"
     ]
   }
 }

@@ -486,14 +486,13 @@ export function openOrderDetail(order, section = 'ordering') {
     store.supplierCatalogChoices.value = [];
     store.purchasingDetailOrder.value   = order;
     store.purchasingDetailSection.value = section;
-    const today = new Date().toISOString().split('T')[0];
     store.purchasingDetailForm.value = {
         status:               order.status               || 'requested',
         ship_to:              order.ship_to              || APP_LOCATION,
         supplier_name:        order.supplier_name        || '',
         supplier_part_number: order.supplier_part_number || '',
         po_number:            order.po_number            || '',
-        date_ordered:         order.date_ordered         || today,
+        date_ordered:         order.date_ordered         || '',
         estimated_lead_time:  order.estimated_lead_time  ?? '',
         expected_date:        order.expected_date        || '',
         qty_ordered:          order.qty_ordered          ?? '',

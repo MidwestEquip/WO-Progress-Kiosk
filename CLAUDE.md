@@ -227,6 +227,41 @@ Every change to this codebase follows this process:
    Never combine a large schema change with a large UI rewrite in one patch.
 ---
 
+## Red-Team Review: On Request Only
+
+This runs ONLY when the user explicitly says "red team" (or "red team this").
+Never run it automatically on a change. For normal changes, follow the Patch Process
+above and implement directly. When the user does invoke it, run the full flow below.
+It happens AFTER the patch plan is agreed and BEFORE any implementation.
+
+1. North Star. Produce the phased patch plan per the Patch Process above:
+   what we want, what we explicitly do NOT want, files touched, schema deltas,
+   and a manual test checklist. No code yet.
+
+2. Red team. Spin up subagents in parallel (Agent tool), each with ONE lens.
+   Each attacks the PLAN, not code (code does not exist yet):
+   - Architecture cop  — dependency tree, file boundaries, 500-line cap, partials convention.
+   - Database & scale  — migration safety, GRANTs, unbounded queries, null fallbacks, derive-don't-store.
+   - Security          — RLS/grants, PIN/auth, input sanitization, outward-facing actions.
+   - Frontend/Vue      — reactivity traps, computed perf, modal pattern, no logic in templates/main.js.
+   - Simplicity critic — argue to cut scope and kill complexity. Keep the plan as simple as effective.
+
+3. Triage & fix. Each agent returns findings ranked high / medium / low. The main
+   agent fixes the real ones in the plan and explicitly states which findings it
+   dismissed and why (especially any that contradict this CLAUDE.md).
+
+4. Repeat steps 2-3 until TWO consecutive red-team rounds surface only cosmetic
+   issues or nothing. Then — and only then — implement, following the Patch Process.
+
+Proportionality:
+- Full 5-agent panel for any change touching logic, schema, DB, reactive state,
+  routing, security, or more than one file.
+- Reduced panel or skip for trivial cosmetic edits (typo, color, copy, single
+  static string). State which agents were skipped and why.
+- No formal P0/P1/P2 gate yet — high/medium/low ranking only. Add the hard gate
+  later if the loop fails to converge.
+---
+
 ## What Claude Must Never Do
 
 - DROP TABLE, TRUNCATE, or any destructive SQL on live data
