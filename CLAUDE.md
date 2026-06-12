@@ -530,6 +530,7 @@ No active series.
 
 - `pages/purchasing-view.js` (726 lines): Split deferred — do not add to this file without splitting first.
 - `partials/modal-purchasing-detail.html` (689 lines): Split deferred — do not add without splitting first.
+- `partials/modal-wo-request.html` (507 lines): Over cap after the "Used On" field (Path A, intentional). Owed split: extract the Data section (heading through "Last 3 Times Made", ~141 lines) into a new teleported partial `modal-wo-request-data.html` (target div `#wo-request-data-body`, same pattern as the existing subparts teleport). Parent drops to ~366. Do not add to this file before that split.
 
 ---
 

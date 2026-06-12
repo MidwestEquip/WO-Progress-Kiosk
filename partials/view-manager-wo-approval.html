@@ -214,6 +214,96 @@
                             </div>
                         </div>
 
+                        <!-- Subparts (traveller) — read-only review -->
+                        <div v-if="Object.keys(managerWoSubpartForms).length" class="mt-5 pt-4 border-t border-gray-100">
+                            <div class="flex items-center gap-2 mb-3">
+                                <span class="text-gray-500 font-bold text-xs uppercase tracking-widest">&#129513; Subparts to Make (Traveller)</span>
+                                <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">{{ Object.keys(managerWoSubpartForms).length }}</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div v-for="(plan, partNum) in managerWoSubpartForms" :key="partNum"
+                                     class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                                    <div class="flex items-start justify-between gap-3 mb-3">
+                                        <div class="min-w-0 flex items-center gap-3">
+                                            <div class="min-w-0">
+                                                <div class="font-bold text-gray-900 text-sm">{{ partNum }}</div>
+                                                <div class="text-gray-500 text-xs truncate">{{ managerWoSubpartDescs[partNum] || '—' }}</div>
+                                            </div>
+                                            <div class="shrink-0">
+                                                <label class="block text-xs text-gray-400 mb-0.5">Qty</label>
+                                                <input v-model="managerWoSubpartForms[partNum].qty_to_make" type="number" min="0"
+                                                       class="w-20 px-2 py-1 border border-gray-300 rounded text-sm font-bold text-gray-800 focus:outline-none focus:border-blue-400" placeholder="0">
+                                            </div>
+                                        </div>
+                                        <button @click="removeManagerSubpart(partNum)"
+                                                class="shrink-0 text-red-400 hover:text-red-600 text-xs font-bold border border-red-200 hover:border-red-400 rounded px-2 py-1 transition-colors">
+                                            ✕ Remove
+                                        </button>
+                                    </div>
+                                    <!-- Routing -->
+                                    <div class="grid grid-cols-3 gap-2 mb-2">
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Fab</label>
+                                            <select v-model="managerWoSubpartForms[partNum].fab" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Fab Print</label>
+                                            <select v-model="managerWoSubpartForms[partNum].fab_print" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Where to Bring After Fab</label>
+                                            <select v-model="managerWoSubpartForms[partNum].weld" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option>Paint</option><option>Urgent</option><option>Welder 1 Area 1</option><option>Welder 2 Area 1</option><option>Welder 3 Area 1</option><option>Ind. Robot Area 1</option><option>New Robot Area 1</option><option>Area 2</option><option>Area 3</option><option>Assemble</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Weld Print</label>
+                                            <select v-model="managerWoSubpartForms[partNum].weld_print" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Assy WO</label>
+                                            <select v-model="managerWoSubpartForms[partNum].assy_wo" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option value="Trac Vac Assy">Trac Vac</option><option value="Tru Cut Assy">Tru Cut</option><option value="Non Assy WO">Non Assy</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Bent/Rolled</label>
+                                            <select v-model="managerWoSubpartForms[partNum].bent_rolled_part" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option value="yes">Yes</option><option value="no">No</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <!-- Appearance & Planning -->
+                                    <div class="grid grid-cols-4 gap-2">
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Color</label>
+                                            <select v-model="managerWoSubpartForms[partNum].color" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:border-blue-400">
+                                                <option value="">—</option><option>Black</option><option>Red</option><option>Grey</option><option>Zinc</option><option>None</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Date to Start</label>
+                                            <input v-model="managerWoSubpartForms[partNum].date_to_start" type="date" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:border-blue-400">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Lead Time</label>
+                                            <input v-model="managerWoSubpartForms[partNum].estimated_lead_time" type="text" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:border-blue-400" placeholder="—">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-gray-500 mb-0.5">Setup Time</label>
+                                            <input v-model="managerWoSubpartForms[partNum].set_up_time" type="text" class="w-full px-1.5 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:border-blue-400" placeholder="—">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Prints & Files -->
                         <div class="mt-5 pt-4 border-t border-gray-100">
                             <div class="flex items-center gap-3">

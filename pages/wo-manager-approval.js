@@ -109,7 +109,31 @@ export function openManagerWoDetail(req) {
         staging_area:        req.staging_area        || '',
         production_notes:    req.production_notes    || '',
     };
+
+    // Rehydrate subpart plans into editable forms (mirror planner pattern in
+    // wo-request-detail.js). Read-only render in this patch; descriptions fetched
+    // non-blocking for display. Keys are already normalized part numbers.
+    const plans = req.subpart_plans || {};
+    const forms = {};
+    Object.entries(plans).forEach(([n, v]) => { forms[n] = { ...v, expanded: false, defaultsLoaded: true }; });
+    store.managerWoSubpartForms.value = forms;
+    store.managerWoSubpartDescs.value = {};
+    const norms = Object.keys(forms);
+    if (norms.length) {
+        db.fetchBinAndDescForParts(norms)
+            .then(({ data }) => { store.managerWoSubpartDescs.value = data?.descs || {}; })
+            .catch(err => logError('openManagerWoDetail:subpartDescs', err, { id: req.id }));
+    }
+
     loadManagerWoFiles(req.part_number);
+}
+
+// removeManagerSubpart — drop a subpart from the traveller before approval.
+// In-memory only; the curated plan set is persisted to the request at final approve.
+export function removeManagerSubpart(partNum) {
+    const forms = { ...store.managerWoSubpartForms.value };
+    delete forms[partNum];
+    store.managerWoSubpartForms.value = forms;
 }
 
 // closeManagerWoDetail — deselect the request and reset panel state.
@@ -119,6 +143,8 @@ export function closeManagerWoDetail() {
     store.managerWoSendBackOpen.value    = false;
     store.managerWoSendBackNote.value    = '';
     store.woFiles.value                  = [];
+    store.managerWoSubpartForms.value    = {};
+    store.managerWoSubpartDescs.value    = {};
 }
 
 // _buildUpdates — convert the manager detail form to DB update shape.
@@ -203,8 +229,19 @@ export async function managerFinalApproveWo() {
         const { data: jobNumber, error: jobErr } = await db.assignJobNumberIfMissing(req.id);
         if (jobErr) throw jobErr;
 
+        // Curate subpart plans from the manager's edits/removals (strip UI-only keys).
+        // This is the source of truth for the traveller below — persist it so the
+        // request record matches exactly what was approved.
+        const curatedPlans = {};
+        Object.entries(store.managerWoSubpartForms.value).forEach(([n, { expanded, defaultsLoaded, ...d }]) => { curatedPlans[n] = d; });
+
         const today   = new Date().toISOString().slice(0, 10);
-        const updates = { ..._buildUpdates(form), status: 'in production', created_date: today };
+        const updates = {
+            ..._buildUpdates(form),
+            status:        'in production',
+            created_date:  today,
+            subpart_plans: Object.keys(curatedPlans).length ? curatedPlans : null,
+        };
         const { error } = await db.updateWoRequest(req.id, updates);
         if (error) throw error;
 
@@ -254,9 +291,8 @@ export async function managerFinalApproveWo() {
             }
         }
 
-        // Traveller: create group + subpart work_orders from saved subpart_plans
-        const subpartPlans   = req.subpart_plans || {};
-        const subpartEntries = Object.entries(subpartPlans)
+        // Traveller: create group + subpart work_orders from the manager-curated plans
+        const subpartEntries = Object.entries(curatedPlans)
             .filter(([, f]) => parseFloat(f.qty_to_make) > 0);
         if (subpartEntries.length > 0) {
             const { data: trav, error: tErr } = await db.insertTraveller();

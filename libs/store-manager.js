@@ -102,6 +102,10 @@ export const managerWoDetailForm      = ref({});
 export const managerWoSendBackOpen    = ref(false);
 export const managerWoSendBackNote    = ref('');
 export const managerWoApprovalCount   = computed(() => managerWoApprovalList.value.length);
+// Subpart plans for the open approval request, rehydrated from req.subpart_plans.
+// Keyed by normalized part number; each value mirrors the planner SUBPART_FORM shape.
+export const managerWoSubpartForms    = ref({});
+export const managerWoSubpartDescs    = ref({});
 
 // ── Time Report ───────────────────────────────────────────────
 export const timeReportSessions    = ref([]);

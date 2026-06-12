@@ -169,6 +169,18 @@ export async function openWoRequestDetail(req) {
     db.fetchPartLastMade(req.part_number).then(({ data }) => {
         store.woRequestLastMade.value = data || [];
     });
+
+    // "Used On" — BOM parents the requested part is a child of (all_boms).
+    store.woRequestUsedOn.value = [];
+    store.woRequestUsedOnLoading.value = true;
+    db.fetchBomParentsForChild(req.part_number).then(({ data, error }) => {
+        store.woRequestUsedOnLoading.value = false;
+        if (error) { logError('openWoRequestDetail:usedOn', error, { part: req.part_number }); return; }
+        // Dedupe + sort the parent part numbers for stable display.
+        store.woRequestUsedOn.value = [...new Set((data || [])
+            .map(r => r.item_parent_normalized)
+            .filter(Boolean))].sort();
+    });
     db.fetchBomChildrenForParent(req.part_number).then(({ data, error }) => {
         store.woRequestSubpartsLoading.value = false;
         if (error) {
@@ -250,4 +262,6 @@ export function closeWoRequestDetail() {
     store.woRequestSubpartDescs.value     = {};
     store.woRequestSubpartStats.value     = {};
     store.woRequestSubpartForms.value     = {};
+    store.woRequestUsedOn.value           = [];
+    store.woRequestUsedOnLoading.value    = false;
 }
