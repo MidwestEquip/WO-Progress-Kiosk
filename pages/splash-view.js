@@ -91,6 +91,14 @@ export async function enterEngineeringMenu() {
     if (data) store.engFollowups.value = data;
 }
 
+// enterPurchasingMenu — navigate to Purchasing sub-menu and preload forecast count.
+// Mirrors enterEngineeringMenu: fetches directly to avoid a cross-page import.
+export async function enterPurchasingMenu() {
+    selectCategory('purchasing');
+    const { data } = await db.fetchForecastedOrders();
+    if (data) store.poForecastOrders.value = data;
+}
+
 // ── selectSubCategory ─────────────────────────────────────────
 // Navigate to a second-level sub-menu (level 2).
 export function selectSubCategory(sub) {

@@ -15,7 +15,7 @@ import { openMessagesView, openThread, backToInbox, sendMessage,
          dmAvatarClass, dmContacts } from './pages/messages-view.js';
 import { selectDept, promptPin, submitPin, goBack,
          selectCategory, selectSubCategory, splashBack,
-         enterEngineeringMenu,
+         enterEngineeringMenu, enterPurchasingMenu,
          submitLogin, logout, enterManagerView,
          loadHeaderLinks } from './pages/splash-view.js';
 import { openActionPanel, holdSince,
@@ -365,7 +365,7 @@ export function buildCoreExpose() {
         // Navigation
         selectDept, promptPin, submitPin, goBack,
         selectCategory, selectSubCategory, splashBack,
-        enterEngineeringMenu,
+        enterEngineeringMenu, enterPurchasingMenu,
         submitLogin, logout, enterManagerView,
         enterEngineeringInquiriesView, enterEngineeringFollowupView,
         openEngInquiryForm, closeEngInquiryForm, submitEngInquiry,

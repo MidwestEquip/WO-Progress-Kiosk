@@ -100,7 +100,7 @@
                             <span class="text-4xl font-bold uppercase">Management</span>
                         </button>
                         <!-- Purchasing -->
-                        <button @click="selectCategory('purchasing')"
+                        <button @click="enterPurchasingMenu()"
                             class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md py-10 px-6 flex flex-col items-center gap-3 border-2 border-amber-400 active:scale-95 transition-transform">
                             <svg class="w-14 h-14 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
@@ -280,7 +280,11 @@
                         </button>
                         <!-- PO Forecasting -->
                         <button @click="enterPoForecastingView()"
-                            class="bg-white hover:bg-blue-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-blue-300 active:scale-95 transition-transform">
+                            class="relative bg-white hover:bg-blue-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-blue-300 active:scale-95 transition-transform">
+                            <span v-if="poForecastOrders.length > 0"
+                                class="absolute top-3 right-3 bg-blue-500 text-white text-xs font-bold rounded-full min-w-[1.5rem] h-6 flex items-center justify-center px-1">
+                                {{ poForecastOrders.length }}
+                            </span>
                             <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                             </svg>
