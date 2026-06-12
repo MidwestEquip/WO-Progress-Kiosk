@@ -45,7 +45,7 @@ export const woRequestParentUsageLoading   = ref(false); // true while calculati
 export const woRequestHistoryLoading36mo   = ref(false); // true while fetching 3yr usage summary
 export const woRequestParentUsageLoading36mo = ref(false); // true while calculating 3yr BOM parent demand
 export const woRequestLastMade             = ref([]);    // last 3 MO-I rows [{ txn_date, qty }]
-export const woRequestUsedOn               = ref([]);    // BOM parents (item_parent_normalized) the requested part is used on
+export const woRequestUsedOn               = ref([]);    // BOM parents the requested part is used on: [{ part, qty }] (qty = qty_per_assy)
 export const woRequestUsedOnLoading        = ref(false); // true while fetching BOM parents
 export const woRequestSubparts             = ref([]);    // BOM children [{ item_child, item_child_normalized, qty_per_assy }]
 export const woRequestSubpartsLoading      = ref(false);

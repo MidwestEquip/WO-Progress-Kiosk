@@ -176,10 +176,16 @@ export async function openWoRequestDetail(req) {
     db.fetchBomParentsForChild(req.part_number).then(({ data, error }) => {
         store.woRequestUsedOnLoading.value = false;
         if (error) { logError('openWoRequestDetail:usedOn', error, { part: req.part_number }); return; }
-        // Dedupe + sort the parent part numbers for stable display.
-        store.woRequestUsedOn.value = [...new Set((data || [])
-            .map(r => r.item_parent_normalized)
-            .filter(Boolean))].sort();
+        // Dedupe by parent part #, keeping qty_per_assy; sort for stable display.
+        const seen = new Map();
+        for (const r of (data || [])) {
+            const part = r.item_parent_normalized;
+            if (!part || seen.has(part)) continue;
+            seen.set(part, Number(r.qty_per_assy) || 1);
+        }
+        store.woRequestUsedOn.value = [...seen.entries()]
+            .map(([part, qty]) => ({ part, qty }))
+            .sort((a, b) => a.part.localeCompare(b.part));
     });
     db.fetchBomChildrenForParent(req.part_number).then(({ data, error }) => {
         store.woRequestSubpartsLoading.value = false;
