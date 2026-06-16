@@ -8,7 +8,7 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import * as dbTv  from '../libs/db-tv.js';
-import { recordUnitCompletion, fetchDraftUnitCompletions, fetchUnitCompletions, upsertUnitDraft } from '../libs/db-assy.js';
+import { recordUnitCompletion, fetchDraftUnitCompletions, fetchUnitCompletionsByWorkOrderId, upsertUnitDraft } from '../libs/db-assy.js';
 import { deepClone } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
@@ -74,8 +74,8 @@ export async function openTvAssyUnit(order) {
     store.tvUnitListError.value = false;
     // For completed WOs fetch all rows (incl. stamped); for active WOs fetch drafts only.
     const { data } = order.status === 'completed'
-        ? await fetchUnitCompletions(order.wo_number)
-        : await fetchDraftUnitCompletions(order.wo_number);
+        ? await fetchUnitCompletionsByWorkOrderId(order.id)
+        : await fetchDraftUnitCompletions(order.id);
     if (data && data.length > 0) {
         store.tvUnitDetailList.value = data.map(r => ({
             salesOrder:   r.unit_number === 1 ? (order.sales_order || '') : '',
@@ -291,15 +291,26 @@ export function removeTvUnit(idx) {
     store.tvUnitDetailList.value = store.tvUnitDetailList.value.filter((_, i) => i !== idx);
 }
 
-// saveTvUnitDetails — fire-and-forget: upserts each unit as a draft row on blur.
-export function saveTvUnitDetails() {
+// saveTvUnitDetails — upserts each unit as a draft row (keyed on work_order_id) on blur; toasts on failure.
+export async function saveTvUnitDetails() {
     const order    = store.activeOrder.value;
     if (!order) return;
     const operator = store.tvAssyEntryName.value.trim();
-    store.tvUnitDetailList.value.forEach((u, idx) => {
-        upsertUnitDraft(order.id, order.wo_number, 'Trac Vac Assy', idx + 1, { ...u, operator }, order.job_number || null)
-            .catch(err => logError('saveTvUnitDetails/upsert', err, { id: order.id, unit: idx + 1 }));
-    });
+    try {
+        const results = await Promise.all(
+            store.tvUnitDetailList.value.map((u, idx) =>
+                upsertUnitDraft(order.id, order.wo_number, 'Trac Vac Assy', idx + 1, { ...u, operator }, order.job_number || null)
+            )
+        );
+        const failed = results.find(r => r?.error);
+        if (failed) {
+            store.showToast("Couldn't save unit details — check your connection and try again.", 'error');
+            logError('saveTvUnitDetails', failed.error, { id: order.id });
+        }
+    } catch (err) {
+        store.showToast("Couldn't save unit details — check your connection and try again.", 'error');
+        logError('saveTvUnitDetails', err, { id: order.id });
+    }
 }
 
 // markTvUnitWoComplete — validates all units then marks the WO complete.

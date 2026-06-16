@@ -36,38 +36,7 @@
                             <p class="text-sm text-gray-400">No subparts found</p>
                         </div>
 
-                        <!-- Subpart list: Assy mode — Part# | Description | Bin | Qty/Assy -->
-                        <div v-else-if="woRequestSubpartMode === 'assy'">
-                            <div class="grid pb-1 mb-0.5 border-b border-gray-200" style="grid-template-columns: auto 1fr 5rem 3.5rem;">
-                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide pr-3">Part #</span>
-                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Description</span>
-                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Bin</span>
-                                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">Qty/Assy</span>
-                            </div>
-                            <div v-for="sub in (woRequestSubpartsExpanded ? woRequestSubparts : woRequestSubparts.slice(0, 15))"
-                                :key="sub.item_child_normalized"
-                                class="grid items-center py-1.5 border-b border-gray-100 last:border-0"
-                                style="grid-template-columns: auto 1fr 5rem 3.5rem;">
-                                <span class="font-mono text-xs text-gray-800 pr-3" :title="sub.item_child">{{ sub.item_child }}</span>
-                                <span class="text-xs text-gray-500 truncate pr-2" :title="woRequestSubpartDescs[sub.item_child_normalized]">
-                                    {{ (woRequestSubpartDescs[sub.item_child_normalized] || '—').slice(0, 30) }}
-                                </span>
-                                <span class="text-center">
-                                    <span v-if="woRequestSubpartBins[sub.item_child_normalized]"
-                                        class="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-mono">
-                                        {{ woRequestSubpartBins[sub.item_child_normalized] }}
-                                    </span>
-                                </span>
-                                <span class="text-xs font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded text-center justify-self-end">× {{ sub.qty_per_assy }}</span>
-                            </div>
-                            <button v-if="woRequestSubparts.length > 15"
-                                @click="woRequestSubpartsExpanded = !woRequestSubpartsExpanded"
-                                class="text-blue-600 hover:text-blue-500 text-xs font-semibold mt-2 py-1">
-                                {{ woRequestSubpartsExpanded ? 'Show less' : `Show ${woRequestSubparts.length - 15} more…` }}
-                            </button>
-                        </div>
-
-                        <!-- Subpart list: Weld mode — full columns + Set up WO -->
+                        <!-- Subpart list: full columns + Set up WO (weld_print=yes OR assy WO) -->
                         <div v-else>
                             <div class="grid pb-1 mb-0.5 border-b border-gray-200" style="grid-template-columns: 6rem 1fr 3.5rem 3.5rem 3.5rem 5rem 3.5rem 5.5rem;">
                                 <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide pr-3">Part #</span>

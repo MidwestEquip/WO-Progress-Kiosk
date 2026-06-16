@@ -6,7 +6,6 @@
 // ============================================================
 
 import { supabase, withRetry } from './db-shared.js';
-import { fetchUnitCompletions } from './db-assy.js';
 
 export async function fetchWoStatusOrders() {
     // Parallel fetch: all non-closed tracking rows + received rows for closeout
@@ -182,11 +181,19 @@ export async function markAlereUpdated(id, updatedBy) {
 // Fire-and-forget: called from closeOutWorkOrder without awaiting.
 async function archiveWorkOrder(woNumber) {
     if (!woNumber) return;
-    const [{ data: rows }, { data: unitRows }] = await Promise.all([
-        withRetry(() => supabase.from('work_orders').select('*').eq('wo_number', woNumber)),
-        fetchUnitCompletions(woNumber),
-    ]);
+    const { data: rows } = await withRetry(() =>
+        supabase.from('work_orders').select('*').eq('wo_number', woNumber)
+    );
     if (!rows?.length) return;
+    // Read unit rows by work_order_id (rows still exist at archive time) so per-unit
+    // serials survive even when the WO was completed before its official WO# existed.
+    const { data: unitRows } = await withRetry(() =>
+        supabase.from('wo_progress_events')
+            .select('unit_number,unit_serial_number,engine_model,engine_serial_number,num_blades,unit_notes,operator_name')
+            .in('work_order_id', rows.map(r => r.id))
+            .eq('action', 'unit_completed')
+            .order('unit_number', { ascending: true })
+    );
     const now = new Date().toISOString();
 
     let inserts;

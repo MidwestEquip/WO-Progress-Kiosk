@@ -74,6 +74,7 @@ export const woRequestSubpartEstHave = computed(() => {
     return map;
 });
 export const woRequestDetailForm = ref({
+    sales_order_number: '',
     alere_qty: '', qty_sold_used_12mo: '', qty_sold_parent_usage_period: '', where_used: '', qty_to_make: '',
     fab: '', fab_print: '', weld: '', weld_print: '',
     assy_wo: '', color: '', bent_rolled_part: '', set_up_time: '',

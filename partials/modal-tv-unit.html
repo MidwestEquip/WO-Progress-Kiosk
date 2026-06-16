@@ -149,7 +149,7 @@
                                         </div>
                                         <div class="mt-1.5">
                                             <label class="block text-gray-400 text-xs font-bold uppercase mb-0.5">Notes / Mods</label>
-                                            <textarea v-model="unit.notes" :readonly="actionPanelReadOnly" rows="2" maxlength="500" placeholder="—"
+                                            <textarea v-model="unit.notes" @blur="!actionPanelReadOnly && saveTvUnitDetails()" :readonly="actionPanelReadOnly" rows="2" maxlength="500" placeholder="—"
                                                 class="w-full bg-gray-50 px-1.5 py-1 rounded border border-gray-300 focus:outline-none focus:border-blue-500 text-gray-800 text-xs resize-none transition-colors"></textarea>
                                         </div>
                                     </div>

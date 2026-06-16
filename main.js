@@ -85,9 +85,9 @@ try {
             const versionInterval = setInterval(checkVersion, 60_000);
             onUnmounted(() => clearInterval(versionInterval));
 
-            // Global unread-message poll — manager only
+            // Global unread-message poll — any logged-in user
             const unreadInterval = setInterval(() => {
-                if (store.sessionRole.value === 'manager') refreshUnreadCount();
+                if (store.sessionRole.value) refreshUnreadCount();
             }, 15_000);
             onUnmounted(() => clearInterval(unreadInterval));
 
@@ -185,7 +185,7 @@ try {
                                 if (store.currentView.value === 'wo_status') loadReceivingEligible();
                             },
                             direct_messages: () => {
-                                if (store.sessionRole.value === 'manager') refreshUnreadCount();
+                                if (store.sessionRole.value) refreshUnreadCount();
                             },
                             purchasing_quotes: () => {
                                 if (store.currentView.value === 'po_request') loadAllQuotes();

@@ -45,7 +45,8 @@
       "Bash(node --check pages/wo-request-view.js)",
       "Bash(node --check pages/wo-request-detail.js)",
       "Bash(node --check expose-ops.js)",
-      "Bash(node --check libs/store-inventory.js)"
+      "Bash(node --check libs/store-inventory.js)",
+      "PowerShell($f = @\\('partials\\\\modal-wo-request.html','partials\\\\modal-wo-request-subparts.html','pages\\\\wo-request-view.js','pages\\\\wo-request-detail.js','libs\\\\utils.js','libs\\\\store-inventory.js','pages\\\\wo-manager-approval.js'\\); foreach \\($x in $f\\) { $n=\\(Get-Content $x | Measure-Object -Line\\).Lines; \"$n`t$x\" })"
     ]
   }
 }

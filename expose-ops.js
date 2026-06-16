@@ -42,7 +42,7 @@ import { loadInventoryItems, switchInventoryTab,
          loadPoReceivedOrders, unreceivePoOrder } from './pages/inventory-view.js';
 import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          saveWoRequestDetail, sendToManagerApproval, toggleWoRequestOnHold, saveWoRequestStatusNote,
-         saveWoRequestInlineFields,
+         saveWoRequestSalesOrder, saveWoRequestInlineFields,
          checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
          openSendToForecast, closeSendToForecast, submitSendToForecast } from './pages/wo-request-view.js';
 import { openWoRequestDetail, closeWoRequestDetail,
@@ -195,6 +195,7 @@ export function buildOpsExpose() {
         sendToManagerApproval,
         toggleWoRequestOnHold,
         saveWoRequestStatusNote,
+        saveWoRequestSalesOrder,
         saveWoRequestInlineFields,
         checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
         openSubpartWoForm,

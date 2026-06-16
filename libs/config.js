@@ -23,6 +23,7 @@ export const KIOSK_USER_MAP = {
     fab:     'fabricationmidwest@gmail.com',
     weld:    'weldermidwest@gmail.com',
     assy:    'trucutassembly1@gmail.com',
+    tcassy:  'parts@midmfg.com',
     office:  'project@midmfg.com',
     manager: 'office@midmfg.com',
 };
@@ -31,7 +32,8 @@ export const KIOSK_USER_MAP = {
 export const ROLE_DISPLAY_NAMES = {
     fab:     'Fabrication',
     weld:    'Weld',
-    assy:    'TC Assy',
+    assy:    'TV Assy',
+    tcassy:  'TC Assy',
     office:  'Office',
     manager: 'Manager',
 };
@@ -173,7 +175,7 @@ export const PARTIAL_NAMES = [
     'modal-pin', 'modal-action-panel',
     'modal-tc-unit', 'modal-tc-stock',
     'modal-tv-unit', 'modal-tv-stock',
-    'modal-wo-request', 'modal-wo-request-subparts',
+    'modal-wo-request', 'modal-wo-request-subparts', 'modal-wo-request-data',
     'modal-misc', 'modal-open-orders-add',
     'modal-action-panel-print',
     'modal-eng-inquiry',

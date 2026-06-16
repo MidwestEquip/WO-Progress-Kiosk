@@ -115,8 +115,8 @@
                             </svg>
                             <span class="text-4xl font-bold uppercase">Engineering</span>
                         </button>
-                        <!-- Messages — manager only -->
-                        <button v-if="sessionRole === 'manager'" @click="openMessagesView"
+                        <!-- Messages — any logged-in user -->
+                        <button v-if="sessionRole" @click="openMessagesView"
                             class="relative bg-white hover:bg-sky-50 text-gray-800 rounded-2xl shadow-md py-10 px-6 flex flex-col items-center gap-3 border-2 border-sky-400 active:scale-95 transition-transform">
                             <span v-if="dmUnreadCount > 0"
                                 class="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.5rem] h-6 flex items-center justify-center px-1">

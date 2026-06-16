@@ -333,3 +333,26 @@ export function formatMsgTime(dateStr) {
         return d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
     } catch { return ''; }
 }
+
+// missingSubpartRoutingFields — for a single subpart plan/form, returns the labels of
+// required routing fields that are still blank. Returns [] when Qty to Make is not a
+// positive number (an un-filled subpart imposes no requirements). Pure: no side effects.
+// A field counts as filled if it is not '' and not null/undefined (0 is allowed, e.g.
+// set_up_time), matching the parent send-to-manager gate's semantics.
+export function missingSubpartRoutingFields(form) {
+    if (!form || !(parseFloat(form.qty_to_make) > 0)) return [];
+    const REQUIRED = [
+        ['fab',                 'Fab'],
+        ['fab_print',           'Fab Print'],
+        ['weld',                'Weld'],
+        ['weld_print',          'Weld Print'],
+        ['assy_wo',             'Assy WO'],
+        ['bent_rolled_part',    'Bent/Rolled'],
+        ['date_to_start',       'Date to Start'],
+        ['estimated_lead_time', 'Lead Time'],
+        ['set_up_time',         'Setup Time'],
+    ];
+    return REQUIRED
+        .filter(([key]) => form[key] === '' || form[key] == null)
+        .map(([, label]) => label);
+}

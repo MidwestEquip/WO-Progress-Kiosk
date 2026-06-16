@@ -65,6 +65,7 @@ export async function openWoRequestDetail(req) {
     store.woRequestDefaultsApplied.value = false;
     const today = new Date().toISOString().slice(0, 10);
     store.woRequestDetailForm.value = {
+        sales_order_number:            req.sales_order_number            ?? '',
         alere_qty:                     req.alere_qty                     ?? '',
         qty_sold_used_12mo:            req.qty_sold_used_12mo            ?? '',
         qty_sold_parent_usage_period:  req.qty_sold_parent_usage_period  ?? '',

@@ -9,6 +9,7 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
+import { missingSubpartRoutingFields } from '../libs/utils.js';
 
 // enterWoApprovalView — navigate to the WO approval view and load the queue.
 export function enterWoApprovalView() {
@@ -224,6 +225,18 @@ export async function managerFinalApproveWo() {
         return;
     }
 
+    // Subpart gate: any subpart with a Qty to Make must have its routing fully filled.
+    // The manager can edit/blank subpart fields here, so re-validate before approving.
+    const subErrors = [];
+    Object.entries(store.managerWoSubpartForms.value).forEach(([n, f]) => {
+        const miss = missingSubpartRoutingFields(f);
+        if (miss.length) subErrors.push(`${n}: ${miss.join(', ')}`);
+    });
+    if (subErrors.length > 0) {
+        store.showToast('Subpart routing incomplete — ' + subErrors.join('; '), 'error', 8000);
+        return;
+    }
+
     store.loading.value = true;
     try {
         const { data: jobNumber, error: jobErr } = await db.assignJobNumberIfMissing(req.id);
@@ -306,6 +319,7 @@ export async function managerFinalApproveWo() {
             const subRows = subpartEntries.map(([n, f]) => ({
                 part_number:         n.trim().toUpperCase(),
                 description:         descs[n] || '',
+                sales_order_number:  req.sales_order_number || null,   // inherit parent SO# (Patch 2)
                 qty_to_make:         parseFloat(f.qty_to_make),
                 fab:                 f.fab           || null,
                 fab_print:           f.fab_print     || null,

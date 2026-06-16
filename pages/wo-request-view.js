@@ -11,6 +11,7 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
+import { missingSubpartRoutingFields } from '../libs/utils.js';
 
 // checkWoRequestPartMatch — on blur of Part # field:
 //   1. Queries open_orders for a SO# hint.
@@ -156,6 +157,7 @@ export async function saveWoRequestInlineFields(id) {
 // _buildDetailUpdates — shared helper to convert the detail form to DB update shape.
 function _buildDetailUpdates(form) {
     return {
+        sales_order_number:           (form.sales_order_number || '').trim() || null,
         alere_qty:                    form.alere_qty                     !== '' ? parseFloat(form.alere_qty)                     : null,
         qty_sold_used_12mo:           form.qty_sold_used_12mo            !== '' ? parseFloat(form.qty_sold_used_12mo)            : null,
         qty_sold_parent_usage_period: form.qty_sold_parent_usage_period  !== '' ? parseFloat(form.qty_sold_parent_usage_period)  : null,
@@ -262,6 +264,28 @@ export async function saveWoRequestStatusNote() {
     }
 }
 
+// saveWoRequestSalesOrder — persist the detail-modal Sales Order # on blur (no Save click).
+// Locked once the request is 'in production' (work_orders + subpart WOs already snapshotted
+// the SO, so editing it here would silently diverge). Updates the open record + list row in
+// place so the header and list reflect the change without a full reload.
+export async function saveWoRequestSalesOrder() {
+    const id   = store.selectedWoRequest.value?.id;
+    const form = store.woRequestDetailForm.value;
+    if (!id) return;
+    if (store.selectedWoRequest.value?.status === 'in production') return;   // locked after approval
+    const so = (form.sales_order_number || '').trim() || null;
+    try {
+        const { error } = await db.updateWoRequest(id, { sales_order_number: so });
+        if (error) throw error;
+        store.selectedWoRequest.value = { ...store.selectedWoRequest.value, sales_order_number: so };
+        const idx = store.woRequests.value.findIndex(r => r.id === id);
+        if (idx !== -1) store.woRequests.value[idx] = { ...store.woRequests.value[idx], sales_order_number: so };
+    } catch (err) {
+        store.showToast('Failed to save sales order: ' + err.message, 'error');
+        logError('saveWoRequestSalesOrder', err, { id });
+    }
+}
+
 // sendToManagerApproval — validate all 11 required routing fields, save the detail form,
 // then set status='manager_review'. Does NOT assign a job number or create work_orders —
 // that happens when the manager gives final approval in the Manager Hub.
@@ -287,6 +311,17 @@ export async function sendToManagerApproval() {
 
     if (missing.length > 0) {
         store.showToast('Missing required: ' + missing.join(', '), 'error', 7000);
+        return;
+    }
+
+    // Subpart gate: any subpart with a Qty to Make must have its routing fully filled.
+    const subErrors = [];
+    Object.entries(store.woRequestSubpartForms.value).forEach(([n, f]) => {
+        const miss = missingSubpartRoutingFields(f);
+        if (miss.length) subErrors.push(`${n}: ${miss.join(', ')}`);
+    });
+    if (subErrors.length > 0) {
+        store.showToast('Subpart routing incomplete — ' + subErrors.join('; '), 'error', 8000);
         return;
     }
 

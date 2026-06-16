@@ -176,16 +176,16 @@ export async function saveTcUnitInfo(id, fields) {
 // upsertUnitDraft — saves one unit as a draft row (action='unit_draft') in wo_progress_events.
 // Delete+insert because Supabase upsert doesn't support partial unique indexes.
 export async function upsertUnitDraft(woId, woNumber, dept, unitNumber, unitData, jobNumber = null) {
-    if (!woNumber) return { data: null, error: new Error('Missing WO number') };
-    const wn = woNumber.trim().toUpperCase();
+    if (!woId) return { data: null, error: new Error('Missing work order id') };
+    const wn = (woNumber || '').trim().toUpperCase();
     await supabase.from('wo_progress_events')
         .delete()
-        .eq('wo_number', wn)
+        .eq('work_order_id', woId)
         .eq('unit_number', unitNumber)
         .eq('action', 'unit_draft');
     return withRetry(() =>
         supabase.from('wo_progress_events').insert([{
-            work_order_id:        woId      || null,
+            work_order_id:        woId,
             wo_number:            wn,
             job_number:           jobNumber || null,
             department:           dept,
@@ -202,13 +202,13 @@ export async function upsertUnitDraft(woId, woNumber, dept, unitNumber, unitData
 }
 
 // fetchDraftUnitCompletions — fetches unit_draft rows for a WO from wo_progress_events.
-// Used to restore the unit list when a WO is reopened.
-export async function fetchDraftUnitCompletions(woNumber) {
-    if (!woNumber) return { data: [], error: null };
+// Keyed on work_order_id so drafts restore even before the official WO# exists.
+export async function fetchDraftUnitCompletions(workOrderId) {
+    if (!workOrderId) return { data: [], error: null };
     return withRetry(() =>
         supabase.from('wo_progress_events')
             .select('unit_number,unit_serial_number,engine_model,engine_serial_number,num_blades,unit_notes,operator_name')
-            .eq('wo_number', woNumber.trim().toUpperCase())
+            .eq('work_order_id', workOrderId)
             .eq('action', 'unit_draft')
             .order('unit_number', { ascending: true })
     );
@@ -298,13 +298,13 @@ export async function submitTcStockAction({ id, currentOrder, newStatus, opName,
 // recordUnitCompletion — promotes an existing unit_draft row to unit_completed in wo_progress_events,
 // or inserts a unit_completed row directly if no draft exists.
 export async function recordUnitCompletion(woId, woNumber, dept, unitNumber, unitData, jobNumber = null) {
-    if (!woNumber) return { data: null, error: new Error('Missing WO number') };
-    const wn = woNumber.trim().toUpperCase();
+    if (!woId) return { data: null, error: new Error('Missing work order id') };
+    const wn = (woNumber || '').trim().toUpperCase();
     // Try to promote existing draft row
     const upd = await withRetry(() =>
         supabase.from('wo_progress_events')
             .update({ action: 'unit_completed', operator_name: (unitData.operator || '').trim() || null })
-            .eq('wo_number', wn)
+            .eq('work_order_id', woId)
             .eq('unit_number', unitNumber)
             .eq('action', 'unit_draft')
             .select()
@@ -313,7 +313,7 @@ export async function recordUnitCompletion(woId, woNumber, dept, unitNumber, uni
     // Fallback: insert completed row if no draft existed
     return withRetry(() =>
         supabase.from('wo_progress_events').insert([{
-            work_order_id:        woId      || null,
+            work_order_id:        woId,
             wo_number:            wn,
             job_number:           jobNumber || null,
             department:           dept,
@@ -330,12 +330,29 @@ export async function recordUnitCompletion(woId, woNumber, dept, unitNumber, uni
 }
 
 // fetchUnitCompletions — all unit_completed rows for a given WO number from wo_progress_events.
+// wo_number-keyed: used by CS lookback of ARCHIVED WOs, where the original work_orders
+// row (and its id) no longer exists but wo_number survives in completed_work_orders.
 export async function fetchUnitCompletions(woNumber) {
     if (!woNumber) return { data: [], error: null };
     return withRetry(() =>
         supabase.from('wo_progress_events')
             .select('unit_number,unit_serial_number,engine_model,engine_serial_number,num_blades,unit_notes,operator_name')
             .eq('wo_number', woNumber.trim().toUpperCase())
+            .eq('action', 'unit_completed')
+            .order('unit_number', { ascending: true })
+    );
+}
+
+// fetchUnitCompletionsByWorkOrderId — unit_completed rows for a specific work_orders row.
+// Used by the live dashboard (completed-but-not-archived WOs) and the closeout archive,
+// where the work_orders row still exists. Keyed on work_order_id so per-unit data is found
+// even when the WO was completed before its official WO# was assigned.
+export async function fetchUnitCompletionsByWorkOrderId(workOrderId) {
+    if (!workOrderId) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('wo_progress_events')
+            .select('unit_number,unit_serial_number,engine_model,engine_serial_number,num_blades,unit_notes,operator_name')
+            .eq('work_order_id', workOrderId)
             .eq('action', 'unit_completed')
             .order('unit_number', { ascending: true })
     );

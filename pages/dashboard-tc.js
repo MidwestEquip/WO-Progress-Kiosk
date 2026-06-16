@@ -107,8 +107,8 @@ export async function openTcAssyUnit(order) {
     store.tcUnitListError.value = false;
     // For completed WOs fetch all rows (incl. stamped); for active WOs fetch drafts only.
     const { data } = order.status === 'completed'
-        ? await dbAssy.fetchUnitCompletions(order.wo_number)
-        : await fetchDraftUnitCompletions(order.wo_number);
+        ? await dbAssy.fetchUnitCompletionsByWorkOrderId(order.id)
+        : await fetchDraftUnitCompletions(order.id);
     if (data && data.length > 0) {
         store.tcUnitDetailList.value = data.map(r => ({
             salesOrder:   r.unit_number === 1 ? (order.sales_order || '') : '',
@@ -145,15 +145,26 @@ export function removeTcUnit(idx) {
 }
 
 // ── saveTcUnitDetails ─────────────────────────────────────────
-// Fire-and-forget: upserts each unit as a draft row in wo_unit_completions on blur.
-export function saveTcUnitDetails() {
+// Upserts each unit as a draft row (keyed on work_order_id) on blur; surfaces a toast on failure.
+export async function saveTcUnitDetails() {
     const order    = store.activeOrder.value;
     if (!order) return;
     const operator = store.tcAssyEntryName.value.trim();
-    store.tcUnitDetailList.value.forEach((u, idx) => {
-        upsertUnitDraft(order.id, order.wo_number, 'Tru Cut Assy', idx + 1, { ...u, operator }, order.job_number || null)
-            .catch(err => logError('saveTcUnitDetails/upsert', err, { id: order.id, unit: idx + 1 }));
-    });
+    try {
+        const results = await Promise.all(
+            store.tcUnitDetailList.value.map((u, idx) =>
+                upsertUnitDraft(order.id, order.wo_number, 'Tru Cut Assy', idx + 1, { ...u, operator }, order.job_number || null)
+            )
+        );
+        const failed = results.find(r => r?.error);
+        if (failed) {
+            store.showToast("Couldn't save unit details — check your connection and try again.", 'error');
+            logError('saveTcUnitDetails', failed.error, { id: order.id });
+        }
+    } catch (err) {
+        store.showToast("Couldn't save unit details — check your connection and try again.", 'error');
+        logError('saveTcUnitDetails', err, { id: order.id });
+    }
 }
 
 // ── openTcAssyStock ───────────────────────────────────────────
