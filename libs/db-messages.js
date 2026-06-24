@@ -67,6 +67,17 @@ export async function markThreadRead(myRole, otherRole) {
         .is('read_at', null);
 }
 
+// deleteDm — permanently delete one message row by id. Returns { error }.
+// Caller is responsible for the manager-only authorization check.
+export async function deleteDm(id) {
+    const { error } = await supabase
+        .from('direct_messages')
+        .delete()
+        .eq('id', id);
+    if (error) logError('deleteDm', error);
+    return { error };
+}
+
 // fetchUnreadCount — total unread message count for myRole across all senders.
 // Output: number.
 export async function fetchUnreadCount(myRole) {

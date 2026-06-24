@@ -12,7 +12,8 @@ import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS,
 import { formatDateLocal, formatTimestamp, getStageCum, detectTcMode,
          sanitizePartKey, isChutePart, isPurchasingOrderLate, formatMsgTime } from './libs/utils.js';
 import { openMessagesView, openThread, backToInbox, sendMessage,
-         dmAvatarClass, dmContacts } from './pages/messages-view.js';
+         dmAvatarClass, dmContacts, canDeleteMessages,
+         openMsgDeleteConfirm, cancelMsgDelete, confirmMsgDelete } from './pages/messages-view.js';
 import { selectDept, promptPin, submitPin, goBack,
          selectCategory, selectSubCategory, splashBack,
          enterEngineeringMenu, enterPurchasingMenu,
@@ -460,10 +461,13 @@ export function buildCoreExpose() {
         messagesSending: store.messagesSending,
         dmUnreadCount:   store.dmUnreadCount,
         dmAlertActive:   store.dmAlertActive,
+        msgDeleteId:     store.msgDeleteId,
         dmContacts,
+        canDeleteMessages,
         ROLE_DISPLAY_NAMES,
         LAST_REPORT_DATE,
         openMessagesView, openThread, backToInbox, sendMessage,
+        openMsgDeleteConfirm, cancelMsgDelete, confirmMsgDelete,
         dmAvatarClass, formatMsgTime,
     };
 }

@@ -14,6 +14,7 @@ export const messageBody     = ref('');      // compose textarea
 export const messagesLoading = ref(false);
 export const messagesSending = ref(false);
 export const dmUnreadCount   = ref(0);
+export const msgDeleteId     = ref(null);    // id of message pending delete-confirm, or null
 
 // Inbox rows: only contacts that have at least one message, newest first.
 export const dmInboxThreads = computed(() =>

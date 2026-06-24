@@ -5,18 +5,31 @@
 // Imports from store, db-messages, config only.
 // ============================================================
 
-import { computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
+import { computed, nextTick } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
 import * as store from '../libs/store.js';
-import { fetchInbox, fetchThread, sendDm, markThreadRead, fetchUnreadCount } from '../libs/db-messages.js';
+import { fetchInbox, fetchThread, sendDm, markThreadRead, fetchUnreadCount, deleteDm } from '../libs/db-messages.js';
 import { logError } from '../libs/db-shared.js';
 import { ROLE_DISPLAY_NAMES } from '../libs/config.js';
 
 let _pollInterval = null;
 
+// scrollThreadToBottom — pin the thread scroll area to the newest message (iMessage-style).
+// Waits for Vue to render the new rows, then jumps to the bottom. No-op if not mounted.
+async function scrollThreadToBottom() {
+    await nextTick();
+    const el = document.getElementById('dm-thread-scroll');
+    if (el) el.scrollTop = el.scrollHeight;
+}
+
 // dmContacts — all roles the current user can message (everyone except themselves).
 export const dmContacts = computed(() =>
     Object.keys(ROLE_DISPLAY_NAMES).filter(r => r !== store.sessionRole.value)
 );
+
+// canDeleteMessages — only the manager login may delete messages.
+// Lives here (not store-messages.js) because sessionRole is defined in store.js,
+// which already imports store-messages.js — referencing it there would be circular.
+export const canDeleteMessages = computed(() => store.sessionRole.value === 'manager');
 
 // openMessagesView — navigate to messages, load inbox, start poll. Any logged-in user.
 export async function openMessagesView() {
@@ -75,6 +88,7 @@ export async function openThread(otherRole) {
         logError('openThread', err);
     } finally {
         store.messagesLoading.value = false;
+        scrollThreadToBottom();   // after loading flips off so the message rows are mounted
     }
 }
 
@@ -96,12 +110,42 @@ export async function sendMessage() {
         const { data, error } = await sendDm(role, other, body);
         if (error) throw error;
         store.messageBody.value    = '';
-        if (data) store.threadMessages.value = [...store.threadMessages.value, data];
+        if (data) {
+            store.threadMessages.value = [...store.threadMessages.value, data];
+            scrollThreadToBottom();
+        }
     } catch (err) {
         store.showToast('Failed to send message: ' + err.message);
         logError('sendMessage', err);
     } finally {
         store.messagesSending.value = false;
+    }
+}
+
+// openMsgDeleteConfirm — manager-only: open the "are you sure?" modal for one message.
+export function openMsgDeleteConfirm(id) {
+    if (!canDeleteMessages.value) return;   // non-managers never reach here, but guard anyway
+    store.msgDeleteId.value = id;
+}
+
+// cancelMsgDelete — dismiss the delete confirmation modal.
+export function cancelMsgDelete() {
+    store.msgDeleteId.value = null;
+}
+
+// confirmMsgDelete — manager-only: permanently delete the pending message, drop it locally.
+export async function confirmMsgDelete() {
+    const id = store.msgDeleteId.value;
+    store.msgDeleteId.value = null;
+    if (!id || !canDeleteMessages.value) return;
+    try {
+        const { error } = await deleteDm(id);
+        if (error) throw error;
+        store.threadMessages.value = store.threadMessages.value.filter(m => m.id !== id);
+        store.showToast('Message deleted.', 'success');
+    } catch (err) {
+        store.showToast('Failed to delete message: ' + err.message);
+        logError('confirmMsgDelete', err);
     }
 }
 
@@ -117,7 +161,12 @@ async function _poll() {
     const role = store.sessionRole.value;
     if (!role) return;
     if (store.messagesView.value === 'thread' && store.activeThread.value) {
+        // Only auto-scroll if the user is already near the bottom, so a background
+        // refresh doesn't yank them away while they read older history.
+        const el       = document.getElementById('dm-thread-scroll');
+        const atBottom = !el || (el.scrollHeight - el.scrollTop - el.clientHeight) < 80;
         store.threadMessages.value = await fetchThread(role, store.activeThread.value);
+        if (atBottom) scrollThreadToBottom();
     } else {
         await _loadInbox();
     }
