@@ -4,7 +4,7 @@
 
                 <!-- ── Main WO board (left / center) ─────────── -->
                 <div class="flex-1 overflow-y-auto pb-20">
-                <div class="max-w-5xl mx-auto p-6 space-y-8">
+                <div class="max-w-[85rem] mx-auto p-6 space-y-8">
                     <!-- Header row: Add Job (assy only) + Completed WOs toggle -->
                     <div class="flex justify-between items-center">
                         <div v-if="selectedDept === 'Trac Vac Assy' || selectedDept === 'Tru Cut Assy'">
@@ -165,10 +165,10 @@
                                 <span><span v-html="cat.icon" class="inline-block align-middle mr-2"></span>{{ cat.title }}</span>
                                 <span class="px-3 py-1 bg-black/30 rounded-full">{{ groupedOrders[cat.id].length }}</span>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
                                 <div v-for="order in groupedOrders[cat.id]" :key="order.id"
                                     @click="order.department === 'Trac Vac Assy' ? openTvAssyEntry(order) : order.department === 'Tru Cut Assy' ? openTcAssyEntry(order) : openActionPanel(order)"
-                                    class="bg-slate-700/80 p-5 rounded-lg border-t-[6px] cursor-pointer hover:bg-slate-600 relative"
+                                    class="bg-slate-700/80 p-7 rounded-lg border-t-[6px] cursor-pointer hover:bg-slate-600 relative"
                                     :class="cat.cardBorderTop">
                                     <div class="flex justify-between items-start">
                                         <div>
@@ -191,7 +191,7 @@
                                     <div v-if="order.production_notes"
                                         class="mt-1 flex items-start gap-1 text-xs text-red-300 font-semibold leading-snug">
                                         <span class="text-red-400 shrink-0">&#9733;</span>
-                                        <span class="line-clamp-2">{{ order.production_notes }}</span>
+                                        <span class="whitespace-pre-line break-words">{{ order.production_notes }}</span>
                                     </div>
                                     <!-- Subpart / traveller link panel -->
                                     <div v-if="order.traveller_id" class="mt-2">
