@@ -14,10 +14,6 @@
                         <span class="text-slate-500 text-xs shrink-0">Qty: {{ activeOrder?.qty_required }}</span>
                         <span class="ml-2 px-2 py-0.5 rounded text-xs font-bold bg-blue-700 text-blue-200">UNIT</span>
                     </div>
-                    <button v-if="!actionPanelReadOnly" @click="tvAssyUnitOpen = false; tvAssyStockOpen = true"
-                        class="shrink-0 text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-xs font-bold">
-                        Switch to SUBASSY
-                    </button>
                 </div>
 
                 <!-- 3-zone body -->
@@ -116,7 +112,7 @@
                                     <div class="text-gray-500 text-xs">Qty Required: <span class="text-gray-800 font-bold">{{ activeOrder?.qty_required }}</span></div>
                                 </div>
                                 <div class="grid grid-cols-3 gap-2">
-                                    <div v-for="(unit, idx) in tvUnitDetailList" :key="idx" class="bg-white border border-gray-200 rounded-lg p-2.5 flex flex-col gap-1.5">
+                                    <div v-for="(unit, idx) in tvUnitDetailList" :key="unit._uid" class="bg-white border border-gray-200 rounded-lg p-2.5 flex flex-col gap-1.5">
                                         <div class="flex items-center justify-between mb-0.5">
                                             <span class="text-xs font-bold text-blue-700 uppercase tracking-wide">Unit #{{ idx + 1 }}</span>
                                             <button v-if="tvUnitDetailList.length > 1" @click="removeTvUnit(idx)" :disabled="actionPanelReadOnly"

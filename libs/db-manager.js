@@ -211,17 +211,37 @@ export async function fetchWoProblems() {
     );
 }
 
+// Fetch resolved WO problems for the history view.
+// Bounded to the 200 most recently resolved to stay fast as data grows.
+export async function fetchResolvedWoProblems() {
+    return withRetry(() =>
+        supabase.from('work_orders')
+            .select('id,wo_number,part_number,department,operator,wo_problem_text,wo_problem_status,wo_problem_updated_at,wo_problem_updated_by,wo_problem_resolution,wo_problem_reported_at,wo_problem_reported_by')
+            .eq('wo_problem_status', 'resolved')
+            .not('wo_problem_text', 'is', null)
+            .neq('wo_problem_text', '')
+            .order('wo_problem_updated_at', { ascending: false })
+            .limit(200)
+    );
+}
+
 // Save a problem on a WO. Sets status to 'open' and records who/when.
+// reported_by/at capture the original reporter and are NOT overwritten on resolve,
+// so the resolved-problems history can show both report and resolution metadata.
 export async function saveWoProblem(id, problemText, updatedBy) {
     if (!id)          return { data: null, error: new Error('Missing work order ID') };
     if (!problemText) return { data: null, error: new Error('Problem text is required') };
 
+    const now = new Date().toISOString();
+    const by  = (updatedBy || '').trim() || null;
     return withRetry(() =>
         supabase.from('work_orders').update({
-            wo_problem_text:       problemText.trim(),
-            wo_problem_status:     'open',
-            wo_problem_updated_at: new Date().toISOString(),
-            wo_problem_updated_by: (updatedBy || '').trim() || null
+            wo_problem_text:        problemText.trim(),
+            wo_problem_status:      'open',
+            wo_problem_updated_at:  now,
+            wo_problem_updated_by:  by,
+            wo_problem_reported_at: now,
+            wo_problem_reported_by: by
         }).eq('id', id).select()
     );
 }

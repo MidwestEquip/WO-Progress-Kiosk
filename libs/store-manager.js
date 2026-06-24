@@ -60,6 +60,9 @@ export const woProblemDraftNameError = ref(false);
 export const woProblems   = ref([]);
 export const woProblemCount = computed(() => woProblems.value.length);
 
+// Resolved WO problems history (bounded list, loaded on demand)
+export const resolvedWoProblems = ref([]);
+
 // ── Manager badge counts ──────────────────────────────────────
 export const delayedWoCount = computed(() =>
     delayedOrdersByDept.value.reduce((sum, g) => sum + g.orders.length, 0)

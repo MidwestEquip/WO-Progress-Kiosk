@@ -1,0 +1,46 @@
+            <!-- ── MANAGER HUB: Resolved WO Problems history ─── -->
+            <div v-if="currentView === 'manager' && managerSubView === 'problems_resolved'"
+                 class="h-full w-full bg-slate-900 overflow-y-auto absolute inset-0">
+                <div class="p-6 max-w-5xl mx-auto">
+                    <div class="flex items-center gap-4 mb-6">
+                        <button @click="openManagerSection('problems')" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-bold">&#8592; Back to Open</button>
+                        <h2 class="text-3xl font-bold text-emerald-400">Resolved WO Problems</h2>
+                        <span class="text-slate-500 text-sm">most recent 200</span>
+                    </div>
+
+                    <div v-if="resolvedWoProblems.length === 0" class="text-center py-20">
+                        <div class="text-6xl mb-4">&#128203;</div>
+                        <div class="text-2xl font-bold text-slate-300">No Resolved WO Problems Yet</div>
+                        <div class="text-slate-500 mt-2">Resolved issues will appear here</div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div v-for="p in resolvedWoProblems" :key="p.id"
+                            class="bg-slate-800 rounded-xl border border-emerald-500/30 p-5">
+                            <div class="flex items-center gap-3 mb-3">
+                                <span class="font-bold text-xl text-white">WO #{{ p.wo_number }}</span>
+                                <span class="text-slate-400 text-sm">Part #{{ p.part_number }}</span>
+                                <span class="text-xs px-2 py-0.5 rounded font-bold bg-slate-600 text-slate-300">{{ p.department }}</span>
+                                <span class="ml-auto text-xs px-2 py-0.5 rounded font-bold bg-emerald-600/20 text-emerald-300">RESOLVED</span>
+                            </div>
+                            <div class="bg-red-950/40 border border-red-500/20 rounded-lg px-4 py-3 mb-3">
+                                <div class="text-xs font-bold text-red-400 uppercase tracking-wide mb-1">Problem / Issue</div>
+                                <div class="text-red-100 text-sm">{{ p.wo_problem_text }}</div>
+                                <div class="text-xs text-slate-500 mt-2">
+                                    <span v-if="p.wo_problem_reported_by">Reported by {{ p.wo_problem_reported_by }}</span>
+                                    <span v-else>Reporter not recorded</span>
+                                    <span v-if="p.wo_problem_reported_at"> &middot; {{ formatDateLocal(p.wo_problem_reported_at) }}</span>
+                                </div>
+                            </div>
+                            <div class="bg-emerald-950/40 border border-emerald-500/20 rounded-lg px-4 py-3">
+                                <div class="text-xs font-bold text-emerald-400 uppercase tracking-wide mb-1">Resolution</div>
+                                <div class="text-emerald-100 text-sm">{{ p.wo_problem_resolution || '—' }}</div>
+                                <div class="text-xs text-slate-500 mt-2">
+                                    <span v-if="p.wo_problem_updated_by">Resolved by {{ p.wo_problem_updated_by }}</span>
+                                    <span v-if="p.wo_problem_updated_at"> &middot; {{ formatDateLocal(p.wo_problem_updated_at) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>

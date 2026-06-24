@@ -185,8 +185,17 @@ export async function openWoRequestDetail(req) {
             seen.set(part, Number(r.qty_per_assy) || 1);
         }
         store.woRequestUsedOn.value = [...seen.entries()]
-            .map(([part, qty]) => ({ part, qty }))
+            .map(([part, qty]) => ({ part, qty, desc: '' }))
             .sort((a, b) => a.part.localeCompare(b.part));
+        // Fetch a description per parent part to show under the part # (fire-and-forget).
+        const parentParts = store.woRequestUsedOn.value.map(p => p.part);
+        if (parentParts.length > 0) {
+            db.fetchBinAndDescForParts(parentParts).then(({ data: bd, error: bdErr }) => {
+                if (bdErr) { logError('openWoRequestDetail:usedOnDesc', bdErr); return; }
+                store.woRequestUsedOn.value = store.woRequestUsedOn.value
+                    .map(p => ({ ...p, desc: bd.descs[p.part] || '' }));
+            });
+        }
     });
     db.fetchBomChildrenForParent(req.part_number).then(({ data, error }) => {
         store.woRequestSubpartsLoading.value = false;

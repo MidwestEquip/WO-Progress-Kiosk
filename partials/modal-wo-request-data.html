@@ -14,6 +14,7 @@
                                 <span v-for="p in woRequestUsedOn" :key="p.part"
                                       class="bg-gray-100 border border-gray-200 rounded px-2 py-0.5 text-xs font-medium text-gray-700 flex flex-col items-center leading-tight">
                                     <span>{{ p.part }}</span>
+                                    <span v-if="p.desc" class="text-gray-400 font-normal normal-case">{{ p.desc }}</span>
                                     <span class="text-gray-500 font-bold">× {{ p.qty }}</span>
                                 </span>
                             </div>

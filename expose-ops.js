@@ -16,6 +16,7 @@ import { openManagerSection, loadKpiData, loadDelayedOrders,
          openNotesPanel, loadManagerAlerts,
          sendAiMessage, loadTimeReport,
          loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
+         loadResolvedWoProblems,
          openDelayedWoDetail, closeDelayedWoDetail } from './pages/manager-view.js';
 import { openAlertResolve, submitAlertResolve } from './pages/manager-alerts.js';
 import { loadOpenOrders, setSectionSort, openOrderSortIcon,
@@ -122,6 +123,7 @@ export function buildOpsExpose() {
         woProblemResolutionError:   store.woProblemResolutionError,
         woProblemResolverName:      store.woProblemResolverName,
         woProblemResolverNameError: store.woProblemResolverNameError,
+        resolvedWoProblems:         store.resolvedWoProblems,
 
         // Manager functions
         openManagerSection, loadKpiData, loadDelayedOrders,
@@ -133,6 +135,7 @@ export function buildOpsExpose() {
         delayedWoDetail:     store.delayedWoDetail,
         openDelayedWoDetail, closeDelayedWoDetail,
         loadWoProblems, openWoProblemModal, closeWoProblemModal, confirmResolveWoProblem,
+        loadResolvedWoProblems,
         alertResolveOpen:      store.alertResolveOpen,
         alertResolveTarget:    store.alertResolveTarget,
         alertResolveType:      store.alertResolveType,

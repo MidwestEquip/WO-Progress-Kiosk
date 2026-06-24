@@ -154,7 +154,7 @@ export const PARTIAL_NAMES = [
     'header', 'main-open',
     'view-splash', 'view-dashboard', 'view-office',
     'view-manager-home', 'view-manager-kpi', 'view-manager-priorities',
-    'view-manager-ai', 'view-manager-problems', 'view-manager-delayed',
+    'view-manager-ai', 'view-manager-problems', 'view-manager-problems-resolved', 'view-manager-delayed',
     'view-manager-wo-approval',
     'view-cs', 'view-inventory', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-completed-orders',
     'view-engineering-inquiries', 'view-engineering-followup', 'view-engineering-completed',

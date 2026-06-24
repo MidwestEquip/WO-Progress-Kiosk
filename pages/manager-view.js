@@ -22,6 +22,7 @@ export async function openManagerSection(section) {
     if (section === 'kpi')        await loadKpiData();
     if (section === 'delayed')    await loadDelayedOrders();
     if (section === 'problems')   await loadWoProblems();
+    if (section === 'problems_resolved') await loadResolvedWoProblems();
 
     clearInterval(_alertPollTimer);
     if (section === 'home') {
@@ -299,6 +300,19 @@ export async function loadWoProblems() {
     } catch (err) {
         store.showToast('Failed to load WO problems: ' + err.message);
         logError('loadWoProblems', err);
+    }
+}
+
+// ── loadResolvedWoProblems ────────────────────────────────────
+// Fetch the resolved WO problems history (bounded list) into store.
+export async function loadResolvedWoProblems() {
+    try {
+        const { data, error } = await db.fetchResolvedWoProblems();
+        if (error) throw error;
+        store.resolvedWoProblems.value = data || [];
+    } catch (err) {
+        store.showToast('Failed to load resolved WO problems: ' + err.message);
+        logError('loadResolvedWoProblems', err);
     }
 }
 

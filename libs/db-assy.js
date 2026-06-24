@@ -214,6 +214,21 @@ export async function fetchDraftUnitCompletions(workOrderId) {
     );
 }
 
+// deleteUnitRowsAbove — bounded cleanup of stray per-unit rows for a WO. Deletes rows of the given
+// action ('unit_draft' | 'unit_completed') whose unit_number exceeds maxUnitNumber. Used to clear
+// orphan rows left when the unit list shrinks (removed units) or a WO is re-completed with fewer units.
+export async function deleteUnitRowsAbove(woId, maxUnitNumber, action) {
+    if (!woId) return { data: null, error: new Error('Missing work order id') };
+    return withRetry(() =>
+        supabase.from('wo_progress_events')
+            .delete()
+            .eq('work_order_id', woId)
+            .eq('action', action)
+            .gt('unit_number', maxUnitNumber)
+            .select()
+    );
+}
+
 // saveTcAssyNotes — saves TC Assy notes/mods text. Input: WO id, notes string.
 export async function saveTcAssyNotes(id, notes) {
     if (!id) return { data: null, error: new Error('Missing WO ID') };
@@ -295,18 +310,31 @@ export async function submitTcStockAction({ id, currentOrder, newStatus, opName,
 
 // ── Unit Completions ──────────────────────────────────────────
 
-// recordUnitCompletion — promotes an existing unit_draft row to unit_completed in wo_progress_events,
-// or inserts a unit_completed row directly if no draft exists.
+// recordUnitCompletion — promotes an existing unit_draft (or already-completed) row to unit_completed
+// in wo_progress_events, or inserts a unit_completed row if none exists for this unit_number.
+// Idempotent: matching action IN (unit_draft, unit_completed) means re-completing a WO (e.g. after
+// undo→redo) updates the existing row in place instead of inserting a duplicate.
 export async function recordUnitCompletion(woId, woNumber, dept, unitNumber, unitData, jobNumber = null) {
     if (!woId) return { data: null, error: new Error('Missing work order id') };
     const wn = (woNumber || '').trim().toUpperCase();
-    // Try to promote existing draft row
+    // Try to promote/refresh an existing draft OR completed row for this unit (in place)
     const upd = await withRetry(() =>
         supabase.from('wo_progress_events')
-            .update({ action: 'unit_completed', operator_name: (unitData.operator || '').trim() || null })
+            .update({
+                action:               'unit_completed',
+                wo_number:            wn,
+                job_number:           jobNumber || null,
+                department:           dept,
+                unit_serial_number:   (unitData.unitSerial   || '').trim() || null,
+                engine_model:         (unitData.engineModel  || unitData.engine || '').trim() || null,
+                engine_serial_number: (unitData.engineSerial || '').trim() || null,
+                num_blades:           unitData.numBlades ? parseInt(unitData.numBlades) : null,
+                operator_name:        (unitData.operator     || '').trim() || null,
+                unit_notes:           (unitData.notes        || '').trim() || null,
+            })
             .eq('work_order_id', woId)
             .eq('unit_number', unitNumber)
-            .eq('action', 'unit_draft')
+            .in('action', ['unit_draft', 'unit_completed'])
             .select()
     );
     if (!upd.error && upd.data?.length > 0) return upd;
