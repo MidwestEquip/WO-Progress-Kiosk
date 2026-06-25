@@ -319,3 +319,21 @@ export const openOrderSections = computed(() => [
     { type: 'trac_vac',  label: 'TRAC VAC ORDERS',  orders: tracVacOrders.value,   hdr: 'bg-slate-900'  },
     { type: 'tru_cut',   label: 'TRU CUT ORDERS',   orders: truCutOrders.value,    hdr: 'bg-red-700'    },
 ]);
+
+// ── TEMPORARY: Subassy Setup (where-used explorer) ────────────
+// Read-only BOM explorer state. Safe to delete this whole block when
+// the temporary feature is removed.
+export const subassySearch     = ref('');
+export const subassyLoading    = ref(false);
+export const subassyError      = ref('');
+export const subassyRoot       = ref(null);   // { part, desc } of the searched part
+export const subassyComponents = ref([]);     // [{ part, qty, desc }] immediate children (one level down)
+export const subassyUsedOnRows = ref([]);     // flattened pre-order [{ child, part, qty, desc, depth, isUnit }] up to units
+export const subassyTruncated  = ref(false);  // true when the used-on tree hit the node cap
+export const subassyUnitExpanded = ref({});   // { [unitPart]: { loading, children:[{part,qty,desc}] } } — click-to-expand a unit's first-level BOM
+// Popup: where a clicked component is used (walk-up in a modal)
+export const subassyPopupOpen      = ref(false);
+export const subassyPopupPart      = ref('');
+export const subassyPopupLoading   = ref(false);
+export const subassyPopupRows      = ref([]);
+export const subassyPopupTruncated = ref(false);

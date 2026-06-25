@@ -50,7 +50,8 @@
                 class="h-full w-full flex flex-col items-center justify-center p-8 bg-slate-900 absolute inset-0">
 
                 <!-- ── Level 0: Root ───────────────────────────── -->
-                <div v-if="splashLevel === 0" class="w-full max-w-7xl px-6 flex flex-col items-center gap-6">
+                <div v-if="splashLevel === 0" class="w-full max-w-7xl px-6 flex flex-col items-center gap-6 origin-center"
+                    :class="{ 'scale-90': sessionRole !== 'manager' }">
                     <div class="text-center">
                         <h2 class="text-5xl font-extrabold text-white mb-3">Midwest Mfg.</h2>
                         <p class="text-xl text-slate-400">Select a category to begin</p>
@@ -251,6 +252,12 @@
                             class="bg-white hover:bg-green-50 text-gray-800 rounded-2xl shadow-md p-8 flex flex-col items-center gap-3 border-2 border-green-300 active:scale-95 transition-transform">
                             <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             <span class="text-2xl font-bold uppercase">Hoses</span>
+                        </button>
+                        <!-- Subassy Setup (temporary) -->
+                        <button @click="enterSubassySetup()"
+                            class="bg-white hover:bg-indigo-50 text-gray-800 rounded-2xl shadow-md p-8 flex flex-col items-center gap-3 border-2 border-indigo-300 active:scale-95 transition-transform">
+                            <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                            <span class="text-2xl font-bold uppercase">Subassy Setup</span>
                         </button>
                     </div>
                 </div>

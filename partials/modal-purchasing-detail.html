@@ -29,7 +29,14 @@
                         </p>
                     </div>
                 </div>
-                <button @click="closeOrderDetail" class="shrink-0 text-gray-400 hover:text-gray-600 text-2xl leading-none p-1">&times;</button>
+                <div class="shrink-0 flex items-center gap-2">
+                    <button v-if="purchasingTab !== 'approval' && purchasingTab !== 'completed'"
+                        @click="deleteOrderFromDetail" :disabled="purchasingDetailSaving"
+                        class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors disabled:opacity-50">
+                        Delete
+                    </button>
+                    <button @click="closeOrderDetail" class="text-gray-400 hover:text-gray-600 text-2xl leading-none p-1">&times;</button>
+                </div>
             </div>
         </div>
 
@@ -703,6 +710,11 @@
                 <div class="flex-1"></div>
                 <!-- Standard Complete Order + Send to Forecast (non-approval) -->
                 <template v-if="purchasingDetailSection === 'ordering' && purchasingTab !== 'approval'">
+                    <button v-if="['part','supply'].includes(purchasingDetailOrder.request_type) && !['ordered','partially_received','received','canceled'].includes(purchasingDetailOrder.status)"
+                        @click="moveOrderToWoRequest" :disabled="purchasingDetailSaving"
+                        class="px-5 py-2.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold rounded-xl text-sm border border-orange-200 transition-colors disabled:opacity-50">
+                        Move to WO Request
+                    </button>
                     <button @click="openPoForecastSend" :disabled="purchasingDetailSaving"
                         class="px-5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-sm border border-indigo-200 transition-colors disabled:opacity-50">
                         Forecast for Later

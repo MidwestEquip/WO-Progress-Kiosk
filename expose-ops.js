@@ -41,6 +41,8 @@ import { loadInventoryItems, switchInventoryTab,
          openPullHistory, closePullHistory,
          loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive,
          loadPoReceivedOrders, unreceivePoOrder } from './pages/inventory-view.js';
+import { enterSubassySetup, clearSubassySearch, runSubassySearch, toggleUnitChildren,
+         openComponentUsedOn, closeComponentUsedOn } from './pages/subassy-setup.js';
 import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          saveWoRequestDetail, sendToManagerApproval, toggleWoRequestOnHold, saveWoRequestStatusNote,
          saveWoRequestSalesOrder, saveWoRequestInlineFields,
@@ -48,6 +50,7 @@ import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          openSendToForecast, closeSendToForecast, submitSendToForecast } from './pages/wo-request-view.js';
 import { openWoRequestDetail, closeWoRequestDetail,
          handleWoFileUploadForRequest, openSubpartWoForm } from './pages/wo-request-detail.js';
+import { moveWoRequestToOrder, moveOrderToWoRequest, deleteOrderFromDetail } from './pages/request-convert.js';
 import { loadForecastedItems,
          openDeleteConfirm, cancelDeleteForecast, confirmDeleteForecast,
          openMoveBackConfirm, cancelMoveBack, confirmMoveBack } from './pages/wo-forecasting-view.js';
@@ -202,6 +205,7 @@ export function buildOpsExpose() {
         saveWoRequestInlineFields,
         checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
         openSubpartWoForm,
+        moveWoRequestToOrder,
         openSendToForecast, closeSendToForecast, submitSendToForecast,
         handleWoFileUploadForRequest,
         sendToForecastOpen:   store.sendToForecastOpen,
@@ -276,6 +280,21 @@ export function buildOpsExpose() {
         openPullHistory, closePullHistory,
         loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive,
         loadPoReceivedOrders, unreceivePoOrder,
+
+        // TEMPORARY: Subassy Setup
+        subassySearch:     store.subassySearch,
+        subassyLoading:    store.subassyLoading,
+        subassyError:      store.subassyError,
+        subassyRoot:       store.subassyRoot,
+        subassyComponents: store.subassyComponents,
+        subassyUsedOnRows: store.subassyUsedOnRows,
+        subassyTruncated:  store.subassyTruncated,
+        subassyUnitExpanded: store.subassyUnitExpanded,
+        subassyPopupOpen: store.subassyPopupOpen, subassyPopupPart: store.subassyPopupPart,
+        subassyPopupLoading: store.subassyPopupLoading, subassyPopupRows: store.subassyPopupRows,
+        subassyPopupTruncated: store.subassyPopupTruncated,
+        enterSubassySetup, clearSubassySearch, runSubassySearch, toggleUnitChildren,
+        openComponentUsedOn, closeComponentUsedOn,
 
         // Completed Orders
         completedOrders:        store.completedOrders,
@@ -372,6 +391,7 @@ export function buildOpsExpose() {
         loadPurchasingCompleted, loadOrderEvents,
         openNewRequestForm, closeNewRequestForm, submitPurchasingRequest, onPurchasingPartBlur,
         openOrderDetail, closeOrderDetail, saveOrderDetail, completeOrder, submitReceiving, loadPartUsageForOrder,
+        moveOrderToWoRequest, deleteOrderFromDetail,
         loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow,
         saveSteelField, saveSteelQuotes, addSteelQuote, toggleBestQuote, removeSteelQuote,
         toggleSteelStatusPicker, setSteelStatus,

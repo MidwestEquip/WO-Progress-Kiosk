@@ -260,7 +260,7 @@ export async function submitWoRequest(form) {
             qty_on_order:       form.qty_on_order       ? parseFloat(form.qty_on_order)       : null,
             qty_in_stock:       form.qty_in_stock       ? parseFloat(form.qty_in_stock)       : null,
             qty_used_per_unit:  form.qty_used_per_unit  ? parseFloat(form.qty_used_per_unit)  : null,
-            request_date:       new Date().toISOString().slice(0, 10),
+            request_date:       form.request_date || new Date().toISOString().slice(0, 10),
             submitted_by:       form.submitted_by.trim(),
             is_assembly:        !!form.is_assembly,
             status:             'pending'
@@ -317,8 +317,8 @@ export async function assignJobNumberIfMissing(id) {
     );
 }
 
-// fetchPartDescription — look up a part's description from issues_receipts via RPC.
-// The RPC strips spaces/dashes before comparing so TC27261 matches TC-27261.
+// fetchPartDescription — look up a part's description via RPC (item_master first,
+// issues_receipts fallback). The RPC strips spaces/dashes so TC27261 matches TC-27261.
 // Returns { data: description string | null, error }.
 export async function fetchPartDescription(partNumber) {
     if (!partNumber?.trim()) return { data: null, error: null };

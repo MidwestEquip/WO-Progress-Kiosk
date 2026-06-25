@@ -167,6 +167,7 @@ export const PARTIAL_NAMES = [
     'view-po-forecasting',
     'view-po-request',
     'view-messages',
+    'view-subassy-setup',
     'modal-purchasing-detail',
     'modal-purchasing-forecast-send',
     'modal-purchasing-quote',
