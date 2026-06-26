@@ -33,36 +33,39 @@
                             </span>
                         </div>
 
-                        <!-- Table header -->
-                        <div class="hidden md:grid grid-cols-[1fr_1.5fr_1fr_2fr_1fr_auto] gap-4 px-5 pb-1 text-xs font-bold text-gray-400 uppercase tracking-wide">
+                        <!-- Table header — identical grid template + box model as the rows below
+                             (border-transparent matches the rows' 1px border so columns align exactly). -->
+                        <div class="hidden md:grid grid-cols-[175px_minmax(150px,1.6fr)_120px_120px_minmax(170px,2fr)_150px_200px] gap-4 px-5 py-1 border border-transparent text-xs font-bold text-gray-400 uppercase tracking-wide">
                             <span>Part #</span>
                             <span>Description</span>
                             <span>Date to Start</span>
+                            <span>Forecasted On</span>
                             <span>Reason</span>
                             <span>Submitted By</span>
                             <span></span>
                         </div>
 
                         <div v-for="item in forecastingItems" :key="item.id"
-                            class="bg-white border border-gray-200 rounded-xl px-5 py-3 grid grid-cols-[1fr_1.5fr_1fr_2fr_1fr_auto] gap-4 items-center">
-                            <div>
-                                <span class="font-extrabold text-gray-800 text-sm font-mono">{{ item.part_number }}</span>
+                            class="bg-white border border-gray-200 rounded-xl px-5 py-3 grid grid-cols-[175px_minmax(150px,1.6fr)_120px_120px_minmax(170px,2fr)_150px_200px] gap-4 items-center">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="font-extrabold text-gray-800 text-sm font-mono truncate">{{ item.part_number }}</span>
                                 <span v-if="item.status" :class="{
                                     'bg-amber-100 text-amber-700': item.status === 'pending',
                                     'bg-green-100 text-green-700': item.status === 'approved',
                                     'bg-blue-100  text-blue-700':  item.status === 'in production'
-                                }" class="ml-2 text-xs font-bold px-2 py-0.5 rounded-full uppercase">{{ item.status }}</span>
+                                }" class="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full uppercase">{{ item.status }}</span>
                             </div>
                             <div class="text-sm text-gray-500 truncate">{{ item.description || '—' }}</div>
                             <div class="text-sm font-semibold text-blue-600">{{ item.forecast_date || '—' }}</div>
-                            <div class="text-sm text-gray-600">{{ item.forecast_reason || '—' }}</div>
-                            <div class="text-xs text-gray-400">
-                                <div class="font-medium text-gray-600">{{ item.submitted_by }}</div>
+                            <div class="text-sm text-gray-500">{{ item.forecasted_at || '—' }}</div>
+                            <div class="text-sm text-gray-600 truncate">{{ item.forecast_reason || '—' }}</div>
+                            <div class="text-xs text-gray-400 min-w-0">
+                                <div class="font-medium text-gray-600 truncate">{{ item.submitted_by }}</div>
                                 <div>{{ item.request_date }}</div>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 justify-end">
                                 <button @click="openMoveBackConfirm(item.id)" :disabled="loading"
-                                    class="text-xs text-blue-500 hover:text-blue-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-40">
+                                    class="text-xs text-blue-500 hover:text-blue-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-40 whitespace-nowrap">
                                     Add to WO Request
                                 </button>
                                 <button @click="openDeleteConfirm(item.id)" :disabled="loading"

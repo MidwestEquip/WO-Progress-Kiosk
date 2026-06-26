@@ -248,6 +248,10 @@ export async function managerFinalApproveWo() {
         const curatedPlans = {};
         Object.entries(store.managerWoSubpartForms.value).forEach(([n, { expanded, defaultsLoaded, ...d }]) => { curatedPlans[n] = d; });
 
+        // Subpart entries with a real qty drive the traveller group.
+        const subpartEntries = Object.entries(curatedPlans)
+            .filter(([, f]) => parseFloat(f.qty_to_make) > 0);
+
         const today   = new Date().toISOString().slice(0, 10);
         const updates = {
             ..._buildUpdates(form),
@@ -258,12 +262,24 @@ export async function managerFinalApproveWo() {
         const { error } = await db.updateWoRequest(req.id, updates);
         if (error) throw error;
 
+        // Traveller group: create it up front (when subparts exist) so the PARENT
+        // work_orders rows share the same traveller_id as the subpart rows below.
+        // This is what makes the subpart panel + traveller # appear on the parent's
+        // dashboard card (previously only the subpart cards carried the traveller_id).
+        let travellerId = req.traveller_id || null;
+        if (subpartEntries.length > 0 && !travellerId) {
+            const { data: trav, error: tErr } = await db.insertTraveller();
+            if (tErr) throw tErr;
+            travellerId = trav.id;
+            await db.updateWoRequest(req.id, { traveller_id: travellerId });
+        }
+
         const approvalReq = {
             id:                 req.id,
             part_number:        req.part_number,
             description:        req.description,
             sales_order_number: req.sales_order_number,
-            traveller_id:       req.traveller_id,
+            traveller_id:       travellerId,
             job_number:         jobNumber,
             qty_to_make:        updates.qty_to_make,
             fab:                updates.fab,
@@ -304,14 +320,9 @@ export async function managerFinalApproveWo() {
             }
         }
 
-        // Traveller: create group + subpart work_orders from the manager-curated plans
-        const subpartEntries = Object.entries(curatedPlans)
-            .filter(([, f]) => parseFloat(f.qty_to_make) > 0);
+        // Subpart work_orders from the manager-curated plans. The traveller group was
+        // already created above (and the parent rows linked to it), so reuse travellerId.
         if (subpartEntries.length > 0) {
-            const { data: trav, error: tErr } = await db.insertTraveller();
-            if (tErr) throw tErr;
-            await db.updateWoRequest(req.id, { traveller_id: trav.id });
-
             const norms = subpartEntries.map(([n]) => n);
             const { data: bd } = await db.fetchBinAndDescForParts(norms);
             const descs = bd?.descs || {};
@@ -331,7 +342,7 @@ export async function managerFinalApproveWo() {
                 date_to_start:       f.date_to_start || null,
                 estimated_lead_time: f.estimated_lead_time !== '' ? parseFloat(f.estimated_lead_time) : null,
                 set_up_time:         f.set_up_time   !== '' ? parseFloat(f.set_up_time) : null,
-                traveller_id:        trav.id,
+                traveller_id:        travellerId,
                 parent_request_id:   req.id,
                 status:              'approved',
                 submitted_by:        'System',

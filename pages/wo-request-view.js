@@ -68,6 +68,9 @@ export function dismissSoHint() {
 export async function loadWoRequests() {
     store.woRequestsLoading.value = true;
     try {
+        // Auto-promote any forecasts whose start date has arrived (non-fatal).
+        const { error: promoteErr } = await db.promoteDueForecasts();
+        if (promoteErr) logError('loadWoRequests.promoteDueForecasts', promoteErr);
         const { data, error } = await db.fetchWoRequests();
         if (error) throw error;
         const rows = data || [];
@@ -395,6 +398,7 @@ export async function submitSendToForecast() {
         const { error } = await db.updateWoRequest(target.id, {
             forecasted:      true,
             forecast_date:   form.forecast_date,
+            forecasted_at:   new Date().toISOString().slice(0, 10),
             forecast_reason: form.forecast_reason.trim(),
         });
         if (error) throw error;

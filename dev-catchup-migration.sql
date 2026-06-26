@@ -462,6 +462,7 @@ ALTER TABLE wo_requests
     ADD COLUMN IF NOT EXISTS updated_at                   TIMESTAMPTZ DEFAULT now(),
     ADD COLUMN IF NOT EXISTS forecasted                   BOOLEAN DEFAULT false,
     ADD COLUMN IF NOT EXISTS forecast_date                TEXT,
+    ADD COLUMN IF NOT EXISTS forecasted_at                DATE,
     ADD COLUMN IF NOT EXISTS forecast_reason              TEXT,
     ADD COLUMN IF NOT EXISTS production_notes             TEXT,
     ADD COLUMN IF NOT EXISTS qty_used_in_mfg              NUMERIC,

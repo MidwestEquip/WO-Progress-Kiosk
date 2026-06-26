@@ -147,6 +147,23 @@ export async function fetchManagerPendingWoRequests() {
     );
 }
 
+// promoteDueForecasts — auto-promote forecasted requests whose start date has arrived.
+// Flips forecasted=false for any row where forecasted=true AND forecast_date <= today,
+// so the item drops out of WO Forecasting and reappears in the main WO Request list.
+// forecast_date is stored as an ISO 'YYYY-MM-DD' string, so a lexical <= compare is correct.
+// Input: none. Output: { data: promoted rows, error }. Non-fatal for callers.
+export async function promoteDueForecasts() {
+    const today = new Date().toISOString().slice(0, 10);
+    return withRetry(() =>
+        supabase.from('wo_requests')
+            .update({ forecasted: false })
+            .eq('forecasted', true)
+            .not('forecast_date', 'is', null)
+            .lte('forecast_date', today)
+            .select()
+    );
+}
+
 // fetchForecastedRequests — returns all wo_requests rows marked forecasted=true.
 export async function fetchForecastedRequests() {
     return withRetry(() =>

@@ -14,6 +14,9 @@ import { logError } from '../libs/db-shared.js';
 export async function loadForecastedItems() {
     store.forecastingLoading.value = true;
     try {
+        // Auto-promote any forecasts whose start date has arrived (non-fatal).
+        const { error: promoteErr } = await db.promoteDueForecasts();
+        if (promoteErr) logError('loadForecastedItems.promoteDueForecasts', promoteErr);
         const { data, error } = await db.fetchForecastedRequests();
         if (error) throw error;
         store.forecastingItems.value = data || [];
