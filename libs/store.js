@@ -15,8 +15,8 @@ import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.
 import { REEL_PART_NUMBERS, ROLE_DISPLAY_NAMES } from './config.js';
 import { detectTcMode, detectReelWeld, computePrintRoutingChain } from './utils.js';
 
-// Bring inventoryTab into scope for appTitle computed (one-way, no circular dep)
-import { inventoryTab, inventoryMode } from './store-inventory.js';
+// Bring inventoryMode into scope for appTitle computed (one-way, no circular dep)
+import { inventoryMode } from './store-inventory.js';
 
 // Re-export all sub-store state so callers need only one import
 export * from './store-manager.js';
@@ -233,9 +233,8 @@ export const appTitle = computed(() => {
     if (currentView.value === 'wo_request') return 'Request WO';
     if (currentView.value === 'create_wo')  return 'Create Work Orders';
     if (currentView.value === 'inventory') {
-        if (inventoryMode.value === 'po_receive') return 'PO Receiving';
-        const labels = { chute: 'Chutes', hitch: 'Hitches', engine: 'Engines', hardware: 'Hardware', hoses: 'Hoses' };
-        return `Inventory — ${labels[inventoryTab.value] || ''}`;
+        if (inventoryMode.value === 'adjust') return 'Inventory Adjustment';
+        return 'PO Receiving';
     }
     if (currentView.value === 'open_orders')  return 'Open Orders — Shipping';
     if (currentView.value === 'purchasing')   return 'Purchasing';

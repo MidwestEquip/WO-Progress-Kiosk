@@ -30,6 +30,19 @@ export const woRequestInlineState = ref({});
 export const woRequests           = ref([]);
 export const woRequestsLoading    = ref(false);
 export const woRequestSoHint      = ref(null); // { salesOrder, qty, partNumber } or null
+// Active-WO warning for the New Request form. { part, items } — part = normalized part
+// the items were fetched for (so a stale banner never shows for a different/blank part).
+export const woRequestActiveWos   = ref({ part: '', items: [] });
+// Only surface the warning while it still matches what's typed (guards against a stale
+// banner after the part field is edited but not yet re-blurred).
+export const woRequestActiveWoItems = computed(() => {
+    const a   = woRequestActiveWos.value;
+    const cur = (woRequestForm.value.part_number || '').trim().toUpperCase();
+    return (a.part && a.part === cur) ? a.items : [];
+});
+// Live active-WO warning shown inside the open detail modal (self-excluded). Array of
+// { label, detail }. Re-checked each time the modal opens; cleared on close.
+export const woRequestDetailActiveWos = ref([]);
 export const woRequestForm        = ref({
     part_number: '', description: '', sales_order_number: '',
     qty_on_order: '', qty_in_stock: '', qty_used_per_unit: '',
@@ -45,6 +58,15 @@ export const woRequestParentUsageLoading   = ref(false); // true while calculati
 export const woRequestHistoryLoading36mo   = ref(false); // true while fetching 3yr usage summary
 export const woRequestParentUsageLoading36mo = ref(false); // true while calculating 3yr BOM parent demand
 export const woRequestLastMade             = ref([]);    // last 3 MO-I rows [{ txn_date, qty }]
+// woRequestRealCount — manual item_master count for the selected request's part, or null.
+// { qty, date } populated (non-blocking) when the detail modal opens (see openWoRequestDetail).
+export const woRequestRealCount = ref(null);
+// woRequestRealCountLabel — Data-panel display string ("N (YYYY-MM-DD)"), or '' when no count.
+export const woRequestRealCountLabel = computed(() => {
+    const rc = woRequestRealCount.value;
+    if (!rc || rc.qty == null) return '';
+    return rc.date ? `${rc.qty} (${rc.date})` : `${rc.qty}`;
+});
 export const woRequestUsedOn               = ref([]);    // BOM parents the requested part is used on: [{ part, qty, desc }] (qty = qty_per_assy)
 export const woRequestUsedOnLoading        = ref(false); // true while fetching BOM parents
 export const woRequestSubparts             = ref([]);    // BOM children [{ item_child, item_child_normalized, qty_per_assy }]
@@ -219,39 +241,20 @@ export const createdWoItemsGrouped = computed(() => {
 });
 
 // ── Inventory ─────────────────────────────────────────────────
-export const inventoryMode    = ref('parts'); // 'parts' | 'po_receive'
-export const inventoryTab     = ref('chute');
-export const inventoryItems   = ref([]);
-export const inventoryLoading = ref(false);
-export const inventorySearch  = ref('');
+// inventoryMode drives which sub-view the shared #inventory view renders.
+// 'parts' mode (old per-table chute/hitch/etc. lists) was removed; the
+// remaining modes are PO Receive and the item_master Inventory Adjustment screen.
+export const inventoryMode = ref('po_receive'); // 'po_receive' | 'adjust'
 
-export const pullFormOpen   = ref(false);
-export const pullFormTarget = ref(null);
-export const pullForm       = ref({ name: '', qty_pulled: '', new_location: '', where_used: '', date_pulled: '' });
-export const pullFormErrors = ref({ name: false, qty_pulled: false });
-
-export const addItemFormOpen   = ref(false);
-export const addItemForm       = ref({ part_number: '', description: '', qty: 0, location: '', refill_location: '' });
-export const addItemFormErrors = ref({ part_number: false });
-
-export const editItemFormOpen   = ref(false);
-export const editItemFormTarget = ref(null);
-export const editItemForm       = ref({ part_number: '', description: '', qty: 0, location: '', refill_location: '' });
-export const editItemFormErrors = ref({ part_number: false });
-
-export const pullHistoryOpen    = ref(false);
-export const pullHistoryTarget  = ref(null);
-export const pullHistoryItems   = ref([]);
-export const pullHistoryLoading = ref(false);
-
-export const filteredInventoryItems = computed(() => {
-    const q = inventorySearch.value.trim().toLowerCase();
-    if (!q) return inventoryItems.value;
-    return inventoryItems.value.filter(i =>
-        (i.part_number || '').toLowerCase().includes(q) ||
-        (i.description || '').toLowerCase().includes(q)
-    );
-});
+// ── Inventory Adjustment (item_master manual counts) ──────────
+// Search a part #, view its current on-hand / last manual count, write a count.
+export const inventoryAdjustSearch   = ref('');     // part # being looked up
+export const inventoryAdjustLoading  = ref(false);  // true while fetching the item_master row
+export const inventoryAdjustSearched = ref(false);  // true once a lookup has run (drives "not found" state)
+export const inventoryAdjustResult   = ref(null);   // matched item_master row, or null
+export const inventoryAdjustSaving   = ref(false);  // true while saving the manual count
+export const inventoryAdjustForm     = ref({ qty: '', date: '' });
+export const inventoryAdjustErrors   = ref({ qty: false });
 
 // ── Completed Orders ──────────────────────────────────────────
 export const completedOrders        = ref([]);

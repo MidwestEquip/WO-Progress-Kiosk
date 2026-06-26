@@ -5,112 +5,8 @@
 // ============================================================
 
 import { supabase, withRetry } from './db-shared.js';
-import { detectTcMode, normalizePartNumber } from './utils.js';
-
-// ── Inventory queries ─────────────────────────────────────────
-
-const INVENTORY_TABLES = new Set(['chute', 'hitch', 'engine', 'hardware', 'hoses']);
-
-function assertInventoryTable(table) {
-    if (!INVENTORY_TABLES.has(table)) throw new Error(`Invalid inventory table: ${table}`);
-}
-
-// fetchInventory — all rows from <table>_inventory, ordered by part_number.
-export async function fetchInventory(table) {
-    assertInventoryTable(table);
-    return withRetry(() =>
-        supabase.from(`${table}_inventory`)
-            .select('*')
-            .order('part_number', { ascending: true })
-    );
-}
-
-// addInventoryItem — insert a new part into <table>_inventory.
-export async function addInventoryItem(table, item) {
-    assertInventoryTable(table);
-    if (!item?.part_number?.trim()) return { data: null, error: new Error('Part number is required') };
-    return withRetry(() =>
-        supabase.from(`${table}_inventory`).insert([{
-            part_number:     item.part_number.trim().toUpperCase(),
-            description:     (item.description  || '').trim() || null,
-            qty:             parseFloat(item.qty) || 0,
-            location:        (item.location      || '').trim() || null,
-            refill_location: (item.refill_location || '').trim() || null,
-        }]).select()
-    );
-}
-
-// updateInventoryItem — update fields on a part row.
-export async function updateInventoryItem(table, id, updates) {
-    assertInventoryTable(table);
-    if (!id) return { data: null, error: new Error('Missing inventory item ID') };
-    const payload = {};
-    if (updates.part_number     !== undefined) payload.part_number     = updates.part_number.trim().toUpperCase();
-    if (updates.description     !== undefined) payload.description     = (updates.description     || '').trim() || null;
-    if (updates.qty             !== undefined) payload.qty             = parseFloat(updates.qty) || 0;
-    if (updates.location        !== undefined) payload.location        = (updates.location        || '').trim() || null;
-    if (updates.refill_location !== undefined) payload.refill_location = (updates.refill_location || '').trim() || null;
-    payload.updated_at = new Date().toISOString();
-    return withRetry(() =>
-        supabase.from(`${table}_inventory`).update(payload).eq('id', id).select()
-    );
-}
-
-// deleteInventoryItem — hard delete. Pull log rows cascade-delete via FK.
-export async function deleteInventoryItem(table, id) {
-    assertInventoryTable(table);
-    if (!id) return { data: null, error: new Error('Missing inventory item ID') };
-    return withRetry(() =>
-        supabase.from(`${table}_inventory`).delete().eq('id', id).select()
-    );
-}
-
-// recordPull — inserts a pull log row and decrements qty on the inventory row.
-export async function recordPull(table, inventoryId, pull) {
-    assertInventoryTable(table);
-    if (!inventoryId)           return { data: null, error: new Error('Missing inventory item ID') };
-    if (!pull?.name?.trim())    return { data: null, error: new Error('Name is required') };
-    const qtyPulled = parseFloat(pull.qty_pulled);
-    if (!qtyPulled || qtyPulled <= 0) return { data: null, error: new Error('qty_pulled must be a positive number') };
-
-    const { data: current, error: fetchErr } = await withRetry(() =>
-        supabase.from(`${table}_inventory`).select('qty').eq('id', inventoryId).single()
-    );
-    if (fetchErr) return { data: null, error: fetchErr };
-
-    const newQty = (parseFloat(current.qty) || 0) - qtyPulled;
-
-    const { error: updateErr } = await withRetry(() =>
-        supabase.from(`${table}_inventory`).update({
-            qty:        newQty,
-            updated_at: new Date().toISOString()
-        }).eq('id', inventoryId)
-    );
-    if (updateErr) return { data: null, error: updateErr };
-
-    return withRetry(() =>
-        supabase.from(`${table}_pulls`).insert([{
-            inventory_id: inventoryId,
-            name:         pull.name.trim(),
-            qty_pulled:   qtyPulled,
-            date_pulled:  pull.date_pulled || new Date().toISOString().slice(0, 10),
-            new_location: (pull.new_location || '').trim() || null,
-            where_used:   (pull.where_used   || '').trim() || null,
-        }]).select()
-    );
-}
-
-// fetchPullHistory — all pull log rows for one inventory item, newest first.
-export async function fetchPullHistory(table, inventoryId) {
-    assertInventoryTable(table);
-    if (!inventoryId) return { data: [], error: null };
-    return withRetry(() =>
-        supabase.from(`${table}_pulls`)
-            .select('*')
-            .eq('inventory_id', inventoryId)
-            .order('created_at', { ascending: false })
-    );
-}
+import { detectTcMode, normalizePartNumber, normalizePartNumberStrict } from './utils.js';
+import { SOURCE_OF_COUNT_MANUAL } from './config.js';
 
 // ── WO Request → work_orders routing ─────────────────────────
 
@@ -226,6 +122,19 @@ export async function fetchWoRequests() {
     );
 }
 
+// fetchActiveWosForPart — is there already an active (not-closed-out) work order for this
+// part, or an open WO request? Matches dash/space-insensitively via the get_active_wos_for_part
+// RPC. Input: part number string. Output: { data: { work_orders: [], requests: [] }, error }.
+export async function fetchActiveWosForPart(partNumber) {
+    const part = (partNumber || '').trim();
+    if (!part) return { data: { work_orders: [], requests: [] }, error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.rpc('get_active_wos_for_part', { p_part: part })
+    );
+    if (error) return { data: { work_orders: [], requests: [] }, error };
+    return { data: data || { work_orders: [], requests: [] }, error: null };
+}
+
 // fetchManagerPendingWoRequests — requests awaiting manager final approval (status='manager_review').
 export async function fetchManagerPendingWoRequests() {
     return withRetry(() =>
@@ -327,6 +236,43 @@ export async function fetchPartDescription(partNumber) {
     );
     if (error) return { data: null, error };
     return { data: data || null, error: null };
+}
+
+// ── item_master manual inventory counts ──────────────────────
+
+// fetchItemMasterByPart — look up the single item_master row for a part, matched
+// dash/space-insensitively via the item_squashed generated column (index-backed,
+// equals normalizePartNumberStrict). Deterministic order (latest manual count first)
+// in case duplicate rows ever appear. Input: part # string. Output: { data: row|null, error }.
+export async function fetchItemMasterByPart(partNumber) {
+    const key = normalizePartNumberStrict(partNumber);
+    if (!key) return { data: null, error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.from('item_master')
+            .select('id, item, descrip, store, bin, lonhand, manual_qty_check, date_manual_count, source_of_count')
+            .eq('item_squashed', key)
+            .order('date_manual_count', { ascending: false, nullsFirst: false })
+            .limit(1)
+    );
+    if (error) return { data: null, error };
+    return { data: (data && data[0]) || null, error: null };
+}
+
+// saveManualCount — write a manual physical count to one item_master row (by PK id).
+// Sets manual_qty_check + date_manual_count + source_of_count='manual'. Leaves the
+// Alere system estimate (lonhand) untouched. Inputs: id (uuid), qty (number), dateStr (YYYY-MM-DD).
+export async function saveManualCount(id, qty, dateStr) {
+    if (!id) return { data: null, error: new Error('Missing item_master row id') };
+    return withRetry(() =>
+        supabase.from('item_master')
+            .update({
+                manual_qty_check:  qty,
+                date_manual_count: dateStr,
+                source_of_count:   SOURCE_OF_COUNT_MANUAL,
+            })
+            .eq('id', id)
+            .select()
+    );
 }
 
 // ── Open Orders queries ───────────────────────────────────────

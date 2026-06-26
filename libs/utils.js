@@ -270,6 +270,14 @@ export function normalizePartNumber(partNumber) {
     return partNumber.trim().toUpperCase();
 }
 
+// normalizePartNumberStrict — uppercase + strip ALL dashes and whitespace, for
+// dash/space-insensitive matching. Mirrors the SQL de-dash in the active-order lookup RPCs
+// (get_active_wos_for_part / get_active_pos_for_part) so client and server agree.
+export function normalizePartNumberStrict(partNumber) {
+    if (typeof partNumber !== 'string') return '';
+    return partNumber.toUpperCase().replace(/[-\s]/g, '');
+}
+
 // computePrintRoutingChain — derives the ordered routing steps for a work order traveller.
 // order: a work_orders row. travellerWos: { [traveller_id]: [work_orders rows] } map from store.
 // Returns an array of step strings, e.g. ['Fab', 'Weld', 'Paint', 'W2 Staging'].

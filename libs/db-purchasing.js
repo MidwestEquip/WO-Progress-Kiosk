@@ -7,6 +7,17 @@
 
 import { supabase } from './db-shared.js';
 
+// fetchActivePosForPart — active part-type POs (status not received/canceled) for a part,
+// matched dash/space-insensitively via the get_active_pos_for_part RPC.
+// Returns { data: [{ id, po_number, status }], error }.
+export async function fetchActivePosForPart(partNumber) {
+    const part = (partNumber || '').trim();
+    if (!part) return { data: [], error: null };
+    const { data, error } = await supabase.rpc('get_active_pos_for_part', { p_part: part });
+    if (error) return { data: [], error };
+    return { data: data || [], error: null };
+}
+
 // fetchPurchasingOrders — active ordering-stage orders (not forecasted), newest first.
 // Returns { data, error }
 export async function fetchPurchasingOrders() {

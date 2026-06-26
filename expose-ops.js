@@ -6,8 +6,8 @@
 
 import * as store from './libs/store.js';
 import { OPEN_ORDER_STATUSES, CHUTE_PART_STATUSES,
-         OPEN_ORDER_SORT_FIELDS, INVENTORY_TABS } from './libs/config.js';
-import { enterInventoryView, enterPoReceiveView, enterWoRequestView, enterCreateWoView,
+         OPEN_ORDER_SORT_FIELDS } from './libs/config.js';
+import { enterPoReceiveView, enterWoRequestView, enterCreateWoView,
          enterOpenOrdersView, enterWoForecastingView,
          saveHeaderLinks, saveSplashLinks } from './pages/splash-view.js';
 import { openManagerSection, loadKpiData, loadDelayedOrders,
@@ -33,14 +33,10 @@ import { onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
          onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
          onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
          onDropZoneDragOver, clearDropZone, reorderDrop } from './pages/open-orders-drag.js';
-import { loadInventoryItems, switchInventoryTab,
-         openPullForm, closePullForm, submitPull,
-         openAddItemForm, closeAddItemForm, submitAddItem,
-         openEditItemForm, closeEditItemForm, submitEditItem,
-         confirmDeleteInventoryItem,
-         openPullHistory, closePullHistory,
-         loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive,
-         loadPoReceivedOrders, unreceivePoOrder } from './pages/inventory-view.js';
+import { loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive,
+         loadPoReceivedOrders, unreceivePoOrder,
+         enterInventoryAdjustView, searchItemMasterPart, submitManualCount,
+         loadPoDetailRealCount } from './pages/inventory-view.js';
 import { enterSubassySetup, clearSubassySearch, runSubassySearch, toggleUnitChildren,
          openComponentUsedOn, closeComponentUsedOn } from './pages/subassy-setup.js';
 import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
@@ -67,6 +63,7 @@ import { loadPurchasingOrders, switchPurchasingTab,
          toggleSteelStatusPicker, setSteelStatus,
          selectSteelQuoteForOrder, closeSteelOrderPanel, confirmSteelOrder,
          uploadSteelQuoteFile, openSteelQuoteFile, removeSteelQuoteFile } from './pages/purchasing-view.js';
+import { checkPoActiveOrders, isPoPartDuplicated } from './pages/purchasing-request-checks.js';
 import { completeOrder, submitReceiving } from './pages/purchasing-receive.js';
 import { enterApprovalTab, approveOrder, cancelRevise, submitRevise } from './pages/purchasing-approval.js';
 import { enterWoApprovalView, exitWoApprovalView, loadManagerPendingWoRequests,
@@ -170,6 +167,8 @@ export function buildOpsExpose() {
         woRequestDetailForm:  store.woRequestDetailForm,
         woRequestInlineState:        store.woRequestInlineState,
         woRequestSoHint:             store.woRequestSoHint,
+        woRequestActiveWoItems:      store.woRequestActiveWoItems,
+        woRequestDetailActiveWos:    store.woRequestDetailActiveWos,
         woRequestDefaultsApplied:    store.woRequestDefaultsApplied,
         woRequestHistoryLoading:         store.woRequestHistoryLoading,
         woRequestParentUsageLoading:     store.woRequestParentUsageLoading,
@@ -178,6 +177,8 @@ export function buildOpsExpose() {
         woRequestEstQtyInStock36mo:      store.woRequestEstQtyInStock36mo,
         woRequestSuggestedQty36mo:       store.woRequestSuggestedQty36mo,
         woRequestLastMade:               store.woRequestLastMade,
+        woRequestRealCount:              store.woRequestRealCount,
+        woRequestRealCountLabel:         store.woRequestRealCountLabel,
         woRequestUsedOn:                 store.woRequestUsedOn,
         woRequestUsedOnLoading:          store.woRequestUsedOnLoading,
         woRequestSubparts:             store.woRequestSubparts,
@@ -234,26 +235,14 @@ export function buildOpsExpose() {
 
         // Inventory
         inventoryMode:          store.inventoryMode,
-        inventoryTab:           store.inventoryTab,
-        inventoryItems:         store.inventoryItems,
-        inventoryLoading:       store.inventoryLoading,
-        inventorySearch:        store.inventorySearch,
-        filteredInventoryItems: store.filteredInventoryItems,
-        pullFormOpen:           store.pullFormOpen,
-        pullFormTarget:         store.pullFormTarget,
-        pullForm:               store.pullForm,
-        pullFormErrors:         store.pullFormErrors,
-        addItemFormOpen:        store.addItemFormOpen,
-        addItemForm:            store.addItemForm,
-        addItemFormErrors:      store.addItemFormErrors,
-        editItemFormOpen:       store.editItemFormOpen,
-        editItemFormTarget:     store.editItemFormTarget,
-        editItemForm:           store.editItemForm,
-        editItemFormErrors:     store.editItemFormErrors,
-        pullHistoryOpen:        store.pullHistoryOpen,
-        pullHistoryTarget:      store.pullHistoryTarget,
-        pullHistoryItems:       store.pullHistoryItems,
-        pullHistoryLoading:     store.pullHistoryLoading,
+        // Inventory Adjustment
+        inventoryAdjustSearch:   store.inventoryAdjustSearch,
+        inventoryAdjustLoading:  store.inventoryAdjustLoading,
+        inventoryAdjustSearched: store.inventoryAdjustSearched,
+        inventoryAdjustResult:   store.inventoryAdjustResult,
+        inventoryAdjustSaving:   store.inventoryAdjustSaving,
+        inventoryAdjustForm:     store.inventoryAdjustForm,
+        inventoryAdjustErrors:   store.inventoryAdjustErrors,
         // PO Receive
         poReceiveOrders:           store.poReceiveOrders,
         poReceiveLoading:          store.poReceiveLoading,
@@ -271,13 +260,7 @@ export function buildOpsExpose() {
         poReceiveShowReceived:     store.poReceiveShowReceived,
         filteredPoReceivedOrders:  store.filteredPoReceivedOrders,
         poReceivedCounts:          store.poReceivedCounts,
-        inventoryTabs: INVENTORY_TABS,
-        enterInventoryView, enterPoReceiveView, switchInventoryTab,
-        openPullForm, closePullForm, submitPull,
-        openAddItemForm, closeAddItemForm, submitAddItem,
-        openEditItemForm, closeEditItemForm, submitEditItem,
-        confirmDeleteInventoryItem,
-        openPullHistory, closePullHistory,
+        enterPoReceiveView, enterInventoryAdjustView, searchItemMasterPart, submitManualCount, loadPoDetailRealCount,
         loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive,
         loadPoReceivedOrders, unreceivePoOrder,
 
@@ -321,8 +304,11 @@ export function buildOpsExpose() {
         purchasingRequestSaving:     store.purchasingRequestSaving,
         purchasingRequestForm:       store.purchasingRequestForm,
         purchasingRequestFormErrors: store.purchasingRequestFormErrors,
+        purchasingRequestActivePoItems: store.purchasingRequestActivePoItems,
         purchasingDetailOpen:           store.purchasingDetailOpen,
         purchasingDetailOrder:          store.purchasingDetailOrder,
+        poDetailRealCount:              store.poDetailRealCount,
+        poDetailRealCountLabel:         store.poDetailRealCountLabel,
         purchasingDetailSection:        store.purchasingDetailSection,
         purchasingDetailSaving:         store.purchasingDetailSaving,
         purchasingDetailAutoSaved:      store.purchasingDetailAutoSaved,
@@ -389,7 +375,7 @@ export function buildOpsExpose() {
 
         enterPurchasingView, enterPoRequestView, enterApprovalQueueView, loadPurchasingOrders, switchPurchasingTab,
         loadPurchasingCompleted, loadOrderEvents,
-        openNewRequestForm, closeNewRequestForm, submitPurchasingRequest, onPurchasingPartBlur,
+        openNewRequestForm, closeNewRequestForm, submitPurchasingRequest, onPurchasingPartBlur, checkPoActiveOrders, isPoPartDuplicated,
         openOrderDetail, closeOrderDetail, saveOrderDetail, completeOrder, submitReceiving, loadPartUsageForOrder,
         moveOrderToWoRequest, deleteOrderFromDetail,
         loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow,

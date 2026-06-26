@@ -102,15 +102,6 @@ export const CHUTE_PART_STATUSES = [
     'Ordered', 'In Stock', 'Ready', 'Complete', 'N/A'
 ];
 
-// ----- Inventory tabs -----
-export const INVENTORY_TABS = [
-    { key: 'chute',    label: 'Chutes'   },
-    { key: 'hitch',    label: 'Hitches'  },
-    { key: 'engine',   label: 'Engines'  },
-    { key: 'hardware', label: 'Hardware' },
-    { key: 'hoses',    label: 'Hoses'    },
-];
-
 export const PURCHASING_STATUSES = [
     'requested',
     'needs_review',
@@ -169,6 +160,7 @@ export const PARTIAL_NAMES = [
     'view-messages',
     'view-subassy-setup',
     'modal-purchasing-detail',
+    'modal-purchasing-detail-research',
     'modal-purchasing-forecast-send',
     'modal-purchasing-quote',
     'modal-rfq-draft',
@@ -275,6 +267,9 @@ export const LAST_REPORT_DATE = 'May 22, 2026';
 
 // ----- WO Request status values -----
 export const WO_REQUEST_STATUS_MANAGER_REVIEW = 'manager_review';
+
+// ----- item_master manual count source tag (written by Inventory Adjustment) -----
+export const SOURCE_OF_COUNT_MANUAL = 'manual';
 
 // ----- Steel ordering: ship-to location buckets (display order) -----
 export const STEEL_LOCATIONS = [

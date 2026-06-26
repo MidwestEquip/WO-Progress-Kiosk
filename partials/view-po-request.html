@@ -53,10 +53,24 @@
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Part # *</label>
                     <input v-model="purchasingRequestForm.part_number" type="text"
-                        @blur="onPurchasingPartBlur()"
+                        @blur="onPurchasingPartBlur(); checkPoActiveOrders()"
                         :class="purchasingRequestFormErrors.part_number ? 'border-red-400 bg-red-50' : 'border-gray-300'"
                         class="w-full px-2 py-1.5 border rounded-lg text-sm text-gray-800 focus:outline-none focus:border-amber-400">
                     <p v-if="purchasingRequestFormErrors.part_number" class="text-red-500 text-xs mt-0.5">Required</p>
+                    <!-- Active-PO warning banner -->
+                    <div v-if="purchasingRequestActivePoItems.length"
+                        class="mt-2 bg-red-50 border-2 border-red-300 rounded-lg px-2.5 py-2 text-xs text-red-800">
+                        <p class="font-bold mb-1 uppercase tracking-wide flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                            Already an active PO for this part
+                        </p>
+                        <ul class="space-y-0.5">
+                            <li v-for="(it, i) in purchasingRequestActivePoItems" :key="i" class="flex gap-1.5">
+                                <span class="font-mono font-semibold">{{ it.label }}</span>
+                                <span v-if="it.detail" class="text-red-600">— {{ it.detail }}</span>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Description *</label>

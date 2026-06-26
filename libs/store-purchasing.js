@@ -6,10 +6,23 @@
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
 import { STEEL_LOCATIONS } from './config.js';
+import { normalizePartNumberStrict } from './utils.js';
 
 // Active tab: 'parts' | 'supplies' | 'steel' | 'completed'
 export const purchasingTab     = ref('parts');
 export const purchasingOrders  = ref([]);
+// Normalized part keys that appear on MORE THAN ONE active part order in the ordering queue
+// (requested/quoting/quoted/approved/not_approved). Used to red-flag duplicate part rows.
+export const duplicatePoPartKeys = computed(() => {
+    const counts = {};
+    for (const o of purchasingOrders.value) {
+        if (o.request_type !== 'part') continue;
+        const k = normalizePartNumberStrict(o.part_number || '');
+        if (!k) continue;
+        counts[k] = (counts[k] || 0) + 1;
+    }
+    return new Set(Object.keys(counts).filter(k => counts[k] > 1));
+});
 export const purchasingLoading = ref(false);
 
 const DONE_STATUSES = ['received', 'canceled', 'ordered', 'partially_received'];
@@ -77,6 +90,15 @@ export const purchasingRequestForm = ref({
     material_length:        '',
 });
 
+// Active-PO warning for the New PO Request form. { part, items } — part = normalized part
+// the items were fetched for, so a stale banner never shows for a different/blank part.
+export const purchasingRequestActivePos = ref({ part: '', items: [] });
+export const purchasingRequestActivePoItems = computed(() => {
+    const a   = purchasingRequestActivePos.value;
+    const cur = (purchasingRequestForm.value.part_number || '').trim().toUpperCase();
+    return (a.part && a.part === cur) ? a.items : [];
+});
+
 // ── Completed tab ─────────────────────────────────────────────
 
 export const purchasingCompletedOrders  = ref([]);
@@ -88,6 +110,15 @@ export const purchasingCompletedTo      = ref('');
 
 export const purchasingDetailOpen      = ref(false);
 export const purchasingDetailOrder     = ref(null);
+// poDetailRealCount — manual item_master count for the open PO's part, or null.
+// { qty, date } populated (non-blocking) when the Research tab is opened for a part order.
+export const poDetailRealCount = ref(null);
+// poDetailRealCountLabel — Research-tab display string ("N (YYYY-MM-DD)"), or '' when none.
+export const poDetailRealCountLabel = computed(() => {
+    const rc = poDetailRealCount.value;
+    if (!rc || rc.qty == null) return '';
+    return rc.date ? `${rc.qty} (${rc.date})` : `${rc.qty}`;
+});
 export const purchasingDetailSection   = ref('ordering'); // 'ordering' | 'receiving'
 export const purchasingDetailSaving    = ref(false);
 export const purchasingDetailAutoSaved = ref(false); // true briefly after each autosave

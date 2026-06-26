@@ -103,6 +103,32 @@ export async function openWoRequestDetail(req) {
     }
     loadWoFilesForRequest(req.part_number);
 
+    // Live active-WO warning (non-blocking). Excludes this request's own row and the
+    // work_orders it spawned (they share its job_number) so only genuine duplicates show.
+    store.woRequestDetailActiveWos.value = [];
+    db.fetchActiveWosForPart(req.part_number).then(({ data, error }) => {
+        if (error) return; // fail-safe: no banner on lookup failure
+        const wos = (data?.work_orders || []).filter(w =>
+            !(req.job_number && w.job_number === req.job_number));
+        const reqs = (data?.requests || []).filter(r => r.id !== req.id);
+        store.woRequestDetailActiveWos.value = [
+            ...wos.map(w => ({
+                label:  w.wo_number || (w.job_number ? 'Job #' + w.job_number : 'WO'),
+                detail: [w.department, w.status].filter(Boolean).join(' · '),
+            })),
+            ...reqs.map(r => ({ label: 'Request', detail: r.status })),
+        ];
+    });
+
+    // Manual "Real Count" from item_master (non-blocking). Cleared synchronously so a
+    // prior part's count never flashes; guarded by req.id against fast A→B opens.
+    store.woRequestRealCount.value = null;
+    db.fetchItemMasterByPart(req.part_number).then(({ data, error }) => {
+        if (error || !data || data.manual_qty_check == null) return;
+        if (store.selectedWoRequest.value?.id !== req.id) return; // stale: a different request opened
+        store.woRequestRealCount.value = { qty: data.manual_qty_check, date: data.date_manual_count };
+    });
+
     // Auto-fill usage summary + last 3 made (non-blocking)
     const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -271,6 +297,7 @@ export function closeWoRequestDetail() {
     store.selectedWoRequest.value        = null;
     store.woRequestReadOnly.value        = false;
     store.woRequestDefaultsApplied.value = false;
+    store.woRequestDetailActiveWos.value = [];
     store.woRequestSubparts.value         = [];
     store.woRequestSubpartsLoading.value  = false;
     store.woRequestSubpartsExpanded.value = false;
@@ -280,4 +307,5 @@ export function closeWoRequestDetail() {
     store.woRequestSubpartForms.value     = {};
     store.woRequestUsedOn.value           = [];
     store.woRequestUsedOnLoading.value    = false;
+    store.woRequestRealCount.value        = null;
 }

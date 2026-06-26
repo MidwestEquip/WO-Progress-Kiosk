@@ -288,17 +288,6 @@ export function enterWoForecastingView() {
     store.currentView.value    = 'wo_forecasting';
 }
 
-// ── enterInventoryView ────────────────────────────────────────
-// Navigate to the inventory view for a specific tab.
-// splashLevel/Category are preserved so goBack() returns to the inventory sub-menu.
-export function enterInventoryView(tab) {
-    store.inventoryMode.value   = 'parts';
-    store.inventoryTab.value    = tab;
-    store.inventorySearch.value = '';
-    store.inventoryItems.value  = [];
-    store.currentView.value     = 'inventory';
-}
-
 // ── enterPoReceiveView ────────────────────────────────────────
 // Navigate to inventory view in PO Receive mode, loading pending orders.
 export function enterPoReceiveView() {

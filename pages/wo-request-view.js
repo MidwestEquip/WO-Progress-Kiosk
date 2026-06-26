@@ -11,18 +11,24 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
-import { missingSubpartRoutingFields } from '../libs/utils.js';
+import { missingSubpartRoutingFields, normalizePartNumber } from '../libs/utils.js';
 
 // checkWoRequestPartMatch — on blur of Part # field:
 //   1. Queries open_orders for a SO# hint.
 //   2. Auto-fills description from issues_receipts if the field is currently blank.
+//   3. Warns if an active (not-closed-out) WO / open WO request already exists for the part.
 export async function checkWoRequestPartMatch() {
-    const part = (store.woRequestForm.value.part_number || '').trim().toUpperCase();
-    if (!part) { store.woRequestSoHint.value = null; return; }
+    const part = normalizePartNumber(store.woRequestForm.value.part_number);
+    if (!part) {
+        store.woRequestSoHint.value = null;
+        store.woRequestActiveWos.value = { part: '', items: [] };
+        return;
+    }
 
-    const [{ data: ooData }, { data: desc }] = await Promise.all([
+    const [{ data: ooData }, { data: desc }, { data: active }] = await Promise.all([
         db.findOpenOrdersByPartNumber(part),
         db.fetchPartDescription(part),
+        db.fetchActiveWosForPart(part),
     ]);
 
     const match = (ooData || []).find(o => o.sales_order);
@@ -33,6 +39,16 @@ export async function checkWoRequestPartMatch() {
     if (desc && !store.woRequestForm.value.description) {
         store.woRequestForm.value = { ...store.woRequestForm.value, description: desc };
     }
+
+    // Build a flat list of active-WO warning items (work orders + open requests).
+    const items = [
+        ...(active?.work_orders || []).map(w => ({
+            label: w.wo_number || (w.job_number ? 'Job #' + w.job_number : 'WO'),
+            detail: [w.department, w.status].filter(Boolean).join(' · '),
+        })),
+        ...(active?.requests || []).map(r => ({ label: 'Request', detail: r.status })),
+    ];
+    store.woRequestActiveWos.value = { part, items };
 }
 
 // acceptSoHint — copies the hinted SO# into the WO Request form and clears the hint.
@@ -88,6 +104,8 @@ export function resetWoRequestForm() {
         submitted_by: '', is_assembly: false
     };
     store.woRequestFormErrors.value = { part_number: false, qty_in_stock: false, qty_used_per_unit: false, submitted_by: false };
+    store.woRequestSoHint.value     = null;
+    store.woRequestActiveWos.value  = { part: '', items: [] };
 }
 
 // submitWoRequestForm — validate, insert new request, reload list.

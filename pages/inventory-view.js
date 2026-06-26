@@ -1,8 +1,8 @@
 // ============================================================
-// pages/inventory-view.js — Inventory tab logic
+// pages/inventory-view.js — Inventory view logic (PO Receive)
 //
-// Handles: loading items, adding/editing/deleting parts, recording pulls,
-//          viewing pull history.
+// Handles: the PO Receive sub-view (load pending/received purchasing
+//          orders, record receipts, move received orders back to pending).
 // Imports from store + db only. Never imported by other page files.
 // ============================================================
 
@@ -10,204 +10,92 @@ import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
 
-// loadInventoryItems — fetch all rows for the current tab and update store.
-// Called on tab entry and after every mutation.
-export async function loadInventoryItems() {
-    store.inventoryLoading.value = true;
+// ── Inventory Adjustment (item_master manual counts) ──────────
+
+// enterInventoryAdjustView — open the inventory view in manual-count adjustment mode.
+// Search-driven, so no data is preloaded; clears any prior lookup state.
+export function enterInventoryAdjustView() {
+    store.inventoryMode.value           = 'adjust';
+    store.inventoryAdjustSearch.value   = '';
+    store.inventoryAdjustResult.value   = null;
+    store.inventoryAdjustSearched.value = false;
+    store.inventoryAdjustForm.value     = { qty: '', date: new Date().toISOString().slice(0, 10) };
+    store.inventoryAdjustErrors.value   = { qty: false };
+    store.currentView.value             = 'inventory';
+}
+
+// searchItemMasterPart — look up the typed part # in item_master and show its
+// current system on-hand + last manual count. Prefills the qty input with the
+// existing manual count (if any) so the user sees what they'd overwrite.
+export async function searchItemMasterPart() {
+    const part = store.inventoryAdjustSearch.value.trim();
+    if (!part) return;
+    store.inventoryAdjustLoading.value = true;
+    store.inventoryAdjustResult.value  = null;
+    store.inventoryAdjustErrors.value  = { qty: false };
     try {
-        const { data, error } = await db.fetchInventory(store.inventoryTab.value);
+        const { data, error } = await db.fetchItemMasterByPart(part);
         if (error) throw error;
-        store.inventoryItems.value = data || [];
+        store.inventoryAdjustResult.value = data;
+        store.inventoryAdjustForm.value = {
+            qty:  data && data.manual_qty_check != null ? data.manual_qty_check : '',
+            date: new Date().toISOString().slice(0, 10),
+        };
     } catch (err) {
-        store.showToast('Failed to load inventory: ' + err.message);
-        logError('loadInventoryItems', err, { tab: store.inventoryTab.value });
-        store.inventoryItems.value = [];
+        store.showToast('Lookup failed: ' + err.message, 'error');
+        logError('searchItemMasterPart', err, { part });
     } finally {
-        store.inventoryLoading.value = false;
+        store.inventoryAdjustSearched.value = true;
+        store.inventoryAdjustLoading.value  = false;
     }
 }
 
-// switchInventoryTab — change active tab and reload items.
-// Input: tab ('chute'|'hitch'|'engine'|'hardware'|'hoses').
-export async function switchInventoryTab(tab) {
-    store.inventoryTab.value    = tab;
-    store.inventorySearch.value = '';
-    await loadInventoryItems();
+// loadPoDetailRealCount — fetch the manual item_master count for the open purchasing
+// order's part, for the "Real Count" line in the detail modal's Research tab. Cleared
+// first so a prior order's count never lingers; guarded by order id against fast switches.
+export async function loadPoDetailRealCount() {
+    store.poDetailRealCount.value = null;
+    const order = store.purchasingDetailOrder.value;
+    const part  = order?.part_number;
+    if (!part) return;
+    const orderId = order.id;
+    const { data, error } = await db.fetchItemMasterByPart(part);
+    if (error || !data || data.manual_qty_check == null) return;
+    if (store.purchasingDetailOrder.value?.id !== orderId) return; // stale: a different order opened
+    store.poDetailRealCount.value = { qty: data.manual_qty_check, date: data.date_manual_count };
 }
 
-// ── Pull form ─────────────────────────────────────────────────
-
-// openPullForm — open pull form for a specific inventory item.
-export function openPullForm(item) {
-    store.pullFormTarget.value = item;
-    store.pullForm.value = {
-        name:         '',
-        qty_pulled:   '',
-        new_location: '',
-        where_used:   '',
-        date_pulled:  new Date().toISOString().slice(0, 10)
-    };
-    store.pullFormErrors.value = { name: false, qty_pulled: false };
-    store.pullFormOpen.value   = true;
-}
-
-export function closePullForm() {
-    store.pullFormOpen.value   = false;
-    store.pullFormTarget.value = null;
-}
-
-// submitPull — validate, insert pull log row + decrement qty, reload.
-export async function submitPull() {
-    const form   = store.pullForm.value;
-    const errors = { name: false, qty_pulled: false };
-    if (!form.name.trim())                                errors.name       = true;
-    if (!form.qty_pulled || parseFloat(form.qty_pulled) <= 0) errors.qty_pulled = true;
-    store.pullFormErrors.value = errors;
-    if (errors.name || errors.qty_pulled) return;
-
-    store.loading.value = true;
-    try {
-        const { error } = await db.recordPull(
-            store.inventoryTab.value,
-            store.pullFormTarget.value.id,
-            form
-        );
-        if (error) throw error;
-        store.pullFormOpen.value = false;
-        store.showToast('Pull recorded.', 'success');
-        await loadInventoryItems();
-    } catch (err) {
-        store.showToast('Failed to record pull: ' + err.message, 'error');
-        logError('submitPull', err, { id: store.pullFormTarget.value?.id });
-    } finally {
-        store.loading.value = false;
-    }
-}
-
-// ── Add item form ─────────────────────────────────────────────
-
-export function openAddItemForm() {
-    store.addItemForm.value       = { part_number: '', description: '', qty: 0, location: '', refill_location: '' };
-    store.addItemFormErrors.value = { part_number: false };
-    store.addItemFormOpen.value   = true;
-}
-
-export function closeAddItemForm() {
-    store.addItemFormOpen.value = false;
-}
-
-// submitAddItem — validate + insert new part row, reload.
-export async function submitAddItem() {
-    const form = store.addItemForm.value;
-    if (!form.part_number.trim()) {
-        store.addItemFormErrors.value.part_number = true;
+// submitManualCount — validate qty (finite, ≥ 0) and save the count to the matched
+// item_master row by PK id. Reflects the saved values back into the result card.
+export async function submitManualCount() {
+    const row  = store.inventoryAdjustResult.value;
+    const form = store.inventoryAdjustForm.value;
+    if (!row) return;
+    const qty = Number(form.qty);
+    if (form.qty === '' || !Number.isFinite(qty) || qty < 0) {
+        store.inventoryAdjustErrors.value = { qty: true };
         return;
     }
-    store.loading.value = true;
+    store.inventoryAdjustErrors.value = { qty: false };
+    const dateStr = form.date || new Date().toISOString().slice(0, 10);
+    store.inventoryAdjustSaving.value = true;
     try {
-        const { error } = await db.addInventoryItem(store.inventoryTab.value, form);
+        const { data, error } = await db.saveManualCount(row.id, qty, dateStr);
         if (error) throw error;
-        store.addItemFormOpen.value = false;
-        store.showToast('Part added.', 'success');
-        await loadInventoryItems();
+        const saved = (data && data[0]) || {};
+        store.inventoryAdjustResult.value = {
+            ...row,
+            manual_qty_check:  saved.manual_qty_check  ?? qty,
+            date_manual_count: saved.date_manual_count ?? dateStr,
+            source_of_count:   saved.source_of_count   ?? 'manual',
+        };
+        store.showToast('Count saved.', 'success');
     } catch (err) {
-        store.showToast('Failed to add part: ' + err.message, 'error');
-        logError('submitAddItem', err, { tab: store.inventoryTab.value });
+        store.showToast('Failed to save count: ' + err.message, 'error');
+        logError('submitManualCount', err, { id: row.id });
     } finally {
-        store.loading.value = false;
+        store.inventoryAdjustSaving.value = false;
     }
-}
-
-// ── Edit item form ────────────────────────────────────────────
-
-// openEditItemForm — pre-fill edit form with current row values.
-export function openEditItemForm(item) {
-    store.editItemFormTarget.value = item;
-    store.editItemForm.value       = {
-        part_number:     item.part_number,
-        description:     item.description     || '',
-        qty:             item.qty,
-        location:        item.location        || '',
-        refill_location: item.refill_location || ''
-    };
-    store.editItemFormErrors.value = { part_number: false };
-    store.editItemFormOpen.value   = true;
-}
-
-export function closeEditItemForm() {
-    store.editItemFormOpen.value   = false;
-    store.editItemFormTarget.value = null;
-}
-
-// submitEditItem — validate + update row, reload.
-export async function submitEditItem() {
-    const form = store.editItemForm.value;
-    if (!form.part_number.trim()) {
-        store.editItemFormErrors.value.part_number = true;
-        return;
-    }
-    store.loading.value = true;
-    try {
-        const { error } = await db.updateInventoryItem(
-            store.inventoryTab.value,
-            store.editItemFormTarget.value.id,
-            form
-        );
-        if (error) throw error;
-        store.editItemFormOpen.value = false;
-        store.showToast('Part updated.', 'success');
-        await loadInventoryItems();
-    } catch (err) {
-        store.showToast('Failed to update part: ' + err.message, 'error');
-        logError('submitEditItem', err, { id: store.editItemFormTarget.value?.id });
-    } finally {
-        store.loading.value = false;
-    }
-}
-
-// ── Delete ────────────────────────────────────────────────────
-
-// confirmDeleteInventoryItem — confirm dialog, then hard delete (pull log cascades).
-export async function confirmDeleteInventoryItem(item) {
-    if (!confirm(`Delete ${item.part_number}? Pull history will also be removed. This cannot be undone.`)) return;
-    store.loading.value = true;
-    try {
-        const { error } = await db.deleteInventoryItem(store.inventoryTab.value, item.id);
-        if (error) throw error;
-        store.showToast('Part deleted.', 'success');
-        await loadInventoryItems();
-    } catch (err) {
-        store.showToast('Failed to delete part: ' + err.message, 'error');
-        logError('confirmDeleteInventoryItem', err, { id: item.id });
-    } finally {
-        store.loading.value = false;
-    }
-}
-
-// ── Pull history ──────────────────────────────────────────────
-
-// openPullHistory — load pull log for an item and show history modal.
-export async function openPullHistory(item) {
-    store.pullHistoryTarget.value  = item;
-    store.pullHistoryItems.value   = [];
-    store.pullHistoryLoading.value = true;
-    store.pullHistoryOpen.value    = true;
-    try {
-        const { data, error } = await db.fetchPullHistory(store.inventoryTab.value, item.id);
-        if (error) throw error;
-        store.pullHistoryItems.value = data || [];
-    } catch (err) {
-        store.showToast('Failed to load pull history: ' + err.message, 'error');
-        logError('openPullHistory', err, { id: item.id });
-    } finally {
-        store.pullHistoryLoading.value = false;
-    }
-}
-
-export function closePullHistory() {
-    store.pullHistoryOpen.value   = false;
-    store.pullHistoryTarget.value = null;
-    store.pullHistoryItems.value  = [];
 }
 
 // ── PO Receive ────────────────────────────────────────────────
