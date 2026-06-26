@@ -38,7 +38,7 @@
 
                         <!-- Subpart list: full columns + Set up WO (weld_print=yes OR assy WO) -->
                         <div v-else>
-                            <div class="grid pb-1 mb-0.5 border-b border-gray-200" style="grid-template-columns: 6rem 1fr 3.5rem 3.5rem 3.5rem 5rem 3.5rem 5.5rem;">
+                            <div class="grid pb-1 mb-0.5 border-b border-gray-200" style="grid-template-columns: 6rem 1fr 3.5rem 3.5rem 3.5rem 5rem 3.5rem 7.5rem;">
                                 <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide pr-3">Part #</span>
                                 <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Description</span>
                                 <span class="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right pr-1">Tot. Sold</span>
@@ -52,7 +52,7 @@
                                 :key="sub.item_child_normalized"
                                 class="border-b border-gray-100 last:border-0">
                                 <!-- Data row -->
-                                <div class="grid items-center py-1.5" style="grid-template-columns: 6rem 1fr 3.5rem 3.5rem 3.5rem 5rem 3.5rem 5.5rem;">
+                                <div class="grid items-center py-1.5" style="grid-template-columns: 6rem 1fr 3.5rem 3.5rem 3.5rem 5rem 3.5rem 7.5rem;">
                                     <span class="font-mono text-xs text-gray-800 truncate pr-3" :title="sub.item_child">{{ sub.item_child }}</span>
                                     <span class="text-xs text-gray-500 truncate pr-2" :title="woRequestSubpartDescs[sub.item_child_normalized]">
                                         {{ (woRequestSubpartDescs[sub.item_child_normalized] || '—').slice(0, 30) }}
@@ -76,13 +76,21 @@
                                         </span>
                                     </span>
                                     <span class="text-xs font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded text-center justify-self-end mr-2">× {{ sub.qty_per_assy }}</span>
-                                    <button @click="openSubpartWoForm(sub)"
-                                        class="text-xs font-semibold px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
-                                        :class="woRequestSubpartForms[sub.item_child_normalized]?.expanded ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'">
-                                        {{ woRequestSubpartForms[sub.item_child_normalized]?.expanded ? 'Close' : 'Set up WO' }}
-                                    </button>
+                                    <div class="flex items-center justify-end gap-1">
+                                        <!-- Full-screen inspect (more data) -->
+                                        <button @click="inspectSubpart(sub)" title="Open full screen with usage data"
+                                            class="shrink-0 p-1.5 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-700 transition-colors">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                                        </button>
+                                        <!-- Inline compact setup -->
+                                        <button @click="openSubpartWoForm(sub)"
+                                            class="text-xs font-semibold px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
+                                            :class="woRequestSubpartForms[sub.item_child_normalized]?.expanded ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'">
+                                            {{ woRequestSubpartForms[sub.item_child_normalized]?.expanded ? 'Close' : 'Set up WO' }}
+                                        </button>
+                                    </div>
                                 </div>
-                                <!-- Expandable WO form -->
+                                <!-- Expandable inline WO form (compact alternative to full-screen inspect) -->
                                 <div v-if="woRequestSubpartForms[sub.item_child_normalized]?.expanded"
                                     class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2 mx-1">
                                     <div class="flex items-center gap-3 mb-3">

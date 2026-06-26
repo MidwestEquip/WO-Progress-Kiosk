@@ -12,6 +12,11 @@ import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
 import { PURCHASING_3YR_START } from '../libs/config.js';
 
+// _detailGen — monotonic open-generation counter. openWoRequestDetail captures it; every
+// fire-and-forget load checks it before writing, so a newer open (or a subpart drill-in/
+// restore) cancels stale writes that would otherwise clobber the part now on screen.
+let _detailGen = 0;
+
 // boolToYesNo — maps a boolean DB value to 'yes'/'no'/'' for dropdown binding.
 function boolToYesNo(val) {
     if (val === true)  return 'yes';
@@ -21,7 +26,9 @@ function boolToYesNo(val) {
 
 const SUBPART_FORM_BLANK = () => ({ expanded: false, defaultsLoaded: false, qty_to_make: '', fab: '', fab_print: '', weld: '', weld_print: '', assy_wo: '', color: '', bent_rolled_part: '', date_to_start: '', estimated_lead_time: '', set_up_time: '' });
 
-// openSubpartWoForm — toggle inline WO form for a subpart row; auto-fills defaults on first open.
+// openSubpartWoForm — toggle the inline (compact) WO form for a subpart row; auto-fills
+// defaults on first open. The fuller, data-rich alternative is inspectSubpart (full-screen).
+// Both edit the same woRequestSubpartForms[key] entry, so either path can be used per row.
 export async function openSubpartWoForm(sub) {
     const n = sub.item_child_normalized;
     const forms = store.woRequestSubpartForms.value;
@@ -61,6 +68,7 @@ async function calcSubpartStats(subparts) {
 // After populating from the request, fetches part_approval_defaults and fills
 // only blank routing fields — never overwrites values already on the request.
 export async function openWoRequestDetail(req) {
+    const gen = ++_detailGen;             // this open's generation; stale loads bail on mismatch
     store.selectedWoRequest.value        = req;
     store.woRequestDefaultsApplied.value = false;
     const today = new Date().toISOString().slice(0, 10);
@@ -107,6 +115,7 @@ export async function openWoRequestDetail(req) {
     // work_orders it spawned (they share its job_number) so only genuine duplicates show.
     store.woRequestDetailActiveWos.value = [];
     db.fetchActiveWosForPart(req.part_number).then(({ data, error }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         if (error) return; // fail-safe: no banner on lookup failure
         const wos = (data?.work_orders || []).filter(w =>
             !(req.job_number && w.job_number === req.job_number));
@@ -124,6 +133,7 @@ export async function openWoRequestDetail(req) {
     // prior part's count never flashes; guarded by req.id against fast A→B opens.
     store.woRequestRealCount.value = null;
     db.fetchItemMasterByPart(req.part_number).then(({ data, error }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         if (error || !data || data.manual_qty_check == null) return;
         if (store.selectedWoRequest.value?.id !== req.id) return; // stale: a different request opened
         store.woRequestRealCount.value = { qty: data.manual_qty_check, date: data.date_manual_count };
@@ -148,6 +158,7 @@ export async function openWoRequestDetail(req) {
 
     // 1yr: qty_used_in_mfg + qty_made from issues_receipts (rolling 12mo)
     db.fetchPartUsageSummary12Mo(req.part_number).then(({ data, error }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         store.woRequestHistoryLoading.value = false;
         if (error) {
             store.showToast('Could not load part history: ' + error.message, 'error');
@@ -161,12 +172,14 @@ export async function openWoRequestDetail(req) {
     // 1yr: qty_sold from sales_analysis_lines (rolling 12mo)
     const norm = (req.part_number || '').trim().toUpperCase();
     db.fetchQtySoldFromSalesAnalysis([req.part_number], oneYearAgo, today).then(({ data: salesMap, error }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         if (error) { logError('openWoRequestDetail:qtySold1yr', error, { part: req.part_number }); return; }
         store.woRequestDetailForm.value.qty_sold_used_12mo = salesMap[norm] || 0;
     });
 
     // 1yr: parent BOM demand (rolling 12mo)
     db.calculateRecursiveParentUsageDemand(req.part_number, oneYearAgo, today).then(({ data, error }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         store.woRequestParentUsageLoading.value = false;
         if (error) { logError('openWoRequestDetail:parentUsage1yr', error, { part: req.part_number }); return; }
         store.woRequestDetailForm.value.qty_sold_parent_usage_period = data.totalDemand;
@@ -174,6 +187,7 @@ export async function openWoRequestDetail(req) {
 
     // 3yr: qty_used_in_mfg + qty_made from issues_receipts (since 1/1/23)
     db.fetchPartUsageSummary36Mo(req.part_number).then(({ data, error }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         store.woRequestHistoryLoading36mo.value = false;
         if (error) { logError('openWoRequestDetail:history3yr', error, { part: req.part_number }); return; }
         store.woRequestDetailForm.value.qty_used_in_mfg_36mo = data.qty_used_in_mfg_36mo;
@@ -182,18 +196,21 @@ export async function openWoRequestDetail(req) {
 
     // 3yr: qty_sold from sales_analysis_lines (since 1/1/23)
     db.fetchQtySoldFromSalesAnalysis([req.part_number], PURCHASING_3YR_START, today).then(({ data: salesMap, error }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         if (error) { logError('openWoRequestDetail:qtySold3yr', error, { part: req.part_number }); return; }
         store.woRequestDetailForm.value.qty_sold_36mo = salesMap[norm] || 0;
     });
 
     // 3yr: parent BOM demand (since 1/1/23)
     db.calculateRecursiveParentUsageDemand(req.part_number, PURCHASING_3YR_START, today).then(({ data, error }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         store.woRequestParentUsageLoading36mo.value = false;
         if (error) { logError('openWoRequestDetail:parentUsage3yr', error, { part: req.part_number }); return; }
         store.woRequestDetailForm.value.qty_sold_parent_usage_36mo = data.totalDemand;
     });
 
     db.fetchPartLastMade(req.part_number).then(({ data }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         store.woRequestLastMade.value = data || [];
     });
 
@@ -201,6 +218,7 @@ export async function openWoRequestDetail(req) {
     store.woRequestUsedOn.value = [];
     store.woRequestUsedOnLoading.value = true;
     db.fetchBomParentsForChild(req.part_number).then(({ data, error }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         store.woRequestUsedOnLoading.value = false;
         if (error) { logError('openWoRequestDetail:usedOn', error, { part: req.part_number }); return; }
         // Dedupe by parent part #, keeping qty_per_assy; sort for stable display.
@@ -217,6 +235,7 @@ export async function openWoRequestDetail(req) {
         const parentParts = store.woRequestUsedOn.value.map(p => p.part);
         if (parentParts.length > 0) {
             db.fetchBinAndDescForParts(parentParts).then(({ data: bd, error: bdErr }) => {
+                if (gen !== _detailGen) return;    // stale: a newer detail opened
                 if (bdErr) { logError('openWoRequestDetail:usedOnDesc', bdErr); return; }
                 store.woRequestUsedOn.value = store.woRequestUsedOn.value
                     .map(p => ({ ...p, desc: bd.descs[p.part] || '' }));
@@ -224,6 +243,7 @@ export async function openWoRequestDetail(req) {
         }
     });
     db.fetchBomChildrenForParent(req.part_number).then(({ data, error }) => {
+        if (gen !== _detailGen) return;    // stale: a newer detail opened
         store.woRequestSubpartsLoading.value = false;
         if (error) {
             logError('openWoRequestDetail:subparts', error, { part: req.part_number });
@@ -234,12 +254,13 @@ export async function openWoRequestDetail(req) {
         if (subparts.length > 0) {
             const normalized = subparts.map(s => s.item_child_normalized);
             db.fetchBinAndDescForParts(normalized).then(({ data: bd, error: bdErr }) => {
+                if (gen !== _detailGen) return;    // stale: a newer detail opened
                 if (bdErr) { logError('openWoRequestDetail:bins', bdErr); return; }
                 store.woRequestSubpartBins.value  = bd.bins;
                 store.woRequestSubpartDescs.value = bd.descs;
             });
             calcSubpartStats(subparts)
-                .then(s => { store.woRequestSubpartStats.value = s; })
+                .then(s => { if (gen === _detailGen) store.woRequestSubpartStats.value = s; })
                 .catch(err => logError('openWoRequestDetail:subpartStats', err));
         }
     });
@@ -250,6 +271,7 @@ export async function openWoRequestDetail(req) {
     if (req.is_assembly) return;
     try {
         const { data: defaults } = await db.fetchPartApprovalDefault(req.part_number);
+        if (gen !== _detailGen) return;    // stale: a newer detail opened during the await
         if (defaults) {
             const form   = store.woRequestDetailForm.value;
             const FIELDS = ['fab', 'fab_print', 'weld', 'weld_print', 'assy_wo', 'color'];
@@ -308,4 +330,171 @@ export function closeWoRequestDetail() {
     store.woRequestUsedOn.value           = [];
     store.woRequestUsedOnLoading.value    = false;
     store.woRequestRealCount.value        = null;
+    store.woRequestSubpartStack.value     = [];
+    store.woRequestMarkAllSubparts.value  = false;
+}
+
+// ── Subpart inspect (drill-in) ──────────────────────────────────────────────
+// Clicking a BOM subpart reuses the SAME detail modal for that subpart. The parent
+// context is snapshotted onto woRequestSubpartStack so Done/Cancel restore it exactly
+// (no reload, no lost edits); the generation guard cancels in-flight subpart loads.
+
+// _captureDetailSnapshot — snapshot the refs openWoRequestDetail owns. Safe to hold the
+// references: the next open replaces values wholesale rather than mutating in place.
+function _captureDetailSnapshot() {
+    return {
+        selectedWoRequest:        store.selectedWoRequest.value,
+        woRequestReadOnly:        store.woRequestReadOnly.value,
+        woRequestDefaultsApplied: store.woRequestDefaultsApplied.value,
+        detailForm:               store.woRequestDetailForm.value,
+        detailActiveWos:          store.woRequestDetailActiveWos.value,
+        realCount:                store.woRequestRealCount.value,
+        lastMade:                 store.woRequestLastMade.value,
+        subparts:                 store.woRequestSubparts.value,
+        subpartsExpanded:         store.woRequestSubpartsExpanded.value,
+        subpartForms:             store.woRequestSubpartForms.value,
+        subpartBins:              store.woRequestSubpartBins.value,
+        subpartDescs:             store.woRequestSubpartDescs.value,
+        subpartStats:             store.woRequestSubpartStats.value,
+        usedOn:                   store.woRequestUsedOn.value,
+        woFiles:                  store.woFiles.value,
+    };
+}
+
+// _restoreDetailSnapshot — put a captured parent context back; bumps the generation so
+// any still-pending subpart loads bail instead of clobbering it.
+function _restoreDetailSnapshot(s) {
+    _detailGen++;
+    store.selectedWoRequest.value         = s.selectedWoRequest;
+    store.woRequestReadOnly.value         = s.woRequestReadOnly;
+    store.woRequestDefaultsApplied.value  = s.woRequestDefaultsApplied;
+    store.woRequestDetailForm.value       = s.detailForm;
+    store.woRequestDetailActiveWos.value  = s.detailActiveWos;
+    store.woRequestRealCount.value        = s.realCount;
+    store.woRequestLastMade.value         = s.lastMade;
+    store.woRequestSubparts.value         = s.subparts;
+    store.woRequestSubpartsExpanded.value = s.subpartsExpanded;
+    store.woRequestSubpartForms.value     = s.subpartForms;
+    store.woRequestSubpartBins.value      = s.subpartBins;
+    store.woRequestSubpartDescs.value     = s.subpartDescs;
+    store.woRequestSubpartStats.value     = s.subpartStats;
+    store.woRequestUsedOn.value           = s.usedOn;
+    store.woFiles.value                   = s.woFiles;
+    store.woRequestUsedOnLoading.value    = false;
+    store.woRequestSubpartsLoading.value  = false;
+    store.woFilesLoading.value            = false;
+}
+
+// _detailFormToSubpartPlan — map the detail form back to the compact subpart-plan shape.
+function _detailFormToSubpartPlan(f) {
+    return {
+        expanded: false,
+        defaultsLoaded: true,
+        qty_to_make:         f.qty_to_make         ?? '',
+        fab:                 f.fab                 || '',
+        fab_print:           f.fab_print           || '',
+        weld:                f.weld                || '',
+        weld_print:          f.weld_print          || '',
+        assy_wo:             f.assy_wo             || '',
+        color:               f.color               || '',
+        bent_rolled_part:    f.bent_rolled_part    || '',
+        date_to_start:       f.date_to_start       || '',
+        estimated_lead_time: f.estimated_lead_time ?? '',
+        set_up_time:         f.set_up_time         ?? '',
+    };
+}
+
+// inspectSubpart — drill into a BOM subpart: snapshot the parent, seed a pseudo-request
+// from the subpart + any plan already entered, then reuse openWoRequestDetail to load it.
+export async function inspectSubpart(sub) {
+    const key = sub.item_child_normalized;
+    store.woRequestMarkAllSubparts.value = false;   // each drill starts unchecked
+    const snap = _captureDetailSnapshot();
+    snap.subpartKey  = key;
+    snap.subpartPart = store.selectedWoRequest.value?.part_number || '';
+    store.woRequestSubpartStack.value = [...store.woRequestSubpartStack.value, snap];
+
+    const plan = store.woRequestSubpartForms.value[key] || {};
+    const pseudo = {
+        id: null,
+        part_number:  sub.item_child,
+        description:  store.woRequestSubpartDescs.value[key] || '',
+        status:       'subpart',
+        is_assembly:  false,
+        job_number:   null,
+        subpart_plans: null,
+        qty_in_stock: null,
+        qty_to_make:         plan.qty_to_make         ?? '',
+        fab:                 plan.fab                 || '',
+        fab_print:           plan.fab_print           || '',
+        weld:                plan.weld                || '',
+        weld_print:          plan.weld_print          || '',
+        assy_wo:             plan.assy_wo             || '',
+        color:               plan.color               || '',
+        bent_rolled_part:    plan.bent_rolled_part === 'yes' ? true : plan.bent_rolled_part === 'no' ? false : null,
+        date_to_start:       plan.date_to_start       || '',
+        estimated_lead_time: plan.estimated_lead_time ?? '',
+        set_up_time:         plan.set_up_time         ?? '',
+    };
+    // Clear the child level's subpart state so the parent's lists don't bleed through
+    // before this part's BOM children load.
+    store.woRequestSubpartForms.value = {};
+    store.woRequestSubpartBins.value  = {};
+    store.woRequestSubpartDescs.value = {};
+    store.woRequestSubpartStats.value = {};
+    await openWoRequestDetail(pseudo);
+}
+
+// _SUBPART_PLAN_FIELDS — the data fields copied between subparts (excludes UI flags).
+const _SUBPART_PLAN_FIELDS = ['qty_to_make', 'fab', 'fab_print', 'weld', 'weld_print',
+    'assy_wo', 'color', 'bent_rolled_part', 'date_to_start', 'estimated_lead_time', 'set_up_time'];
+// _isBlankPlanValue — empty string / null / undefined = "not filled yet".
+const _isBlankPlanValue = (v) => v === '' || v == null;
+
+// finishSubpartInspect — "Done": write the inspected subpart's plan back to the parent
+// map, restore the parent, pop the stack. With "mark all" ticked, also fill every other
+// subpart's still-blank fields from this one (never overwrites customized values).
+export function finishSubpartInspect() {
+    const stack = store.woRequestSubpartStack.value;
+    if (!stack.length) return;
+    const snap = stack[stack.length - 1];
+    const subForm = _detailFormToSubpartPlan(store.woRequestDetailForm.value);
+    const markAll = store.woRequestMarkAllSubparts.value;
+
+    _restoreDetailSnapshot(snap);
+    store.woRequestSubpartStack.value = stack.slice(0, -1);
+
+    const forms = { ...store.woRequestSubpartForms.value };
+    forms[snap.subpartKey] = { ...(forms[snap.subpartKey] || {}), ...subForm };
+
+    if (markAll) {
+        // Fill blank fields of every other sibling subpart with this one's values.
+        for (const sib of (snap.subparts || [])) {
+            const k = sib.item_child_normalized;
+            if (k === snap.subpartKey) continue;
+            const target = { expanded: false, defaultsLoaded: true, ...(forms[k] || {}) };
+            for (const f of _SUBPART_PLAN_FIELDS) {
+                if (_isBlankPlanValue(target[f])) target[f] = subForm[f];
+            }
+            forms[k] = target;
+        }
+    }
+    store.woRequestSubpartForms.value = forms;
+    store.woRequestMarkAllSubparts.value = false;
+}
+
+// cancelSubpartInspect — discard the inspected subpart's edits and return to the parent.
+export function cancelSubpartInspect() {
+    const stack = store.woRequestSubpartStack.value;
+    if (!stack.length) return;
+    _restoreDetailSnapshot(stack[stack.length - 1]);
+    store.woRequestSubpartStack.value = stack.slice(0, -1);
+    store.woRequestMarkAllSubparts.value = false;
+}
+
+// dismissWoRequestDetail — the modal's X / backdrop handler. Pops one subpart level
+// (discarding edits) while drilled in; closes the whole modal at the top level.
+export function dismissWoRequestDetail() {
+    if (store.woRequestSubpartStack.value.length) cancelSubpartInspect();
+    else closeWoRequestDetail();
 }

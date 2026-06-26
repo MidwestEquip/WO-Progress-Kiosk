@@ -2,22 +2,32 @@
         <!-- Rendered globally so it can be opened from both wo_request and create_wo views -->
         <div v-if="selectedWoRequest"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-            @click.self="closeWoRequestDetail">
+            @click.self="dismissWoRequestDetail">
 
-            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-[82vw] max-h-[90vh] overflow-y-auto flex flex-col">
+            <div class="bg-white rounded-2xl shadow-2xl w-full overflow-y-auto flex flex-col transition-all"
+                :class="isSubpartInspect ? 'max-w-[72vw] max-h-[82vh] ring-2 ring-indigo-300' : 'max-w-[82vw] max-h-[90vh]'">
 
                 <!-- Modal header -->
                 <div class="flex items-start justify-between px-6 py-3 border-b border-gray-200 shrink-0">
                     <div>
                         <div class="flex items-center gap-3 flex-wrap">
                             <h3 class="text-2xl font-extrabold text-gray-800 font-mono">{{ selectedWoRequest.part_number }}</h3>
-                            <span :class="{
+                            <span v-if="isSubpartInspect"
+                                class="text-xs font-bold px-2.5 py-1 rounded-full uppercase bg-indigo-100 text-indigo-700">
+                                Subpart of {{ woRequestSubpartParentLabel }}
+                            </span>
+                            <span v-else :class="{
                                 'bg-amber-100 text-amber-700': selectedWoRequest.status === 'pending',
                                 'bg-green-100 text-green-700': selectedWoRequest.status === 'approved',
                                 'bg-blue-100  text-blue-700':  selectedWoRequest.status === 'in production'
                             }" class="text-xs font-bold px-2.5 py-1 rounded-full uppercase">
                                 {{ selectedWoRequest.status }}
                             </span>
+                            <button v-if="!isSubpartInspect && !woRequestReadOnly && selectedWoRequest.status === 'pending'"
+                                @click="moveWoRequestToOrder" :disabled="loading"
+                                class="bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-3 py-1 rounded-full font-bold text-xs uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                Move to PO Ordering
+                            </button>
                             <span v-if="selectedWoRequest.on_hold"
                                 class="text-xs font-bold px-2.5 py-1 rounded-full uppercase bg-red-100 text-red-700">On Hold</span>
                             <!-- Live active-WO warning: one red pill per existing active WO/request for this part -->
@@ -28,13 +38,13 @@
                             </span>
                         </div>
                         <p v-if="selectedWoRequest.description" class="text-sm text-gray-500 mt-1">{{ selectedWoRequest.description }}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">Submitted {{ selectedWoRequest.request_date }} by {{ selectedWoRequest.submitted_by }}</p>
+                        <p v-if="!isSubpartInspect" class="text-xs text-gray-400 mt-0.5">Submitted {{ selectedWoRequest.request_date }} by {{ selectedWoRequest.submitted_by }}</p>
                         <div v-if="selectedWoRequest.job_number" class="flex items-center gap-3 mt-1">
                             <span class="text-xs font-bold text-slate-600 bg-slate-100 border border-slate-300 px-2.5 py-0.5 rounded-full font-mono">Job #{{ selectedWoRequest.job_number }}</span>
                             <span class="text-xs text-gray-500">WO #: <span :class="selectedWoRequest.alere_wo_number ? 'font-semibold text-gray-700' : 'italic text-gray-400'">{{ selectedWoRequest.alere_wo_number || 'Pending' }}</span></span>
                         </div>
                         <div class="flex flex-wrap gap-4 mt-1 text-xs text-gray-400">
-                            <span class="flex items-center gap-1">
+                            <span v-if="!isSubpartInspect" class="flex items-center gap-1">
                                 SO:
                                 <input v-model="woRequestDetailForm.sales_order_number" type="text" maxlength="50"
                                     :readonly="selectedWoRequest.status === 'in production'"
@@ -49,7 +59,7 @@
                             <span v-if="selectedWoRequest.qty_used_per_unit != null">Per Unit: {{ selectedWoRequest.qty_used_per_unit }}</span>
                         </div>
                         <!-- Status Notes + On-Hold (note doubles as the on-hold reason) -->
-                        <div class="flex items-center gap-2 mt-2">
+                        <div v-if="!isSubpartInspect" class="flex items-center gap-2 mt-2">
                             <button v-if="!woRequestReadOnly" type="button"
                                 @click="toggleWoRequestOnHold()"
                                 :class="woRequestDetailForm.on_hold ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'"
@@ -65,18 +75,18 @@
                     </div>
                     <div class="flex items-center gap-2 shrink-0 ml-4">
                         <span v-if="woRequestReadOnly" class="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">View Only</span>
-                        <label v-if="!woRequestReadOnly" class="cursor-pointer bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
+                        <label v-if="!woRequestReadOnly && !isSubpartInspect" class="cursor-pointer bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                             Attach File
                             <input type="file" class="sr-only" accept=".pdf,.dxf,.dwg,.png,.jpg" @change="handleWoFileUploadForRequest($event)">
                         </label>
-                        <button v-if="!woRequestReadOnly" @click="deleteWoRequestItem(selectedWoRequest.id)"
+                        <button v-if="!woRequestReadOnly && !isSubpartInspect" @click="deleteWoRequestItem(selectedWoRequest.id)"
                             class="text-gray-400 hover:text-red-500 p-2 rounded-lg transition-colors">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
                         </button>
-                        <button @click="closeWoRequestDetail"
+                        <button @click="dismissWoRequestDetail"
                             class="text-gray-400 hover:text-gray-700 p-2 rounded-lg transition-colors">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -91,9 +101,12 @@
                     <!-- ── Left column: Production Details ── -->
                     <div class="flex-1 px-6 py-4 min-w-0">
                         <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-0.5">Production Details</p>
-                        <p class="text-xs text-gray-400 mb-2">
+                        <p v-if="!isSubpartInspect" class="text-xs text-gray-400 mb-2">
                             <span class="text-green-600 font-semibold">Approve</span> requires all 10 fields marked below.
                             <span class="text-gray-400">Use Save to record progress without approving.</span>
+                        </p>
+                        <p v-else class="text-xs text-gray-400 mb-2">
+                            Set up this subpart's routing &amp; qty, then click <span class="text-emerald-600 font-semibold">Done</span> to return.
                         </p>
 
                         <!-- Assembly WO indicator (routing pre-filled from the assembly template) -->
@@ -308,8 +321,27 @@
                             </div>
                         </div>
 
+                        <!-- Subpart inspect footer: mark-all checkbox + Cancel / Done -->
+                        <div v-if="isSubpartInspect" class="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-gray-100">
+                            <label class="flex items-center gap-2 text-xs font-semibold text-gray-600 cursor-pointer select-none">
+                                <input type="checkbox" v-model="woRequestMarkAllSubparts" class="w-4 h-4 accent-indigo-600">
+                                Mark all subparts the same <span class="font-normal text-gray-400">(fills blank fields only)</span>
+                            </label>
+                            <div class="flex items-center gap-3">
+                                <button @click="cancelSubpartInspect"
+                                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all">
+                                    Cancel
+                                </button>
+                                <button @click="finishSubpartInspect"
+                                    class="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                    Done
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- Save / Approve / Forecast row -->
-                        <div v-if="!woRequestReadOnly" class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                        <div v-else-if="!woRequestReadOnly" class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                             <button @click="openSendToForecast(selectedWoRequest)" :disabled="loading"
                                 class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-5 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -318,10 +350,6 @@
                                 Send to WO Forecasting
                             </button>
                             <div class="flex items-center gap-3">
-                                <button v-if="selectedWoRequest?.status === 'pending'" @click="moveWoRequestToOrder" :disabled="loading"
-                                    class="bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 px-5 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                                    Move to PO Ordering
-                                </button>
                                 <button @click="saveWoRequestDetail" :disabled="loading"
                                     class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                                     Save

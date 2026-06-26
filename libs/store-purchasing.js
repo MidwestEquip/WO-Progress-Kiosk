@@ -207,7 +207,7 @@ export const purchasingPartSuggestedQty = computed(() => {
     const total  = (u.qty_sold || 0) + (purchasingPartParentUsage.value || 0);
     const est    = purchasingPartEstQtyInStock.value;
     if (total === 0 || est === null) return null;
-    const needed = total - est;
+    const needed = total - Math.max(est, 0); // negative stock counts as 0
     return needed <= 0 ? null : Math.ceil(needed * 1.05);
 });
 
@@ -230,8 +230,22 @@ export const purchasingPartSuggestedQty36mo = computed(() => {
     const total  = (u.qty_sold || 0) + (purchasingPartParentUsage36mo.value || 0);
     const est    = purchasingPartEstQtyInStock36mo.value;
     if (total === 0 || est === null) return null;
-    const needed = total - est;
+    const yearlyDemand = total / 3; // make a 1-year supply, not 3 years
+    const needed = yearlyDemand - Math.max(est, 0); // negative stock counts as 0
     return needed <= 0 ? null : Math.ceil(needed * 1.05);
+});
+
+// purchasingPartYearlyAvg36mo — Since-Jan-2023 totals divided by 3 (≈ per-year average).
+// Returns { sold, parent, purchased, mfg }; each value is null when the source is blank.
+export const purchasingPartYearlyAvg36mo = computed(() => {
+    const u   = purchasingPartUsage36mo.value;
+    const avg = (n) => (n == null || isNaN(n)) ? null : Math.round(n / 3);
+    return {
+        sold:      avg(u ? u.qty_sold : null),
+        parent:    avg(purchasingPartParentUsage36mo.value),
+        purchased: avg(u ? u.qty_purchased_36mo : null),
+        mfg:       avg(u ? u.qty_used_mfg : null),
+    };
 });
 
 // purchasingTabCounts — open order counts per ordering tab for badge display.

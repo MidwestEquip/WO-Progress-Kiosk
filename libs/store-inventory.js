@@ -87,6 +87,21 @@ export const woRequestSubpartMode = computed(() => {
     return 'none';
 });
 
+// woRequestSubpartStack — drill-in stack for inspecting a subpart as if it were the
+// requested part. Each entry is a snapshot of the parent detail context (see
+// inspectSubpart in wo-request-detail.js). Empty = viewing the top-level request.
+export const woRequestSubpartStack = ref([]);
+// woRequestMarkAllSubparts — checkbox in the subpart inspector. When ticked, clicking
+// Done copies the inspected subpart's fields into every other subpart (blank fields only).
+export const woRequestMarkAllSubparts = ref(false);
+// isSubpartInspect — true while the detail modal is showing a drilled-in subpart.
+export const isSubpartInspect = computed(() => woRequestSubpartStack.value.length > 0);
+// woRequestSubpartParentLabel — parent part # of the subpart currently being inspected.
+export const woRequestSubpartParentLabel = computed(() => {
+    const s = woRequestSubpartStack.value;
+    return s.length ? (s[s.length - 1].subpartPart || '') : '';
+});
+
 export const woRequestSubpartEstHave = computed(() => {
     const map = {};
     for (const [n, s] of Object.entries(woRequestSubpartStats.value)) {
@@ -138,7 +153,7 @@ export const woRequestSuggestedQty = computed(() => {
     const est    = woRequestEstQtyInStock.value;
     const total  = sold + parent;
     if (total === 0 || est === null) return null;
-    const needed = total - est;
+    const needed = total - Math.max(est, 0); // negative stock counts as 0
     if (needed <= 0) return null;
     return Math.ceil(needed * 1.05);
 });
@@ -173,9 +188,26 @@ export const woRequestSuggestedQty36mo = computed(() => {
     const est    = woRequestEstQtyInStock36mo.value;
     const total  = sold + parent;
     if (total === 0 || est === null) return null;
-    const needed = total - est;
+    const yearlyDemand = total / 3; // make a 1-year supply, not 3 years
+    const needed = yearlyDemand - Math.max(est, 0); // negative stock counts as 0
     if (needed <= 0) return null;
     return Math.ceil(needed * 1.05);
+});
+
+// woRequestYearlyAvg36mo — Since-Jan-2023 totals divided by 3 (≈ per-year average).
+// Returns { sold, parent, mfg, made }; each value is null when the source is blank.
+export const woRequestYearlyAvg36mo = computed(() => {
+    const f = woRequestDetailForm.value;
+    const avg = (v) => {
+        const n = parseFloat(v);
+        return isNaN(n) ? null : Math.round(n / 3);
+    };
+    return {
+        sold:   avg(f.qty_sold_36mo),
+        parent: avg(f.qty_sold_parent_usage_36mo),
+        mfg:    avg(f.qty_used_in_mfg_36mo),
+        made:   avg(f.qty_made_36mo),
+    };
 });
 
 // ── WO Forecasting ────────────────────────────────────────────

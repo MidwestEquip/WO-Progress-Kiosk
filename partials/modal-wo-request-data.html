@@ -101,19 +101,23 @@
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Sold</label>
                                     <div class="w-full px-2 py-1.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-800 font-bold text-sm">{{ woRequestDetailForm.qty_sold_36mo !== '' ? woRequestDetailForm.qty_sold_36mo : '—' }}</div>
+                                    <p v-if="woRequestYearlyAvg36mo.sold !== null" class="text-xs text-gray-400 mt-0.5">Yearly avg: <span class="font-semibold text-gray-600">{{ woRequestYearlyAvg36mo.sold }}</span></p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Sold of Used On</label>
                                     <div v-if="woRequestParentUsageLoading36mo" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Loading…</div>
                                     <div v-else class="w-full px-2 py-1.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-800 font-bold text-sm">{{ woRequestDetailForm.qty_sold_parent_usage_36mo !== '' ? woRequestDetailForm.qty_sold_parent_usage_36mo : '—' }}</div>
+                                    <p v-if="woRequestYearlyAvg36mo.parent !== null" class="text-xs text-gray-400 mt-0.5">Yearly avg: <span class="font-semibold text-gray-600">{{ woRequestYearlyAvg36mo.parent }}</span></p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Used in MFG</label>
                                     <div class="w-full px-2 py-1.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-800 font-bold text-sm">{{ woRequestDetailForm.qty_used_in_mfg_36mo !== '' ? woRequestDetailForm.qty_used_in_mfg_36mo : '—' }}</div>
+                                    <p v-if="woRequestYearlyAvg36mo.mfg !== null" class="text-xs text-gray-400 mt-0.5">Yearly avg: <span class="font-semibold text-gray-600">{{ woRequestYearlyAvg36mo.mfg }}</span></p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Made</label>
                                     <div class="w-full px-2 py-1.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-800 font-bold text-sm">{{ woRequestDetailForm.qty_made_36mo !== '' ? woRequestDetailForm.qty_made_36mo : '—' }}</div>
+                                    <p v-if="woRequestYearlyAvg36mo.made !== null" class="text-xs text-gray-400 mt-0.5">Yearly avg: <span class="font-semibold text-gray-600">{{ woRequestYearlyAvg36mo.made }}</span></p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Est. Qty in Stock</label>
@@ -135,7 +139,7 @@
                                     <div v-if="woRequestHistoryLoading36mo || woRequestParentUsageLoading36mo" class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Calculating…</div>
                                     <div v-else-if="woRequestSuggestedQty36mo !== null"
                                         class="w-full px-2 py-1.5 border border-blue-300 bg-blue-50 rounded-lg text-blue-800 font-bold text-sm">
-                                        {{ woRequestSuggestedQty36mo }}<span class="font-normal text-blue-500 text-xs ml-1">(demand − est. stock + 5%)</span>
+                                        {{ woRequestSuggestedQty36mo }}<span class="font-normal text-blue-500 text-xs ml-1">(yearly demand − est. stock + 5%)</span>
                                     </div>
                                     <div v-else class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm">—</div>
                                 </div>

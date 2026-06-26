@@ -203,6 +203,7 @@
                                 <div class="bg-gray-50 rounded-lg px-3 py-2">
                                     <p class="text-xs text-gray-400 mb-0.5">Qty Sold</p>
                                     <p class="text-sm font-bold text-gray-800">{{ purchasingPartUsage36mo ? purchasingPartUsage36mo.qty_sold : '—' }}</p>
+                                    <p v-if="purchasingPartYearlyAvg36mo.sold !== null" class="text-xs text-gray-400 mt-0.5">Yearly avg: <span class="font-semibold text-gray-600">{{ purchasingPartYearlyAvg36mo.sold }}</span></p>
                                 </div>
                                 <div class="bg-gray-50 rounded-lg px-3 py-2">
                                     <p class="text-xs text-gray-400 mb-0.5">Qty Sold of Used On</p>
@@ -210,14 +211,17 @@
                                         <span v-if="purchasingPartParentUsageLoading36mo" class="text-gray-400 italic text-xs">Loading…</span>
                                         <span v-else>{{ purchasingPartParentUsage36mo ?? '—' }}</span>
                                     </p>
+                                    <p v-if="!purchasingPartParentUsageLoading36mo && purchasingPartYearlyAvg36mo.parent !== null" class="text-xs text-gray-400 mt-0.5">Yearly avg: <span class="font-semibold text-gray-600">{{ purchasingPartYearlyAvg36mo.parent }}</span></p>
                                 </div>
                                 <div class="bg-gray-50 rounded-lg px-3 py-2">
                                     <p class="text-xs text-gray-400 mb-0.5">Qty Purchased</p>
                                     <p class="text-sm font-bold text-gray-800">{{ purchasingPartUsage36mo ? purchasingPartUsage36mo.qty_purchased_36mo : '—' }}</p>
+                                    <p v-if="purchasingPartYearlyAvg36mo.purchased !== null" class="text-xs text-gray-400 mt-0.5">Yearly avg: <span class="font-semibold text-gray-600">{{ purchasingPartYearlyAvg36mo.purchased }}</span></p>
                                 </div>
                                 <div class="bg-gray-50 rounded-lg px-3 py-2">
                                     <p class="text-xs text-gray-400 mb-0.5">Qty Used in MFG</p>
                                     <p class="text-sm font-bold text-gray-800">{{ purchasingPartUsage36mo ? purchasingPartUsage36mo.qty_used_mfg : '—' }}</p>
+                                    <p v-if="purchasingPartYearlyAvg36mo.mfg !== null" class="text-xs text-gray-400 mt-0.5">Yearly avg: <span class="font-semibold text-gray-600">{{ purchasingPartYearlyAvg36mo.mfg }}</span></p>
                                 </div>
                             </div>
                             <div class="grid grid-cols-3 gap-2">
