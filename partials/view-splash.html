@@ -293,7 +293,7 @@
                 <!-- ── Level 1: Engineering sub-menu ──────────────── -->
                 <div v-else-if="splashLevel === 1 && splashCategory === 'engineering'"
                     class="w-full max-w-7xl px-4 flex flex-col items-center gap-8">
-                    <div class="grid grid-cols-3 gap-6 w-full max-w-3xl">
+                    <div class="grid grid-cols-4 gap-6 w-full max-w-5xl">
                         <!-- Customer Inquiries & Concerns -->
                         <button @click="enterEngineeringInquiriesView"
                             class="bg-white hover:bg-rose-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-rose-400 active:scale-95 transition-transform">
@@ -324,6 +324,19 @@
                             </svg>
                             <span class="text-xl font-bold uppercase text-center">Prints / Files Update</span>
                             <span class="text-xs text-gray-400 text-center">Search by part #</span>
+                        </button>
+                        <!-- Part Changes -->
+                        <button @click="enterPartChangesView"
+                            class="relative bg-white hover:bg-teal-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-teal-300 active:scale-95 transition-transform">
+                            <span v-if="partChangeOpenCount > 0"
+                                class="absolute top-3 right-3 min-w-[1.5rem] h-6 px-1.5 flex items-center justify-center rounded-full text-xs font-extrabold text-white bg-amber-400">
+                                {{ partChangeOpenCount }}
+                            </span>
+                            <svg class="w-8 h-8 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                            </svg>
+                            <span class="text-xl font-bold uppercase text-center">Part Changes</span>
+                            <span class="text-xs text-gray-400 text-center">Replacements &amp; BOM checklists</span>
                         </button>
                     </div>
                 </div>

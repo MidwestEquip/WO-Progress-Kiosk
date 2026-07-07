@@ -41,10 +41,12 @@ No circular dependencies. No surprise breakage.
          |
     pages/*.js     <- Imports from store + db + utils. All business logic lives here.
          |
-    expose-core.js <- Imports from store + pages. Builds Vue template bindings (state + core UI).
-    expose-ops.js  <- Imports from store + pages. Builds Vue template bindings (ops + workflows).
+    expose-core.js     <- Imports from store + pages. Builds Vue template bindings (state + core UI).
+    expose-ops.js      <- Imports from store + pages. Builds Vue template bindings (ops + workflows).
+    expose-eng.js      <- Imports from store + pages. Builds Vue template bindings (engineering domain).
+    expose-shipping.js <- Imports from store + pages. Builds Vue template bindings (open orders + completed orders).
          |
-    main.js        <- Startup + lifecycle only. Calls buildCoreExpose() + buildOpsExpose(). No logic.
+    main.js        <- Startup + lifecycle only. Calls buildCoreExpose() + buildOpsExpose() + buildEngExpose() + buildShippingExpose(). No logic.
          |
     partials/*.html <- Template fragments. No logic. All behavior via Vue directives.
 
@@ -55,7 +57,7 @@ Rules that enforce the tree:
 - store.js: only ref() and computed(). No fetch calls. No DB access. Import from config + utils only.
 - db.js: all Supabase calls go here and ONLY here. No business logic. Import from config + utils only.
 - pages/*.js: business logic and UI handlers. May import from store, db, utils. Never from other page files.
-- expose-core.js / expose-ops.js: import from store + pages only. Return plain objects for Vue setup(). No logic.
+- expose-core.js / expose-ops.js / expose-eng.js / expose-shipping.js: import from store + pages only. Return plain objects for Vue setup(). No logic.
 - main.js: startup, lifecycle watchers, loadPartials(). Calls expose files. Zero business logic.
 - partials/*.html: template only. Never add script logic blocks. All behavior via Vue directives.
 
@@ -89,6 +91,8 @@ If you feel the urge to break this tree, stop and propose an alternative. Never 
 | pages/engineering-followup.js   | Engineering customer follow-up actions              | Inquiry logic                   |
 | expose-core.js                  | Vue bindings: state, core UI functions              | Business logic, DB calls        |
 | expose-ops.js                   | Vue bindings: ops, workflows, management            | Business logic, DB calls        |
+| expose-eng.js                   | Vue bindings: engineering domain                    | Business logic, DB calls        |
+| expose-shipping.js              | Vue bindings: open orders + completed orders        | Business logic, DB calls        |
 | main.js                         | Startup, lifecycle watchers, loadPartials()         | Business logic, DB calls        |
 | index.html                      | Thin shell: head + #app div + script tag only       | Any template content            |
 ---
@@ -324,9 +328,12 @@ Files currently over 500 lines were split on 2026-04-13 into sub-files. The sub-
 Known exceptions that cannot be split further without introducing components:
 - `main.js` (~176 lines): startup + lifecycle only. Template bindings moved to expose-core.js
   and expose-ops.js. Cap is 250 lines — if it grows past that, something is wrong.
-- `expose-core.js` / `expose-ops.js`: pure binding manifests, grow linearly. Keep each under 500 lines.
-- `partials/view-open-orders.html` (~705 lines): single continuous row template with 19
-  columns; there is no v-if boundary to split at. Keep under 800 lines.
+- `expose-core.js` / `expose-ops.js` / `expose-eng.js` / `expose-shipping.js`: pure binding manifests, grow linearly. Keep each under 500 lines.
+- `partials/view-open-orders.html` (~722 lines): single continuous row template with 18
+  columns; there is no v-if boundary left to split at (top bar and action bar already
+  extracted; config-driven cell compression proposed July 2026 and declined). Keep under
+  800 lines. USER DIRECTIVE: any NEW Open Orders UI block (bars, panels, modals) goes in
+  its own partial — only edits to existing row-grid cells may touch this file.
 - `pages/wo-request-view.js` (~530 lines): pre-existing over-cap. Split deferred — do not
   add to this file without splitting first.
 
@@ -524,17 +531,69 @@ Always prefer standalone for any manager view that shop floor staff might also n
 
 ## Active Patch Series
 
-No active series.
+### BOM editor + native part creation (July 2026)
+Goal: BOM lookup/edit tab in the Part Changes view + New Part form (Alere replacement).
+Decisions: item_master extended (not a second table); BOM edits auto-open a bom_change
+part_changes record; editing/creating is manager-only (read-only otherwise).
+- Patch 1 (DONE, user-run SQL): item_master + item_type, ship_price, box_weight, box_l/w/h,
+  8 attr_* booleans, record_source (default 'ALERE'). See bom-editor-migration.sql.
+- Patch 2: libs/db-bom.js (BOM line CRUD stamped source='native', fetchBomWithDescriptions,
+  checkPartExists, insertItemMasterPart) + ITEM_ATTRIBUTES / RECORD_SOURCE_NATIVE in config.js.
+- Patch 3 (DONE): BOM Lookup tab (read-only) — view-part-changes-bom.html (Teleport into
+  #bom-tab-body), pages/bom-editor.js. 3B: expandable tree — click a row to load the child's
+  own BOM indented one level (flat bomLines rows carry depth/path/expanded/leaf; cycle guard,
+  depth cap 10, leaf rows lose the chevron).
+- Patch 4: manager-only BOM editing + auto-open bom_change record per parent.
+- Patch 5: New Part form (modal-new-part.html) from unknown-part flow + standalone button.
+
+OPS RULE (from Patch 1): any Alere import/squash into item_master or all_boms must skip or
+preserve rows WHERE record_source/source = 'native'.
+
+### Open Orders production-readiness (July 2026)
+Goal: harden the Open Orders (shipping) view before go-live. Approved order:
+- Patch 0A (DONE): selection action bar split → `view-open-orders-actionbar.html` (line-cap relief).
+- Patch 0B (DONE): Open Orders + Completed Orders bindings split from expose-ops.js → `expose-shipping.js`.
+- Patch 1 (DONE): Request WO / Request PO buttons on open order rows (pre-fill + navigate).
+- Patch 2 (DONE): stale/insert fixes — set `last_status_update` on insert; `getStaleHighlightColor` fallback; chute init in paste mode.
+- Patch 3 (DONE): 3A split Add Row(s) modal logic → `pages/open-orders-add.js`; 3B paste hardening —
+  dedup warning w/ per-row "Add anyway" override, `normalizePasteDate` + `matchOpenOrderStatus` in utils.js,
+  paste-preview warning banners + Add?/Date columns, `openOrderPasteAdd/Dup/WarnCount` computeds.
+- Patch 4 (DONE): filter box in top bar — `openOrdersFilter` ref, pure `openOrderMatchesFilter` in utils.js
+  wired into `_openSectionSorted`; filter reset in `enterOpenOrdersView`. view-open-orders.html at 797/800 —
+  Patch 5 needs a mini split first.
+- Patch 5A (DONE): top bar split → `view-open-orders-topbar.html` (Teleport into `#oo-topbar`).
+- Patch 5B (DONE): Qty Pulled ("PLD") shown + inline-editable in Part#/Qty cell; amber when ≠ To Ship.
+- Patch 6A (DONE): purchasing-view.js split (825→459) — steel tab functions → `pages/purchasing-steel.js`;
+  detail-modal quotes → `pages/purchasing-quotes-view.js`. expose-ops + main.js imports repointed.
+- Patch 6B (DONE): PO → open orders sync via shared `_syncOpenOrderForPo` helper in purchasing-receive.js
+  (non-fatal, part orders w/ SO# only, never touches Boxed/Shipped rows). Sites: submit → 'PO Requested';
+  completeOrder + manual status→ordered in _doSave → 'PO Created' + PO# + expected date as deadline;
+  full receive → 'New/Picking' when row still PO Requested/Created.
+- Patch 7 (DONE): delete safety — row deletes now move to open_orders_completed with status 'Deleted'
+  (shipOpenOrder gained a finalStatus param; Restore brings them back; no schema change, no hard deletes).
+  Cleanup: removed unused `moveToSection` + db-level `deleteOpenOrder`, deleted orphaned
+  `modal-open-orders-edit.html`, completed-view count chip says "rows".
+SERIES COMPLETE (July 7, 2026) — remaining deferred items: reminder-email sender backend; Wald/KY section.
+- Deferred: reminder-email sender (button stays; no backend yet). Wald/KY section (bin-prefix routing) is secondary, after this series.
 
 ## Split Needed (pre-existing over-cap files)
 
-- `pages/purchasing-view.js` (726 lines): Split deferred — do not add to this file without splitting first.
+- `pages/wo-request-detail.js` (509 lines): went over cap in the Part Changes chain patch (April counts used a blank-line-skipping counter). Split deferred at user direction — do not add to this file without splitting first. Natural boundary: subpart-inspect functions → pages/wo-request-subparts.js.
 - `partials/modal-purchasing-detail.html` (689 lines): Split deferred — do not add without splitting first.
 - `partials/modal-wo-request.html` (365 lines): Owed split DONE — the Data section (heading through "Last 3 Times Made") was extracted into the teleported partial `modal-wo-request-data.html` (target div `#wo-request-data-body`, same pattern as the subparts teleport). Now under cap.
 
 ---
 
 ## Completed Patch Series
+
+### Part Changes (replacement history + BOM update checklist, July 2026)
+- Patch 1: expose split — engineering bindings moved from expose-core.js to new `expose-eng.js` (expose-ops was at 498/500); main.js calls buildEngExpose().
+- Patch 2: Schema — `part_changes` table (change_type, part/previous part + generated normalized cols, replacement_reason, carry_forward_note, use_previous_for_calcs, checklist JSONB state, status, created/completed meta) + indexes + RLS + GRANT; PART_CHANGE_* constants incl. 7 checklist item definitions in config.js (DB stores only per-item state).
+- Patch 3: `libs/db-part-changes.js` — CRUD + `resolvePartCalcChain` (replacement links only, depth-capped 5, loop-guarded, falls back to [self]) + `fetchOpenChangesForPart`; re-exported by db.js.
+- Patch 4: chain-aware history — `fetchPartUsageSummary12Mo/36Mo` sum across the chain (optional pre-resolved chain param; return gains chain+links; purchasing combines automatically with zero edits); wo-request-detail.js resolves chain once and feeds all 4 history fetches (qty_sold summed over chain; parent BOM demand deliberately single-part); `woRequestCalcChain/ChainParts` in store-inventory.js; indigo breadcrumb banner in modal-wo-request-data.html. Purchasing breadcrumb BANNER deferred until purchasing-view.js/modal-purchasing-detail.html splits.
+- Patch 5: Part Changes view — `pages/part-changes-view.js`, `view-part-changes.html` (engView='part_changes' under currentView='engineering' — no main.js watch needed), `modal-part-change.html` create form, Engineering sub-menu tile (grid 3→4 cols), state in store-engineering.js.
+- Patch 6: detail modal + checklist — ✓/N-A per item stamped {state, by, at} (name required), X/7 badge, `completePartChange` gate (all items checked or N/A), reopen path, editable reason/note/calc-flag locked when completed.
+- Patch 7: warnings — amber "Eng Change Open — verify print/BOM" pills on WO Request detail (selectedWoRequest watch in main.js → `loadWoRequestOpenChanges`, keeping frozen wo-request-detail.js untouched); part-change open-count preload in enterEngineeringMenu + amber badge on the splash tile.
 
 ### view-purchasing.html split + location grouping
 - Split: `view-purchasing.html` (811 lines) reduced to ~65-line shell with empty `#po-tab-body` target div. Tab content extracted to 4 new partials via Vue 3 `<Teleport to="#po-tab-body">`: `view-purchasing-ordering.html` (parts + supplies + steel), `view-purchasing-approval.html`, `view-purchasing-completed.html`, `view-purchasing-quotes.html`. All 4 added to PARTIAL_NAMES after `view-purchasing`.

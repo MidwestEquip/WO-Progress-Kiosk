@@ -168,10 +168,24 @@
                                     Clear &amp; re-paste
                                 </button>
                             </div>
+
+                            <!-- Duplicate / adjusted-value warnings -->
+                            <p v-if="openOrderPasteDupCount > 0"
+                               class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+                                ⚠ {{ openOrderPasteDupCount }} row(s) look like duplicates already on the board
+                                (same Part # + Sales Order). They will be <span class="font-bold">skipped</span> unless you check "Add anyway".
+                            </p>
+                            <p v-if="openOrderPasteWarnCount > 0"
+                               class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+                                ⚠ {{ openOrderPasteWarnCount }} row(s) had a date or status that couldn't be read —
+                                shown below with the adjusted value that will be saved.
+                            </p>
+
                             <div class="border border-slate-200 rounded-lg overflow-x-auto">
                                 <table class="w-full text-xs">
                                     <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider">
                                         <tr>
+                                            <th class="px-2 py-1.5 text-left">Add?</th>
                                             <th class="px-2 py-1.5 text-left">Section</th>
                                             <th class="px-2 py-1.5 text-left">Part #</th>
                                             <th class="px-2 py-1.5 text-left">Ship</th>
@@ -179,12 +193,21 @@
                                             <th class="px-2 py-1.5 text-left">Description</th>
                                             <th class="px-2 py-1.5 text-left">Customer</th>
                                             <th class="px-2 py-1.5 text-left">Sales Ord</th>
+                                            <th class="px-2 py-1.5 text-left">Date</th>
                                             <th class="px-2 py-1.5 text-left">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <tr v-for="(row, i) in openOrderAddPasteRows" :key="i"
-                                            class="border-t border-slate-100 hover:bg-slate-50">
+                                            :class="row._dupe ? 'bg-amber-50' : 'hover:bg-slate-50'"
+                                            class="border-t border-slate-100">
+                                            <td class="px-2 py-1.5">
+                                                <label v-if="row._dupe" class="flex items-center gap-1 text-amber-700 font-semibold whitespace-nowrap cursor-pointer">
+                                                    <input type="checkbox" v-model="row._add_anyway" class="accent-amber-600">
+                                                    <span>DUP</span>
+                                                </label>
+                                                <span v-else class="text-green-600">✓</span>
+                                            </td>
                                             <td class="px-2 py-1.5">
                                                 <span :class="row.order_type === 'tru_cut' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'"
                                                       class="px-1.5 py-0.5 rounded text-xs font-semibold whitespace-nowrap">
@@ -197,7 +220,16 @@
                                             <td class="px-2 py-1.5 text-slate-600 max-w-[160px] truncate">{{ row.description || '' }}</td>
                                             <td class="px-2 py-1.5 text-slate-600">{{ row.customer || '' }}</td>
                                             <td class="px-2 py-1.5 text-slate-600">{{ row.sales_order || '' }}</td>
-                                            <td class="px-2 py-1.5 text-slate-600">{{ row.status || '' }}</td>
+                                            <td class="px-2 py-1.5 whitespace-nowrap"
+                                                :class="row._date_warn ? 'text-amber-700 font-semibold' : 'text-slate-600'"
+                                                :title="row._date_warn ? 'Could not read “' + row._date_warn + '” — today\'s date will be used' : ''">
+                                                {{ row.date_entered }}<span v-if="row._date_warn"> ⚠</span>
+                                            </td>
+                                            <td class="px-2 py-1.5 whitespace-nowrap"
+                                                :class="row._status_warn ? 'text-amber-700 font-semibold' : 'text-slate-600'"
+                                                :title="row._status_warn ? 'Unknown status “' + row._status_warn + '” — New/Picking will be used' : ''">
+                                                {{ row.status }}<span v-if="row._status_warn"> ⚠</span>
+                                            </td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -212,9 +244,9 @@
                             Cancel
                         </button>
                         <button @click="saveOpenOrderRow()"
-                            :disabled="openOrderAddMode === 'paste' && openOrderAddPasteRows.length === 0"
+                            :disabled="openOrderAddMode === 'paste' && openOrderPasteAddCount === 0"
                             class="px-5 py-2 rounded-lg text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                            {{ openOrderAddMode === 'paste' ? 'Add ' + openOrderAddPasteRows.length + ' Row(s)' : 'Add Row' }}
+                            {{ openOrderAddMode === 'paste' ? 'Add ' + openOrderPasteAddCount + ' Row(s)' : 'Add Row' }}
                         </button>
                     </div>
 

@@ -47,7 +47,8 @@
       "Bash(node --check expose-ops.js)",
       "Bash(node --check libs/store-inventory.js)",
       "PowerShell($f = @\\('partials\\\\modal-wo-request.html','partials\\\\modal-wo-request-subparts.html','pages\\\\wo-request-view.js','pages\\\\wo-request-detail.js','libs\\\\utils.js','libs\\\\store-inventory.js','pages\\\\wo-manager-approval.js'\\); foreach \\($x in $f\\) { $n=\\(Get-Content $x | Measure-Object -Line\\).Lines; \"$n`t$x\" })",
-      "Bash(node --check pages/subassy-setup.js)"
+      "Bash(node --check pages/subassy-setup.js)",
+      "PowerShell(Get-ChildItem pages\\\\wo-request-detail.js, pages\\\\wo-request-view.js, pages\\\\engineering-view.js, pages\\\\engineering-followup.js, pages\\\\splash-view.js, libs\\\\store-inventory.js, libs\\\\store-engineering.js, libs\\\\db-part-defaults.js, libs\\\\db-followup.js, libs\\\\config.js, expose-ops.js, main.js, partials\\\\modal-wo-request.html, partials\\\\modal-wo-request-data.html, partials\\\\view-splash.html | ForEach-Object { \"{0,5}  {1}\" -f \\(Get-Content $_.FullName | Measure-Object -Line\\).Lines, $_.FullName.Replace\\(\\(Get-Location\\).Path + '\\\\',''\\) })"
     ]
   }
 }

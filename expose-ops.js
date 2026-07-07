@@ -1,14 +1,13 @@
 // ============================================================
 // expose-ops.js — Vue template bindings: management & workflow
 // Manager, alerts, time report, WO requests, forecasting,
-// create WO, inventory, completed orders, open orders
+// create WO, inventory, purchasing
+// (Open Orders + Completed Orders bindings live in expose-shipping.js)
 // ============================================================
 
 import * as store from './libs/store.js';
-import { OPEN_ORDER_STATUSES, CHUTE_PART_STATUSES,
-         OPEN_ORDER_SORT_FIELDS } from './libs/config.js';
 import { enterPoReceiveView, enterWoRequestView, enterCreateWoView,
-         enterOpenOrdersView, enterWoForecastingView,
+         enterWoForecastingView,
          saveHeaderLinks, saveSplashLinks } from './pages/splash-view.js';
 import { openManagerSection, loadKpiData, loadDelayedOrders,
          fetchPriorityOrders, updatePriority, updateAssignedOperator,
@@ -19,20 +18,6 @@ import { openManagerSection, loadKpiData, loadDelayedOrders,
          loadResolvedWoProblems,
          openDelayedWoDetail, closeDelayedWoDetail } from './pages/manager-view.js';
 import { openAlertResolve, submitAlertResolve } from './pages/manager-alerts.js';
-import { loadOpenOrders, setSectionSort, openOrderSortIcon,
-         setRowColor, effectiveRowColor, openOrderRowClass, openOrderColorDotClass,
-         loadReminderEmail, saveReminderEmail,
-         openOrderStatusClass, chuteStatusClass, openOrderHasLine3,
-         cancelAddModal, parsePasteRows, saveOpenOrderRow,
-         moveToSection, bulkChangeStatus,
-         startCellEdit, saveCellEdit, cancelCellEdit, deleteOpenOrder,
-         toggleOpenOrderExpand,
-         openWoDetailPanel, closeWoDetailPanel,
-         woDeptBadgeClass, woStatusBadgeClass } from './pages/open-orders-view.js';
-import { onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
-         onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
-         onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
-         onDropZoneDragOver, clearDropZone, reorderDrop } from './pages/open-orders-drag.js';
 import { loadPoReceiveOrders, openPoReceiveItem, closePoReceiveItem, submitPoReceive,
          loadPoReceivedOrders, unreceivePoOrder,
          enterInventoryAdjustView, searchItemMasterPart, submitManualCount,
@@ -52,18 +37,16 @@ import { loadForecastedItems,
          openDeleteConfirm, cancelDeleteForecast, confirmDeleteForecast,
          openMoveBackConfirm, cancelMoveBack, confirmMoveBack } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems, setAlereWoNumber, switchCreateWoTab, loadCreatedWoItems } from './pages/create-wo-view.js';
-import { enterCompletedOrdersView, loadCompletedOrders, restoreCompletedOrder } from './pages/completed-orders-view.js';
 import { loadPurchasingOrders, switchPurchasingTab,
          loadPurchasingCompleted, loadOrderEvents,
          openNewRequestForm, closeNewRequestForm, submitPurchasingRequest,
          onPurchasingPartBlur,
          openOrderDetail, closeOrderDetail, saveOrderDetail,
-         loadPartUsageForOrder,
-         loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow,
-         saveSteelField, saveSteelQuotes, addSteelQuote, toggleBestQuote, removeSteelQuote,
+         loadPartUsageForOrder } from './pages/purchasing-view.js';
+import { saveSteelField, saveSteelQuotes, addSteelQuote, toggleBestQuote, removeSteelQuote,
          toggleSteelStatusPicker, setSteelStatus,
          selectSteelQuoteForOrder, closeSteelOrderPanel, confirmSteelOrder,
-         uploadSteelQuoteFile, openSteelQuoteFile, removeSteelQuoteFile } from './pages/purchasing-view.js';
+         uploadSteelQuoteFile, openSteelQuoteFile, removeSteelQuoteFile } from './pages/purchasing-steel.js';
 import { checkPoActiveOrders, isPoPartDuplicated } from './pages/purchasing-request-checks.js';
 import { completeOrder, submitReceiving } from './pages/purchasing-receive.js';
 import { enterApprovalTab, approveOrder, cancelRevise, submitRevise } from './pages/purchasing-approval.js';
@@ -78,7 +61,8 @@ import { uploadOrderAttachment, deleteOrderAttachment, loadOrderAttachments,
          loadPurchasingPartFiles } from './pages/purchasing-attachments.js';
 import { openQuoteBuilder, closeQuoteBuilder, toggleQuoteOrder, submitQuote,
          stageQuoteFile, unstageQuoteFile,
-         loadAllQuotes, openQuoteOrder, cancelQuoteOrder, submitQuoteOrder } from './pages/purchasing-quotes-view.js';
+         loadAllQuotes, openQuoteOrder, cancelQuoteOrder, submitQuoteOrder,
+         loadOrderQuotes, saveQuote, addQuoteRow, removeQuoteRow } from './pages/purchasing-quotes-view.js';
 import { openSupplierCatalogFromHistory, loadSupplierCatalog,
          clearSupplierCatalog } from './pages/purchasing-research.js';
 import { openRfqDraft, closeRfqDraft, copyRfqDraft,
@@ -288,11 +272,6 @@ export function buildOpsExpose() {
         enterSubassySetup, clearSubassySearch, runSubassySearch, toggleUnitChildren,
         openComponentUsedOn, closeComponentUsedOn,
 
-        // Completed Orders
-        completedOrders:        store.completedOrders,
-        completedOrdersLoading: store.completedOrdersLoading,
-        enterCompletedOrdersView, loadCompletedOrders, restoreCompletedOrder,
-
         // Purchasing
         purchasingTab:              store.purchasingTab,
         purchasingOrders:           store.purchasingOrders,
@@ -434,39 +413,7 @@ export function buildOpsExpose() {
         filteredSupplierCatalog: store.filteredSupplierCatalog,
         openSupplierCatalogFromHistory, loadSupplierCatalog, clearSupplierCatalog,
 
-        // Open Orders
-        openOrders:               store.openOrders,
-        openOrdersLoading:        store.openOrdersLoading,
-        openOrdersSort:           store.openOrdersSort,
-        openOrderSections:        store.openOrderSections,
-        openOrderColorPickerRow:  store.openOrderColorPickerRow,
-        openOrderEditingCell:     store.openOrderEditingCell,
-        openOrderEditingValue:    store.openOrderEditingValue,
-        openOrderSelectedIds:     store.openOrderSelectedIds,
-        openOrderBulkStatus:      store.openOrderBulkStatus,
-        openOrderDragOverSection: store.openOrderDragOverSection,
-        openOrderDropZoneTarget:  store.openOrderDropZoneTarget,
-        openOrderExpandedCols:    store.openOrderExpandedCols,
-        openOrderAddModalOpen:    store.openOrderAddModalOpen,
-        openOrderAddMode:         store.openOrderAddMode,
-        openOrderAddForm:         store.openOrderAddForm,
-        openOrderAddFormErrors:   store.openOrderAddFormErrors,
-        openOrderAddPasteText:    store.openOrderAddPasteText,
-        openOrderAddPasteRows:    store.openOrderAddPasteRows,
-        openOrderStatuses:        OPEN_ORDER_STATUSES,
-        chutePartStatuses:        CHUTE_PART_STATUSES,
-        openOrderSortFields:      OPEN_ORDER_SORT_FIELDS,
-        enterOpenOrdersView,
-        loadOpenOrders,
-        setSectionSort,
-        openOrderSortIcon,
-        setRowColor,
-        effectiveRowColor,
-        openOrderRowClass,
-        reminderEmailModalOpen: store.reminderEmailModalOpen,
-        reminderEmail:          store.reminderEmail,
-        reminderEmailSaving:    store.reminderEmailSaving,
-        saveReminderEmail,
+        // Header / splash quick-link editors
         headerLinks:          store.headerLinks,
         headerLinksModalOpen: store.headerLinksModalOpen,
         headerLinksSaving:    store.headerLinksSaving,
@@ -475,24 +422,5 @@ export function buildOpsExpose() {
         splashLinksModalOpen: store.splashLinksModalOpen,
         splashLinksSaving:    store.splashLinksSaving,
         saveSplashLinks,
-        openOrderColorDotClass,
-        openOrderStatusClass,
-        chuteStatusClass,
-        openOrderHasLine3,
-        cancelAddModal,
-        parsePasteRows,
-        saveOpenOrderRow,
-        moveToSection, bulkChangeStatus,
-        onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
-        onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
-        onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
-        onDropZoneDragOver, clearDropZone, reorderDrop,
-        startCellEdit, saveCellEdit, cancelCellEdit, deleteOpenOrder,
-        toggleOpenOrderExpand,
-        openOrderWoPanel:        store.openOrderWoPanel,
-        openOrderWoPanelOrders:  store.openOrderWoPanelOrders,
-        openOrderWoPanelLoading: store.openOrderWoPanelLoading,
-        openWoDetailPanel, closeWoDetailPanel,
-        woDeptBadgeClass, woStatusBadgeClass,
     };
 }

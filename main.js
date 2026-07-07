@@ -1,7 +1,7 @@
 // ============================================================
 // main.js — Entry point. Startup, lifecycle wiring only.
 //
-// Template bindings live in expose-core.js + expose-ops.js.
+// Template bindings live in expose-core.js + expose-ops.js + expose-eng.js.
 // No business logic here.
 // ============================================================
 
@@ -28,7 +28,8 @@ import { loadForecastedItems } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems } from './pages/create-wo-view.js';
 import { loadOpenOrders, loadReminderEmail } from './pages/open-orders-view.js';
 import { loadCompletedOrders } from './pages/completed-orders-view.js';
-import { loadPurchasingOrders, loadOrderEvents, loadOrderQuotes, syncDetailFromRealtime } from './pages/purchasing-view.js';
+import { loadPurchasingOrders, loadOrderEvents, syncDetailFromRealtime } from './pages/purchasing-view.js';
+import { loadOrderQuotes } from './pages/purchasing-quotes-view.js';
 import { loadPoForecast, checkForecastRevisits } from './pages/purchasing-forecast.js';
 import { loadAllQuotes } from './pages/purchasing-quotes-view.js';
 import { stopMessagesPoll, refreshUnreadCount,
@@ -36,9 +37,12 @@ import { stopMessagesPoll, refreshUnreadCount,
 import { startAppRealtime, stopAppRealtime } from './libs/realtime.js';
 import { loadEngFollowups, loadEngFollowupEvents } from './pages/engineering-followup.js';
 import { loadEngInquiries } from './pages/engineering-view.js';
+import { loadWoRequestOpenChanges } from './pages/part-changes-view.js';
 
 import { buildCoreExpose } from './expose-core.js';
 import { buildOpsExpose } from './expose-ops.js';
+import { buildEngExpose } from './expose-eng.js';
+import { buildShippingExpose } from './expose-shipping.js';
 
 // ── Load HTML partials into #app before Vue mounts ───────────
 async function loadPartials() {
@@ -230,11 +234,15 @@ try {
             watch(store.managerSubView, (v) => {
                 if (v === 'home' && store.currentView.value === 'manager') loadManagerAlerts();
             });
+            // Open engineering-change warning on the WO Request detail modal
+            watch(store.selectedWoRequest, (r) => {
+                loadWoRequestOpenChanges(r?.part_number || null);
+            });
             watch(store.versionUpdateAvailable, (v) => {
                 if (v) setTimeout(() => location.reload(), 10_000);
             });
 
-            return { ...buildCoreExpose(), ...buildOpsExpose() };
+            return { ...buildCoreExpose(), ...buildOpsExpose(), ...buildEngExpose(), ...buildShippingExpose() };
         }
     });
 

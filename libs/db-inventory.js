@@ -388,25 +388,20 @@ export async function insertOpenOrders(rows) {
     );
 }
 
-export async function deleteOpenOrder(id) {
-    if (!id) return { error: new Error('Missing order ID') };
-    return withRetry(() =>
-        supabase.from('open_orders').delete().eq('id', id)
-    );
-}
-
 // ── Completed Orders queries ──────────────────────────────────
 
-// shipOpenOrder — copies a row from open_orders into open_orders_completed then deletes the original.
-// row: full open_orders object. shipped_at is set to now().
-export async function shipOpenOrder(row) {
+// shipOpenOrder — copies a row from open_orders into open_orders_completed then deletes
+// the original. row: full open_orders object. shipped_at is set to now().
+// finalStatus defaults to 'Shipped'; pass 'Deleted' for recoverable row deletes —
+// the row lands in Completed Orders where Restore can bring it back.
+export async function shipOpenOrder(row, finalStatus = 'Shipped') {
     const now = new Date().toISOString();
     const { id, created_at, updated_at, ...fields } = row;
     const { error: insertErr } = await withRetry(() =>
         supabase.from('open_orders_completed').insert([{
             ...fields,
             original_id: id,
-            status:      'Shipped',
+            status:      finalStatus,
             shipped_at:  now,
             updated_at:  now,
         }])

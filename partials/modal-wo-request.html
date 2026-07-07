@@ -36,6 +36,13 @@
                                 <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
                                 Active WO: {{ it.label }}<span v-if="it.detail" class="normal-case font-normal ml-0.5">· {{ it.detail }}</span>
                             </span>
+                            <!-- Open engineering change warning: one amber pill per open part_changes record -->
+                            <span v-for="c in woRequestOpenChanges" :key="c.id"
+                                :title="c.carry_forward_note || c.replacement_reason || ''"
+                                class="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full uppercase bg-amber-100 text-amber-800 border border-amber-300">
+                                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                                Eng Change Open: {{ partChangeTypeLabels[c.change_type] || c.change_type }} — verify print/BOM
+                            </span>
                         </div>
                         <p v-if="selectedWoRequest.description" class="text-sm text-gray-500 mt-1">{{ selectedWoRequest.description }}</p>
                         <p v-if="!isSubpartInspect" class="text-xs text-gray-400 mt-0.5">Submitted {{ selectedWoRequest.request_date }} by {{ selectedWoRequest.submitted_by }}</p>

@@ -156,8 +156,18 @@ export async function openWoRequestDetail(req) {
         store.woRequestSubpartForms.value = r;
     }
 
+    // Replacement chain (part_changes): resolved once, shared by the history
+    // fetches below so sums include parts this one replaced. Falls back to
+    // [self] so history still loads if the chain lookup fails.
+    const norm = (req.part_number || '').trim().toUpperCase();
+    store.woRequestCalcChain.value = null;
+    const chainP = db.resolvePartCalcChain(req.part_number).then(({ data }) => {
+        if (gen === _detailGen && data.links.length) store.woRequestCalcChain.value = data;
+        return data.chain.length ? data.chain : [norm];
+    });
+
     // 1yr: qty_used_in_mfg + qty_made from issues_receipts (rolling 12mo)
-    db.fetchPartUsageSummary12Mo(req.part_number).then(({ data, error }) => {
+    chainP.then(chain => db.fetchPartUsageSummary12Mo(req.part_number, chain)).then(({ data, error }) => {
         if (gen !== _detailGen) return;    // stale: a newer detail opened
         store.woRequestHistoryLoading.value = false;
         if (error) {
@@ -169,13 +179,12 @@ export async function openWoRequestDetail(req) {
         store.woRequestDetailForm.value.qty_made_past_12mo = data.qty_made_past_12mo;
     });
 
-    // 1yr: qty_sold from sales_analysis_lines (rolling 12mo)
-    const norm = (req.part_number || '').trim().toUpperCase();
-    db.fetchQtySoldFromSalesAnalysis([req.part_number], oneYearAgo, today).then(({ data: salesMap, error }) => {
+    // 1yr: qty_sold from sales_analysis_lines (rolling 12mo, summed over the chain)
+    chainP.then(chain => db.fetchQtySoldFromSalesAnalysis(chain, oneYearAgo, today).then(({ data: salesMap, error }) => {
         if (gen !== _detailGen) return;    // stale: a newer detail opened
         if (error) { logError('openWoRequestDetail:qtySold1yr', error, { part: req.part_number }); return; }
-        store.woRequestDetailForm.value.qty_sold_used_12mo = salesMap[norm] || 0;
-    });
+        store.woRequestDetailForm.value.qty_sold_used_12mo = chain.reduce((s, p) => s + (salesMap[p] || 0), 0);
+    }));
 
     // 1yr: parent BOM demand (rolling 12mo)
     db.calculateRecursiveParentUsageDemand(req.part_number, oneYearAgo, today).then(({ data, error }) => {
@@ -186,7 +195,7 @@ export async function openWoRequestDetail(req) {
     });
 
     // 3yr: qty_used_in_mfg + qty_made from issues_receipts (since 1/1/23)
-    db.fetchPartUsageSummary36Mo(req.part_number).then(({ data, error }) => {
+    chainP.then(chain => db.fetchPartUsageSummary36Mo(req.part_number, chain)).then(({ data, error }) => {
         if (gen !== _detailGen) return;    // stale: a newer detail opened
         store.woRequestHistoryLoading36mo.value = false;
         if (error) { logError('openWoRequestDetail:history3yr', error, { part: req.part_number }); return; }
@@ -194,12 +203,12 @@ export async function openWoRequestDetail(req) {
         store.woRequestDetailForm.value.qty_made_36mo        = data.qty_made_past_36mo;
     });
 
-    // 3yr: qty_sold from sales_analysis_lines (since 1/1/23)
-    db.fetchQtySoldFromSalesAnalysis([req.part_number], PURCHASING_3YR_START, today).then(({ data: salesMap, error }) => {
+    // 3yr: qty_sold from sales_analysis_lines (since 1/1/23, summed over the chain)
+    chainP.then(chain => db.fetchQtySoldFromSalesAnalysis(chain, PURCHASING_3YR_START, today).then(({ data: salesMap, error }) => {
         if (gen !== _detailGen) return;    // stale: a newer detail opened
         if (error) { logError('openWoRequestDetail:qtySold3yr', error, { part: req.part_number }); return; }
-        store.woRequestDetailForm.value.qty_sold_36mo = salesMap[norm] || 0;
-    });
+        store.woRequestDetailForm.value.qty_sold_36mo = chain.reduce((s, p) => s + (salesMap[p] || 0), 0);
+    }));
 
     // 3yr: parent BOM demand (since 1/1/23)
     db.calculateRecursiveParentUsageDemand(req.part_number, PURCHASING_3YR_START, today).then(({ data, error }) => {

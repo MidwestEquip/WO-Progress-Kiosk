@@ -15,6 +15,30 @@ export function _replaceInStore(updated) {
     );
 }
 
+// _syncOpenOrderForPo — mirror a purchasing status change onto the matching
+// open_orders row (part orders with a SO# only; matched by SO# + part #).
+// patch: open_orders fields to set (last_status_update stamped automatically).
+// onlyIf: current open-order statuses allowed to change (null = any except the
+// blocked list). skipIf: extra statuses to leave untouched. Non-fatal: on
+// failure the purchasing save has already succeeded, so we toast + log only.
+export async function _syncOpenOrderForPo(order, patch, { onlyIf = null, skipIf = [] } = {}) {
+    if (!order || order.request_type !== 'part' || !order.sales_order || !order.part_number) return;
+    try {
+        const { data: oo } = await db.findOpenOrderBySoAndPart(order.sales_order, order.part_number);
+        if (!oo) return;
+        const blocked = ['Boxed', 'Shipped', ...skipIf];
+        if (onlyIf ? !onlyIf.includes(oo.status) : blocked.includes(oo.status)) return;
+        const { error } = await db.updateOpenOrder(oo.id, {
+            ...patch,
+            last_status_update: new Date().toISOString(),
+        });
+        if (error) throw error;
+    } catch (err) {
+        store.showToast('Saved, but the Open Orders board did not sync: ' + err.message);
+        logError('_syncOpenOrderForPo', err);
+    }
+}
+
 // completeOrder — validate required ordering fields then mark order received/completed.
 export async function completeOrder() {
     const order = store.purchasingDetailOrder.value;
@@ -80,6 +104,13 @@ export async function completeOrder() {
             newStatus: 'ordered',
             createdBy: 'purchasing',
         });
+
+        // Open Orders board: row → 'PO Created' with PO# + expected date as deadline
+        await _syncOpenOrderForPo(data, {
+            status:       'PO Created',
+            wo_po_number: data.po_number,
+            ...(data.expected_date ? { deadline: data.expected_date } : {}),
+        });
     } catch (err) {
         store.showToast('Failed to complete order: ' + err.message);
         logError('completeOrder', err);
@@ -138,6 +169,13 @@ export async function submitReceiving() {
             newStatus,
             createdBy: form.received_by.trim(),
         });
+
+        // Open Orders board: parts arrived — row becomes actionable again.
+        // Only rows still on the PO path flip; WO-path/Boxed rows are untouched.
+        if (newStatus === 'received') {
+            await _syncOpenOrderForPo(data, { status: 'New/Picking' },
+                { onlyIf: ['PO Requested', 'PO Created'] });
+        }
     } catch (err) {
         store.showToast('Failed to record receiving: ' + err.message);
         logError('submitReceiving', err);

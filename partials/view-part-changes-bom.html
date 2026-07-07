@@ -1,0 +1,81 @@
+<!-- ============================================================
+     view-part-changes-bom.html — Part Changes > BOM Lookup tab
+     Teleported into #bom-tab-body (view-part-changes.html).
+     Read-only lookup; editing arrives in the next patches.
+     ============================================================ -->
+<Teleport to="#bom-tab-body" v-if="currentView === 'engineering' && engView === 'part_changes' && partChangesTab === 'boms'">
+
+    <!-- Search bar -->
+    <div class="flex items-center gap-3 mb-4">
+        <div class="relative">
+            <input v-model="bomSearch" type="text" @keyup.enter="runBomSearch"
+                placeholder="Parent part # — e.g. TC27261"
+                class="w-80 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white uppercase focus:outline-none focus:border-teal-400 transition-colors">
+            <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+            </svg>
+        </div>
+        <button @click="runBomSearch"
+            class="bg-teal-600 hover:bg-teal-500 text-white px-5 py-2 rounded-xl font-bold text-sm active:scale-95 transition-all shrink-0">
+            Look Up BOM
+        </button>
+        <button v-if="bomSearched" @click="clearBomSearch"
+            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-lg text-sm transition-colors">&#10005; Clear</button>
+    </div>
+
+    <!-- States -->
+    <div v-if="bomLoading" class="text-center text-gray-400 italic py-12">Loading…</div>
+    <div v-else-if="!bomSearched" class="text-center text-gray-400 py-12">
+        Enter a part number to see its current BOM.
+    </div>
+    <div v-else-if="!bomLines.length" class="text-center text-gray-400 py-12">
+        No BOM found for <span class="font-bold text-gray-600">{{ bomParent }}</span>.
+    </div>
+
+    <!-- Results -->
+    <div v-else>
+        <div class="mb-3">
+            <p class="text-lg font-extrabold text-gray-800 font-mono">{{ bomParent }}</p>
+            <p v-if="bomParentDesc" class="text-sm text-gray-500">{{ bomParentDesc }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ bomTopLevelCount }} component{{ bomTopLevelCount === 1 ? '' : 's' }} — click a row to expand its BOM</p>
+        </div>
+        <table class="w-full bg-white rounded-xl shadow-sm border border-gray-200 text-sm">
+            <thead>
+                <tr class="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
+                    <th class="px-4 py-3">Part #</th>
+                    <th class="px-4 py-3">Description</th>
+                    <th class="px-4 py-3 text-right">Qty per Assy</th>
+                    <th class="px-4 py-3">Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="line in bomLines" :key="line.id" @click="toggleBomLine(line)"
+                    class="border-b border-gray-100 last:border-0 hover:bg-teal-50/50"
+                    :class="line.leaf ? '' : 'cursor-pointer'">
+                    <td class="px-4 py-3 font-bold text-gray-800 font-mono">
+                        <div class="flex items-center gap-1.5" :style="{ paddingLeft: (line.depth * 1.5) + 'rem' }">
+                            <svg v-if="line.loading" class="w-4 h-4 animate-spin text-teal-500 shrink-0" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                            </svg>
+                            <svg v-else class="w-4 h-4 shrink-0 text-gray-400 transition-transform"
+                                 :class="[line.expanded ? 'rotate-90' : '', line.leaf ? 'invisible' : '']"
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+                            </svg>
+                            <span :class="line.depth > 0 ? 'font-semibold text-gray-600' : ''">{{ line.item_child_normalized }}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">{{ line.description || '—' }}</td>
+                    <td class="px-4 py-3 text-right font-semibold text-gray-800">{{ line.qty_per_assy }}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-bold"
+                              :class="line.source === 'native' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-500'">
+                            {{ line.source === 'native' ? 'Native' : 'Imported' }}
+                        </span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</Teleport>

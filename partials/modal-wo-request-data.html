@@ -6,6 +6,20 @@
                         <!-- ── Data ── -->
                         <p class="text-base font-extrabold text-gray-700 uppercase tracking-wide mt-3 mb-1">Data</p>
 
+                        <!-- Replacement-chain breadcrumb: sums below combine old part history -->
+                        <div v-if="woRequestChainParts.length"
+                             class="bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-2">
+                            <p class="text-xs font-bold text-indigo-800 uppercase tracking-wide mb-1">
+                                Includes history from replaced part{{ woRequestChainParts.length > 1 ? 's' : '' }}:
+                                {{ woRequestChainParts.join(' → ') }}
+                            </p>
+                            <p v-for="l in woRequestCalcChain.links" :key="l.id" class="text-xs text-indigo-700">
+                                <span class="font-semibold">{{ l.previous_part_number }}</span>
+                                <span v-if="l.carry_forward_note || l.replacement_reason">
+                                    — {{ l.carry_forward_note || l.replacement_reason }}</span>
+                            </p>
+                        </div>
+
                         <!-- Used On — BOM parents the requested part is used on -->
                         <div class="mb-2">
                             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Used On</label>

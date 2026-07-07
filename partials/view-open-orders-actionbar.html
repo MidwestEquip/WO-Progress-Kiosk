@@ -1,0 +1,35 @@
+            <!-- ── OPEN ORDERS: SELECTION ACTION BAR ─────────── -->
+            <!-- Floating bar shown while rows are paint-selected. Fixed to the
+                 viewport (the open orders view fills the screen, so this matches
+                 the old absolute-in-view position exactly). -->
+            <div v-if="currentView === 'open_orders' && openOrderSelectedIds.length > 0"
+                 class="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-semibold flex items-center gap-3 pointer-events-auto">
+                <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                <span class="text-slate-700 font-bold">
+                    {{ openOrderSelectedIds.length }} row{{ openOrderSelectedIds.length > 1 ? 's' : '' }} selected
+                </span>
+                <span class="text-slate-300">·</span>
+                <span class="text-slate-400 hidden sm:inline">Drag to section</span>
+                <span class="text-slate-300 hidden sm:inline">·</span>
+                <!-- Bulk status change -->
+                <span class="text-slate-500">Set status:</span>
+                <select v-model="openOrderBulkStatus"
+                        class="border border-slate-300 bg-slate-50 text-slate-700 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer">
+                    <option value="">— pick —</option>
+                    <option v-for="s in openOrderStatuses" :key="s" :value="s">{{ s }}</option>
+                </select>
+                <button @click="bulkChangeStatus(openOrderSelectedIds, openOrderBulkStatus)"
+                        :disabled="!openOrderBulkStatus"
+                        class="bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1 rounded-lg transition-colors font-bold">
+                    Apply
+                </button>
+                <span class="text-slate-300">·</span>
+                <button @click="clearRowSelection()"
+                    class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div><!-- end open orders selection action bar -->

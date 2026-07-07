@@ -7,6 +7,7 @@
 import { supabase, withRetry } from './db-shared.js';
 import { normalizePartNumber } from './utils.js';
 import { BOM_PERIOD_START, BOM_PERIOD_END } from './config.js';
+import { resolvePartCalcChain } from './db-part-changes.js';
 
 // ── Part Approval Defaults ────────────────────────────────────
 
@@ -92,50 +93,69 @@ export async function learnPartApprovalDefaults(partNumber, approvedFields, upda
 
 // ── Part usage history ────────────────────────────────────────
 
-// fetchPartUsageSummary12Mo — calls the get_part_usage_summary_12mo RPC to return
-// three 12-month sums from issues_receipts for a given part number.
-// Returns { data: { qty_sold_used_12mo, qty_used_in_mfg, qty_made_past_12mo }, error }.
-// All three values default to 0 when no matching rows exist.
-export async function fetchPartUsageSummary12Mo(partNumber) {
-    const normalized = normalizePartNumber(partNumber);
-    if (!normalized) return { data: { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0 }, error: null };
-
-    const { data, error } = await withRetry(() =>
-        supabase.rpc('get_part_usage_summary_12mo', { p_part: normalized })
-    );
-    if (error) return { data: { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0 }, error };
-
-    const row = (data && data[0]) || {};
-    return {
-        data: {
-            qty_sold_used_12mo: Number(row.qty_sold_12mo     ?? 0),
-            qty_used_in_mfg:    Number(row.qty_used_mfg_12mo ?? 0),
-            qty_made_past_12mo: Number(row.qty_made_12mo     ?? 0),
-        },
-        error: null,
-    };
+// resolveChainOrSelf — replacement chain for a normalized part, falling back to
+// [self] when there is no chain or the part_changes lookup fails. Internal helper.
+// Returns { chain: [normalized…], links: [replacement rows] }.
+async function resolveChainOrSelf(normalized) {
+    const { data } = await resolvePartCalcChain(normalized);
+    const chain = (data.chain && data.chain.length) ? data.chain : [normalized];
+    return { chain, links: data.links || [] };
 }
 
-// fetchPartUsageSummary36Mo — calls get_part_usage_summary_36mo RPC for 3-year sums.
-// Returns { data: { qty_sold_used_36mo, qty_used_in_mfg_36mo, qty_made_past_36mo }, error }.
-export async function fetchPartUsageSummary36Mo(partNumber) {
+// fetchPartUsageSummary12Mo — three 12-month sums from issues_receipts for a part,
+// combined across its replacement chain (part_changes) so renamed parts keep history.
+// Optional preResolvedChain (normalized part array) skips the internal chain lookup.
+// Returns { data: { qty_sold_used_12mo, qty_used_in_mfg, qty_made_past_12mo, chain, links }, error }.
+// All three sums default to 0 when no matching rows exist.
+export async function fetchPartUsageSummary12Mo(partNumber, preResolvedChain = null) {
+    const zero = { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0, chain: [], links: [] };
     const normalized = normalizePartNumber(partNumber);
-    if (!normalized) return { data: { qty_sold_used_36mo: 0, qty_used_in_mfg_36mo: 0, qty_made_past_36mo: 0 }, error: null };
+    if (!normalized) return { data: zero, error: null };
 
-    const { data, error } = await withRetry(() =>
-        supabase.rpc('get_part_usage_summary_36mo', { p_part: normalized })
-    );
-    if (error) return { data: { qty_sold_used_36mo: 0, qty_used_in_mfg_36mo: 0, qty_made_past_36mo: 0 }, error };
+    let chain = preResolvedChain, links = [];
+    if (!chain || !chain.length) ({ chain, links } = await resolveChainOrSelf(normalized));
 
-    const row = (data && data[0]) || {};
-    return {
-        data: {
-            qty_sold_used_36mo:  Number(row.qty_sold_36mo     ?? 0),
-            qty_used_in_mfg_36mo: Number(row.qty_used_mfg_36mo ?? 0),
-            qty_made_past_36mo:  Number(row.qty_made_36mo     ?? 0),
-        },
-        error: null,
-    };
+    const results = await Promise.all(chain.map(p =>
+        withRetry(() => supabase.rpc('get_part_usage_summary_12mo', { p_part: p }))
+    ));
+    const failed = results.find(r => r.error);
+    if (failed) return { data: { ...zero, chain, links }, error: failed.error };
+
+    const sums = { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0 };
+    results.forEach(({ data }) => {
+        const row = (data && data[0]) || {};
+        sums.qty_sold_used_12mo += Number(row.qty_sold_12mo     ?? 0);
+        sums.qty_used_in_mfg    += Number(row.qty_used_mfg_12mo ?? 0);
+        sums.qty_made_past_12mo += Number(row.qty_made_12mo     ?? 0);
+    });
+    return { data: { ...sums, chain, links }, error: null };
+}
+
+// fetchPartUsageSummary36Mo — 3-year sums, combined across the replacement chain
+// (same contract as fetchPartUsageSummary12Mo).
+// Returns { data: { qty_sold_used_36mo, qty_used_in_mfg_36mo, qty_made_past_36mo, chain, links }, error }.
+export async function fetchPartUsageSummary36Mo(partNumber, preResolvedChain = null) {
+    const zero = { qty_sold_used_36mo: 0, qty_used_in_mfg_36mo: 0, qty_made_past_36mo: 0, chain: [], links: [] };
+    const normalized = normalizePartNumber(partNumber);
+    if (!normalized) return { data: zero, error: null };
+
+    let chain = preResolvedChain, links = [];
+    if (!chain || !chain.length) ({ chain, links } = await resolveChainOrSelf(normalized));
+
+    const results = await Promise.all(chain.map(p =>
+        withRetry(() => supabase.rpc('get_part_usage_summary_36mo', { p_part: p }))
+    ));
+    const failed = results.find(r => r.error);
+    if (failed) return { data: { ...zero, chain, links }, error: failed.error };
+
+    const sums = { qty_sold_used_36mo: 0, qty_used_in_mfg_36mo: 0, qty_made_past_36mo: 0 };
+    results.forEach(({ data }) => {
+        const row = (data && data[0]) || {};
+        sums.qty_sold_used_36mo   += Number(row.qty_sold_36mo     ?? 0);
+        sums.qty_used_in_mfg_36mo += Number(row.qty_used_mfg_36mo ?? 0);
+        sums.qty_made_past_36mo   += Number(row.qty_made_36mo     ?? 0);
+    });
+    return { data: { ...sums, chain, links }, error: null };
 }
 
 // fetchPartPurchased36Mo — calls get_part_purchased_36mo RPC (SECURITY DEFINER).

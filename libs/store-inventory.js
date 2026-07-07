@@ -6,6 +6,7 @@
 // ============================================================
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
+import { openOrderMatchesFilter } from './utils.js';
 
 // ── Customer Service ──────────────────────────────────────────
 export const csSearchTerm  = ref('');
@@ -130,6 +131,17 @@ export const filteredWoRequests = computed(() => {
         (r.submitted_by       || '').toLowerCase().includes(q)
     );
 });
+
+// woRequestCalcChain — replacement-chain info ({ chain, links }) for the open WO
+// request's part, from part_changes. null when the part has no replacement history.
+// Set by openWoRequestDetail; drives the "includes history from…" breadcrumb.
+export const woRequestCalcChain = ref(null);
+
+// woRequestChainParts — predecessor part numbers whose history is combined into
+// the data-panel sums (chain minus the part itself). Empty array = no breadcrumb.
+export const woRequestChainParts = computed(() =>
+    (woRequestCalcChain.value?.chain || []).slice(1)
+);
 
 // woRequestEstQtyInStock — estimated parts on hand or embedded in assemblies.
 // Formula: qty_used_in_mfg − (direct_sold + parent_demand) + qty_made
@@ -295,6 +307,7 @@ export const completedOrdersLoading = ref(false);
 // ── Open Orders ───────────────────────────────────────────────
 export const openOrders        = ref([]);
 export const openOrdersLoading = ref(false);
+export const openOrdersFilter  = ref('');   // search box across all sections
 export const openOrderColorPickerRow = ref(null);
 
 export const openOrderAddModalOpen = ref(false);
@@ -308,6 +321,15 @@ export const openOrderAddForm      = ref({
     wo_va_notes: '', wo_po_number: '',
 });
 export const openOrderAddFormErrors = ref({});
+
+// Paste-preview counts: rows that will actually insert, flagged duplicates,
+// and rows whose date/status was adjusted during parsing.
+export const openOrderPasteAddCount = computed(() =>
+    openOrderAddPasteRows.value.filter(r => !r._dupe || r._add_anyway).length);
+export const openOrderPasteDupCount = computed(() =>
+    openOrderAddPasteRows.value.filter(r => r._dupe).length);
+export const openOrderPasteWarnCount = computed(() =>
+    openOrderAddPasteRows.value.filter(r => r._date_warn || r._status_warn).length);
 
 export const openOrderEditingCell  = ref({ id: null, field: null });
 export const openOrderEditingValue = ref('');
@@ -331,7 +353,8 @@ export const openOrdersSort = ref({
 function _openSectionSorted(type) {
     return computed(() => {
         const { field, dir } = openOrdersSort.value[type];
-        const rows = openOrders.value.filter(o => o.order_type === type);
+        const q = openOrdersFilter.value.trim().toLowerCase();
+        const rows = openOrders.value.filter(o => o.order_type === type && openOrderMatchesFilter(o, q));
         return [...rows].sort((a, b) => {
             let av = a[field] ?? '';
             let bv = b[field] ?? '';

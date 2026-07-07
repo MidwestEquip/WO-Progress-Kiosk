@@ -82,10 +82,15 @@ export function selectCategory(cat) {
     store.splashLevel.value       = 1;
 }
 
-// enterEngineeringMenu — navigate to Engineering sub-menu and preload follow-up counts.
-// Avoids a cross-page import by fetching follow-ups directly (same query as loadEngFollowups).
+// enterEngineeringMenu — navigate to Engineering sub-menu and preload follow-up
+// + part-change counts (tile badges). Avoids cross-page imports by fetching directly.
 export async function enterEngineeringMenu() {
     selectCategory('engineering');
+    if (store.partChanges.value.length === 0) {
+        db.fetchPartChanges('open').then(({ data }) => {
+            if (data) store.partChanges.value = data;
+        });
+    }
     if (store.engFollowups.value.length > 0) return;
     const { data } = await db.fetchEngineeringFollowups();
     if (data) store.engFollowups.value = data;
@@ -274,6 +279,7 @@ export function enterCreateWoView() {
 // Navigate to the Open Orders shipping view. Preserves shipping sub-menu
 // as the back destination.
 export function enterOpenOrdersView() {
+    store.openOrdersFilter.value  = '';   // stale filter must never silently hide rows
     store.splashLevel.value       = 2;
     store.splashCategory.value    = 'production';
     store.splashSubCategory.value = 'shipping';

@@ -8,7 +8,7 @@
 
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
-import { detectOpenOrderSection, isChutePart, getStaleHighlightColor } from '../libs/utils.js';
+import { getStaleHighlightColor } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
 // loadOpenOrders — fetch all open_orders rows into store.
@@ -113,21 +113,9 @@ export function openOrderStatusClass(status) {
         'Boxed':        'bg-green-100  text-green-800',
         'Shipped':      'bg-teal-100   text-teal-800',
         'On Hold':      'bg-red-100    text-red-800',
+        'Deleted':      'bg-rose-100   text-rose-800',
     };
     return map[status] || 'bg-slate-100 text-slate-700';
-}
-
-// moveToSection — update order_type for a row in DB and store in-place.
-// id: uuid, newType: 'emergency'|'freight'|'trac_vac'|'tru_cut'
-export async function moveToSection(id, newType) {
-    const { error } = await db.updateOpenOrder(id, { order_type: newType });
-    if (error) { store.showToast('Failed to move row: ' + error.message); return; }
-    const idx = store.openOrders.value.findIndex(o => o.id === id);
-    if (idx !== -1) {
-        const updated = [...store.openOrders.value];
-        updated[idx] = { ...updated[idx], order_type: newType };
-        store.openOrders.value = updated;
-    }
 }
 
 // woDeptBadgeClass — Tailwind bg+text classes for a work_orders department badge.
@@ -262,126 +250,74 @@ export async function saveCellEdit(id, field) {
     }
 }
 
-// deleteOpenOrder — confirm then permanently remove the row from DB and store.
+// deleteOpenOrder — confirm then move the row to Completed Orders with status
+// 'Deleted' (recoverable via the Restore button there). No hard deletes.
 // id: row uuid, partNumber: shown in the confirm dialog.
 export async function deleteOpenOrder(id, partNumber) {
-    if (!window.confirm(`Delete this row?\n\n${partNumber || 'Unknown part'}`)) return;
-    const { error } = await db.deleteOpenOrder(id);
+    if (!window.confirm(`Delete this row?\n\n${partNumber || 'Unknown part'}\n\n(It can be restored from Completed Orders.)`)) return;
+    const order = store.openOrders.value.find(o => o.id === id);
+    if (!order) return;
+    const { error } = await db.shipOpenOrder({ ...order }, 'Deleted');
     if (error) { store.showToast('Failed to delete: ' + error.message); return; }
     store.openOrders.value = store.openOrders.value.filter(o => o.id !== id);
 }
 
 // ── Add Row(s) modal ──────────────────────────────────────────
+// cancelAddModal / parsePasteRows / saveOpenOrderRow live in
+// pages/open-orders-add.js (split for the 500-line cap).
 
-// cancelAddModal — close the Add Row(s) modal and reset all draft state.
-export function cancelAddModal() {
-    store.openOrderAddModalOpen.value = false;
-    store.openOrderAddMode.value = 'manual';
-    store.openOrderAddPasteText.value = '';
-    store.openOrderAddPasteRows.value = [];
-    store.openOrderAddForm.value = {
-        part_number: '', to_ship: '', qty_pulled: '', description: '',
-        store_bin: '', update_store_bin: '', customer: '', sales_order: '',
-        date_entered: new Date().toISOString().split('T')[0], deadline: '', status: 'New/Picking',
-        wo_va_notes: '', wo_po_number: '',
+// ── Request WO / PO from a row ────────────────────────────────
+
+// canRequestFromOpenOrder — true when the row is in a state where requesting
+// a WO or PO makes sense (nothing requested/created yet). Input: order row.
+export function canRequestFromOpenOrder(order) {
+    const status = order?.status || 'New/Picking';
+    return status === 'New/Picking' || status === 'On Hold';
+}
+
+// requestWoFromOpenOrder — pre-fill the WO Request form from an open order row
+// and navigate to the WO Request view. On submit, the existing SO#+part sync
+// flips this row to 'WO Requested'. Navigation mirrors enterWoRequestView
+// (page files never import each other, so the three store sets are inlined).
+export function requestWoFromOpenOrder(order) {
+    store.woRequestForm.value = {
+        part_number:        (order.part_number || '').trim().toUpperCase(),
+        description:        order.description  || '',
+        sales_order_number: order.sales_order  || '',
+        qty_on_order:       order.to_ship      ?? '',
+        qty_in_stock: '', qty_used_per_unit: '',
+        submitted_by: '', is_assembly: false,
     };
-    store.openOrderAddFormErrors.value = {};
+    store.woRequestFormErrors.value = { part_number: false, qty_in_stock: false, qty_used_per_unit: false, submitted_by: false };
+    store.woRequestSoHint.value     = null;
+    store.woRequestActiveWos.value  = { part: '', items: [] };
+    store.splashLevel.value    = 1;
+    store.splashCategory.value = 'production';
+    store.currentView.value    = 'wo_request';
 }
 
-// parsePasteRows — parse tab-delimited text (pasted from Excel) into preview rows.
-// Expected column order (11 cols):
-//   [0] Part #  [1] To Ship  [2] Qty Pulled  [3] Description
-//   [4] Store/Bin  [5] Update Store/Bin  [6] Customer
-//   [7] Sales Order #  [8] Date Entered  [9] Status  [10] Notes
-// Section is auto-detected from part # prefix (TC → tru_cut, else → trac_vac).
-// Blank lines and obvious header rows are skipped.
-export function parsePasteRows() {
-    const text = store.openOrderAddPasteText.value || '';
-    const rows = [];
-    for (const line of text.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        const c = trimmed.split('\t');
-        const partRaw = (c[0] || '').trim();
-        if (!partRaw || partRaw.toLowerCase() === 'part #' || partRaw.toLowerCase() === 'part number') continue;
-        const part = partRaw.toUpperCase();
-        rows.push({
-            part_number:      part,
-            to_ship:          (c[1] || '').trim() || null,
-            qty_pulled:       (c[2] || '').trim() || null,
-            description:      (c[3] || '').trim() || null,
-            store_bin:        (c[4] || '').trim() || null,
-            update_store_bin: (c[5] || '').trim() || null,
-            customer:         (c[6] || '').trim() || null,
-            sales_order:      (c[7] || '').trim() || null,
-            date_entered:     (c[8] || '').trim() || new Date().toISOString().split('T')[0],
-            status:           (c[9] || '').trim() || 'New/Picking',
-            wo_va_notes:      (c[10] || '').trim() || null,
-            order_type:       detectOpenOrderSection(part),
-        });
-    }
-    store.openOrderAddPasteRows.value = rows;
-}
-
-// saveOpenOrderRow — validate and persist the current draft (manual or paste).
-// Section is auto-detected from part # prefix in both modes.
-// On success: closes modal, resets state, reloads order list.
-export async function saveOpenOrderRow() {
-    const mode = store.openOrderAddMode.value;
-
-    if (mode === 'manual') {
-        const form = store.openOrderAddForm.value;
-        const errors = {};
-        if (!form.part_number.trim()) errors.part_number = true;
-        store.openOrderAddFormErrors.value = errors;
-        if (Object.keys(errors).length) return;
-
-        const part = form.part_number.trim().toUpperCase();
-        const row = {
-            part_number:      part,
-            description:      form.description.trim()      || null,
-            customer:         form.customer.trim()          || null,
-            sales_order:      form.sales_order.trim()       || null,
-            wo_po_number:     form.wo_po_number.trim()      || null,
-            to_ship:          form.to_ship    ? Number(form.to_ship)    : null,
-            qty_pulled:       form.qty_pulled ? Number(form.qty_pulled) : null,
-            date_entered:     form.date_entered  || new Date().toISOString().split('T')[0],
-            deadline:         form.deadline      || null,
-            store_bin:        form.store_bin.trim()         || null,
-            update_store_bin: form.update_store_bin.trim()  || null,
-            status:           form.status || 'New/Picking',
-            wo_va_notes:      form.wo_va_notes.trim()       || null,
-            order_type:       detectOpenOrderSection(part),
-            ...(isChutePart(part) ? { chute_status: 'New/Picking', bracket_adapter_status: 'New/Picking' } : {}),
-        };
-
-        const { error } = await db.insertOpenOrders([row]);
-        if (error) { store.showToast('Failed to add row: ' + error.message); return; }
-
-    } else {
-        // paste mode — rows already have order_type set by parsePasteRows
-        const rows = store.openOrderAddPasteRows.value.map(r => ({
-            part_number:      r.part_number      || null,
-            to_ship:          r.to_ship    ? Number(r.to_ship)    : null,
-            qty_pulled:       r.qty_pulled ? Number(r.qty_pulled) : null,
-            description:      r.description      || null,
-            store_bin:        r.store_bin         || null,
-            update_store_bin: r.update_store_bin  || null,
-            customer:         r.customer          || null,
-            sales_order:      r.sales_order       || null,
-            date_entered:     r.date_entered      || null,
-            status:           r.status            || 'New/Picking',
-            wo_va_notes:      r.wo_va_notes       || null,
-            order_type:       r.order_type,
-        }));
-        if (!rows.length) return;
-
-        const { error } = await db.insertOpenOrders(rows);
-        if (error) { store.showToast('Failed to add rows: ' + error.message); return; }
-    }
-
-    cancelAddModal();
-    await loadOpenOrders();
+// requestPoFromOpenOrder — pre-fill the PO Request form (Part type) from an
+// open order row and navigate to the PO Requests view. Status sync back to
+// 'PO Requested' lands with the purchasing-side sync patch.
+export function requestPoFromOpenOrder(order) {
+    store.purchasingRequestForm.value = {
+        request_type: 'part', requested_by: '', needed_by: '',
+        qty_needed:   order.to_ship ?? '',
+        requester_notes: '',
+        part_number:  (order.part_number || '').trim().toUpperCase(),
+        description:  order.description || '',
+        sales_order:  order.sales_order || '',
+        estimated_qty_in_stock: '', request_location: '',
+        bin_location: order.store_bin || '',
+        current_production_run: '',
+        supply_item_name: '', supply_category: '',
+        material_type: 'Carbon', steel_shape: '',
+        material_description: '', material_length: '',
+    };
+    store.purchasingRequestFormErrors.value = {};
+    store.splashLevel.value    = 1;
+    store.splashCategory.value = 'purchasing';
+    store.currentView.value    = 'po_request';
 }
 
 // openWoDetailPanel — fetch active WOs for a "WO Created" row and open the detail modal.

@@ -147,9 +147,9 @@ export const PARTIAL_NAMES = [
     'view-manager-home', 'view-manager-kpi', 'view-manager-priorities',
     'view-manager-ai', 'view-manager-problems', 'view-manager-problems-resolved', 'view-manager-delayed',
     'view-manager-wo-approval',
-    'view-cs', 'view-inventory', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-completed-orders',
+    'view-cs', 'view-inventory', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-open-orders-topbar', 'view-open-orders-actionbar', 'view-completed-orders',
     'view-engineering-inquiries', 'view-engineering-followup', 'view-engineering-completed',
-    'view-engineering-prints',
+    'view-engineering-prints', 'view-part-changes', 'view-part-changes-bom',
     'view-purchasing',
     'view-purchasing-ordering',
     'view-purchasing-approval',
@@ -175,7 +175,8 @@ export const PARTIAL_NAMES = [
     'modal-eng-images',
     'modal-eng-create',
     'modal-eng-confirm',
-    'modal-eng-followup'
+    'modal-eng-followup',
+    'modal-part-change'
 ];
 
 export const OPEN_ORDER_SORT_FIELDS = [
@@ -244,6 +245,66 @@ export const ENG_FOLLOWUP_STATUS_COLORS = {
     finalization_needed:      'bg-violet-100 text-violet-700',
     closed:                   'bg-gray-100 text-gray-500',
 };
+
+// ----- Part Changes (engineering part change records) -----
+export const PART_CHANGE_TYPES = [
+    { value: 'replacement', label: 'Part # Replacement' },
+    { value: 'revision',    label: 'Revision' },
+    { value: '2d_to_3d',    label: '2D → 3D Conversion' },
+    { value: 'finalized',   label: 'Finalized' },
+    { value: 'bom_change',  label: 'BOM Change' },
+];
+
+export const PART_CHANGE_TYPE_LABELS = {
+    replacement: 'Part # Replacement',
+    revision:    'Revision',
+    '2d_to_3d':  '2D → 3D Conversion',
+    finalized:   'Finalized',
+    bom_change:  'BOM Change',
+};
+
+export const PART_CHANGE_TYPE_COLORS = {
+    replacement: 'bg-indigo-100 text-indigo-700',
+    revision:    'bg-blue-100 text-blue-700',
+    '2d_to_3d':  'bg-violet-100 text-violet-700',
+    finalized:   'bg-emerald-100 text-emerald-700',
+    bom_change:  'bg-amber-100 text-amber-700',
+};
+
+export const PART_CHANGE_STATUS_OPEN      = 'open';
+export const PART_CHANGE_STATUS_COMPLETED = 'completed';
+
+// Checklist item DEFINITIONS (keys + labels). The DB stores only per-item
+// state keyed by these keys: { item_key: { state: 'checked'|'na', by, at } }.
+export const PART_CHANGE_CHECKLIST_ITEMS = [
+    { key: 'print_updated',           label: 'Print updated' },
+    { key: 'model_3d_updated',        label: '3D model updated' },
+    { key: 'bom_updated',             label: 'BOM updated' },
+    { key: 'software_record_updated', label: 'Software part record updated' },
+    { key: 'old_part_linked',         label: 'Old part number linked' },
+    { key: 'calc_reference_checked',  label: 'Calculation reference checked' },
+    { key: 'carry_forward_note_added',label: 'Carry-forward note added' },
+];
+
+// Max hops when resolving a replacement chain for calculations (A→B→C…).
+export const PART_CHANGE_CALC_CHAIN_MAX_DEPTH = 5;
+
+// ----- Native part / BOM authoring -----
+// Marks rows authored in this app (vs bulk Alere imports). Import/squash
+// procedures must skip or preserve rows carrying this marker.
+export const RECORD_SOURCE_NATIVE = 'native';
+
+// Item attribute checkboxes on the New Part form (item_master boolean columns).
+export const ITEM_ATTRIBUTES = [
+    { key: 'attr_purchased',    label: 'Purchased' },
+    { key: 'attr_stocking',     label: 'Stocking' },
+    { key: 'attr_component',    label: 'Component' },
+    { key: 'attr_lot_costing',  label: 'Lot Costing' },
+    { key: 'attr_ecommerce',    label: 'eCommerce' },
+    { key: 'attr_drop_ship',    label: 'Drop Ship' },
+    { key: 'attr_sellable',     label: 'Sellable' },
+    { key: 'attr_manufactured', label: 'Manufactured' },
+];
 
 // ----- Post-paint staging areas -----
 export const STAGING_AREAS = [

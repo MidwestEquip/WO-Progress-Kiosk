@@ -1,13 +1,11 @@
 // ============================================================
 // expose-core.js — Vue template bindings: shop floor modules
-// Navigation, engineering, dashboard, TC/TV assy, office, CS
+// Navigation, dashboard, TC/TV assy, office, CS, messaging
+// (engineering bindings live in expose-eng.js)
 // ============================================================
 
 import * as store from './libs/store.js';
 import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS,
-         ENG_STATUSES, ENG_PRIORITIES, ENG_ASSIGNEES,
-         ENG_FOLLOWUP_STATUSES, ENG_FOLLOWUP_PRIORITIES, ENG_FOLLOWUP_FIT_STATUSES,
-         ENG_FOLLOWUP_STATUS_LABELS, ENG_FOLLOWUP_STATUS_COLORS,
          STAGING_AREAS, ROLE_DISPLAY_NAMES, LAST_REPORT_DATE } from './libs/config.js';
 import { formatDateLocal, formatTimestamp, getStageCum, detectTcMode,
          sanitizePartKey, isChutePart, isPurchasingOrderLate, formatMsgTime } from './libs/utils.js';
@@ -46,32 +44,6 @@ import { searchOfficeReceive, openReceiveModal, submitReceive,
          goToCloseout,
          saveCloseoutNoteInline, loadClosedOutOrders, openClosedOutHistory } from './pages/wo-status-view.js';
 import { searchCS, searchPastOrders, selectPastWo, clearPastOrders } from './pages/cs-view.js';
-import { enterEngineeringInquiriesView,
-         openEngInquiryForm, closeEngInquiryForm, submitEngInquiry,
-         handleEngNewInquiryFileSelect, removeEngNewInquiryFile,
-         openEngInquiryDetail, closeEngInquiryDetail,
-         saveEngInquiry, saveEngInquiryInline, handleEngImageUpload,
-         openEngImagesModal, closeEngImagesModal,
-         appendEngNote,
-         openEngNoteModal, submitEngNoteModal, markActionStepRead,
-         openEngDeleteConfirm, closeEngDeleteConfirm, confirmEngDelete,
-         onEngStatusChange,
-         enterEngCompletedView, loadEngCompletedInquiries,
-         restoreEngFromCompleted,
-         enterEngPrintsView, searchEngPrintFiles,
-         handleEngPrintUpload,
-         openEngPrintDeleteConfirm, closeEngPrintDeleteConfirm, confirmEngPrintDelete,
-         openEngPrintsReplaceConfirm, closeEngPrintsReplaceConfirm,
-         proceedEngPrintsReplaceAll, doEngPrintsReplaceAll,
-         openEngPrintsUploadConfirm, closeEngPrintsUploadConfirm,
-         proceedEngPrintsUpload } from './pages/engineering-view.js';
-import { enterEngineeringFollowupView, loadEngFollowups,
-         openEngFollowupCreate, openEngFollowupDetail, closeEngFollowupModal,
-         submitEngFollowupCreate, saveEngFollowupDetail,
-         submitEngFollowupNote, loadEngFollowupEvents,
-         applyFollowupNoAnswer, applyFollowupFitConfirmed, applyFollowupFitFailed,
-         submitFollowupCustomerResponded, onFollowupDateShippedChange,
-         closeEngFollowupCase } from './pages/engineering-followup.js';
 
 function openCompletedWo(order) {
     store.actionPanelReadOnly.value = true;
@@ -113,67 +85,6 @@ export function buildCoreExpose() {
         splashLevel:       store.splashLevel,
         splashCategory:    store.splashCategory,
         splashSubCategory: store.splashSubCategory,
-
-        // Engineering
-        engView:               store.engView,
-        engInquiries:          store.engInquiries,
-        engInquiriesLoading:   store.engInquiriesLoading,
-        engInquirySearch:      store.engInquirySearch,
-        engStatusFilter:       store.engStatusFilter,
-        engPriorityFilter:     store.engPriorityFilter,
-        engAssigneeFilter:     store.engAssigneeFilter,
-        engManualSort:         store.engManualSort,
-        engInquiryFormOpen:    store.engInquiryFormOpen,
-        engInquiryForm:        store.engInquiryForm,
-        engInquiryFormErrors:  store.engInquiryFormErrors,
-        engNewInquiryFiles:    store.engNewInquiryFiles,
-        engSelectedInquiry:    store.engSelectedInquiry,
-        engInquiryDetailOpen:  store.engInquiryDetailOpen,
-        engImagesModalOpen:    store.engImagesModalOpen,
-        engInquiryImages:      store.engInquiryImages,
-        engImagesLoading:      store.engImagesLoading,
-        filteredEngInquiries:  store.filteredEngInquiries,
-        engStatuses:           ENG_STATUSES,
-        engPriorities:         ENG_PRIORITIES,
-        engAssignees:          ENG_ASSIGNEES,
-
-        // Engineering Follow-Up
-        engFollowups:              store.engFollowups,
-        engFollowupsLoading:       store.engFollowupsLoading,
-        engFollowupSearch:         store.engFollowupSearch,
-        engFollowupStatusFilter:   store.engFollowupStatusFilter,
-        engFollowupPriorityFilter: store.engFollowupPriorityFilter,
-        engFollowupSummary:        store.engFollowupSummary,
-        filteredEngFollowups:      store.filteredEngFollowups,
-        engFollowupStatuses:       ENG_FOLLOWUP_STATUSES,
-        engFollowupPriorities:     ENG_FOLLOWUP_PRIORITIES,
-        engFollowupFitStatuses:    ENG_FOLLOWUP_FIT_STATUSES,
-        engFollowupStatusLabels:   ENG_FOLLOWUP_STATUS_LABELS,
-        engFollowupStatusColors:   ENG_FOLLOWUP_STATUS_COLORS,
-        loadEngFollowups,
-
-        // Follow-up modal
-        engFollowupModalOpen:     store.engFollowupModalOpen,
-        engFollowupModalMode:     store.engFollowupModalMode,
-        engFollowupForm:          store.engFollowupForm,
-        engFollowupFormErrors:    store.engFollowupFormErrors,
-        engFollowupSelected:      store.engFollowupSelected,
-        engFollowupActiveTab:     store.engFollowupActiveTab,
-        engFollowupEvents:        store.engFollowupEvents,
-        engFollowupEventsLoading: store.engFollowupEventsLoading,
-        engFollowupNewNote:       store.engFollowupNewNote,
-        engFollowupNewNoteBy:     store.engFollowupNewNoteBy,
-        engFollowupActionPanel:   store.engFollowupActionPanel,
-        engFollowupResponseNote:  store.engFollowupResponseNote,
-        engFollowupResponseType:  store.engFollowupResponseType,
-        openEngFollowupCreate, openEngFollowupDetail, closeEngFollowupModal,
-        submitEngFollowupCreate, saveEngFollowupDetail,
-        submitEngFollowupNote, loadEngFollowupEvents,
-        engFollowupChecklistCount: store.engFollowupChecklistCount,
-        applyFollowupNoAnswer, applyFollowupFitConfirmed, applyFollowupFitFailed,
-        submitFollowupCustomerResponded, onFollowupDateShippedChange,
-        closeEngFollowupCase,
-        formatTimestamp,
 
         // Dashboard
         orders:                   store.orders,
@@ -368,45 +279,6 @@ export function buildCoreExpose() {
         selectCategory, selectSubCategory, splashBack,
         enterEngineeringMenu, enterPurchasingMenu,
         submitLogin, logout, enterManagerView,
-        enterEngineeringInquiriesView, enterEngineeringFollowupView,
-        openEngInquiryForm, closeEngInquiryForm, submitEngInquiry,
-        handleEngNewInquiryFileSelect, removeEngNewInquiryFile,
-        openEngInquiryDetail, closeEngInquiryDetail,
-        saveEngInquiry, saveEngInquiryInline, handleEngImageUpload,
-        openEngImagesModal, closeEngImagesModal,
-        engNewEntries: store.engNewEntries,
-        appendEngNote,
-        openEngNoteModal, submitEngNoteModal, markActionStepRead,
-        engNoteModalOpen:    store.engNoteModalOpen,
-        engNoteModalContext: store.engNoteModalContext,
-        engNoteModalText:    store.engNoteModalText,
-        engDeleteConfirmOpen: store.engDeleteConfirmOpen,
-        engDeleteTarget:      store.engDeleteTarget,
-        openEngDeleteConfirm, closeEngDeleteConfirm, confirmEngDelete,
-        onEngStatusChange,
-        engCompletedInquiries: store.engCompletedInquiries,
-        engCompletedLoading:   store.engCompletedLoading,
-        engCompletedFrom:      store.engCompletedFrom,
-        engCompletedTo:        store.engCompletedTo,
-        engCompletedSearch:    store.engCompletedSearch,
-        filteredEngCompleted:  store.filteredEngCompleted,
-        enterEngCompletedView, loadEngCompletedInquiries, restoreEngFromCompleted,
-
-        // Engineering Prints / Files Update
-        engPrintsSearch:             store.engPrintsSearch,
-        engPrintsFiles:              store.engPrintsFiles,
-        engPrintsLoading:            store.engPrintsLoading,
-        engPrintsSearchedPart:       store.engPrintsSearchedPart,
-        engPrintsDeleteConfirmOpen:  store.engPrintsDeleteConfirmOpen,
-        engPrintsDeleteTarget:       store.engPrintsDeleteTarget,
-        engPrintsReplaceConfirmOpen: store.engPrintsReplaceConfirmOpen,
-        engPrintsUploadConfirmOpen:  store.engPrintsUploadConfirmOpen,
-        enterEngPrintsView, searchEngPrintFiles,
-        handleEngPrintUpload,
-        openEngPrintDeleteConfirm, closeEngPrintDeleteConfirm, confirmEngPrintDelete,
-        openEngPrintsReplaceConfirm, closeEngPrintsReplaceConfirm,
-        proceedEngPrintsReplaceAll, doEngPrintsReplaceAll,
-        openEngPrintsUploadConfirm, closeEngPrintsUploadConfirm, proceedEngPrintsUpload,
 
         // Dashboard
         openActionPanel, openCompletedWo, openCreatedWoDetail, openTvAssyEntry, tvSelectMode,
@@ -448,7 +320,7 @@ export function buildCoreExpose() {
         toggleCompletedDeptView,
 
         // Utilities
-        formatDateLocal, detectTcMode, sanitizePartKey, isChutePart, isPurchasingOrderLate,
+        formatDateLocal, formatTimestamp, detectTcMode, sanitizePartKey, isChutePart, isPurchasingOrderLate,
 
         // Direct messaging
         messagesView:    store.messagesView,

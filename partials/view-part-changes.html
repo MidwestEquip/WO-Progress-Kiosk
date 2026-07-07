@@ -1,0 +1,125 @@
+<!-- ============================================================
+     view-part-changes.html — Engineering > Part Changes
+     List of part change records: replacements, revisions,
+     2D→3D conversions, finalizations, BOM changes.
+     ============================================================ -->
+<div v-if="currentView === 'engineering' && engView === 'part_changes'"
+    class="h-full w-full flex flex-col bg-gray-50">
+
+    <!-- Top bar -->
+    <div class="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
+        <button @click="goBack"
+            class="bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg p-2 active:scale-95 transition-transform">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+        <div class="flex-1">
+            <h1 class="text-xl font-extrabold text-gray-800">Part Changes</h1>
+            <p class="text-xs text-gray-400">Replacement history, revisions &amp; BOM update checklists</p>
+        </div>
+        <template v-if="partChangesTab === 'records'">
+        <!-- Search -->
+        <div class="relative">
+            <input v-model="partChangeSearch" type="text"
+                placeholder="Search part #, old part #, reason..."
+                class="w-72 pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:border-teal-400 transition-colors">
+            <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+            </svg>
+        </div>
+        <button v-if="partChangeSearch" @click="partChangeSearch = ''"
+            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-lg text-sm transition-colors">&#10005;</button>
+        <!-- Status filter -->
+        <select v-model="partChangeStatusFilter"
+            class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:border-teal-400">
+            <option value="open">Open</option>
+            <option value="completed">Completed</option>
+            <option value="">All</option>
+        </select>
+        <!-- New record -->
+        <button @click="openPartChangeCreate"
+            class="bg-teal-600 hover:bg-teal-500 text-white px-5 py-2 rounded-xl font-bold text-sm active:scale-95 transition-all flex items-center gap-2 shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            New Part Change
+        </button>
+        <!-- Refresh -->
+        <button @click="loadPartChanges"
+            class="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-xl font-bold text-sm active:scale-95 transition-all flex items-center gap-2 shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Refresh
+        </button>
+        </template>
+    </div>
+
+    <!-- Tabs -->
+    <div class="shrink-0 bg-white border-b border-gray-200 px-6 flex gap-1">
+        <button @click="partChangesTab = 'records'"
+            class="px-4 py-2.5 text-sm font-bold border-b-2 -mb-px transition-colors"
+            :class="partChangesTab === 'records' ? 'border-teal-600 text-teal-700' : 'border-transparent text-gray-400 hover:text-gray-600'">
+            Change Records
+        </button>
+        <button @click="partChangesTab = 'boms'"
+            class="px-4 py-2.5 text-sm font-bold border-b-2 -mb-px transition-colors"
+            :class="partChangesTab === 'boms' ? 'border-teal-600 text-teal-700' : 'border-transparent text-gray-400 hover:text-gray-600'">
+            BOM Lookup
+        </button>
+    </div>
+
+    <!-- BOM Lookup tab body (content teleported from view-part-changes-bom.html) -->
+    <div v-if="partChangesTab === 'boms'" id="bom-tab-body" class="flex-1 overflow-y-auto px-6 py-4"></div>
+
+    <!-- List -->
+    <div v-if="partChangesTab === 'records'" class="flex-1 overflow-y-auto px-6 py-4">
+        <div v-if="partChangesLoading" class="text-center text-gray-400 italic py-12">Loading…</div>
+        <div v-else-if="!filteredPartChanges.length" class="text-center text-gray-400 py-12">
+            No part change records{{ partChangeStatusFilter ? ' (' + partChangeStatusFilter + ')' : '' }}.
+        </div>
+        <table v-else class="w-full bg-white rounded-xl shadow-sm border border-gray-200 text-sm">
+            <thead>
+                <tr class="text-left text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
+                    <th class="px-4 py-3">Type</th>
+                    <th class="px-4 py-3">Part #</th>
+                    <th class="px-4 py-3">Replaces</th>
+                    <th class="px-4 py-3">Reason / Carry-Forward Note</th>
+                    <th class="px-4 py-3">Status</th>
+                    <th class="px-4 py-3">Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="pc in filteredPartChanges" :key="pc.id" @click="openPartChangeDetail(pc)"
+                    class="border-b border-gray-100 last:border-0 hover:bg-teal-50/50 cursor-pointer">
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap"
+                              :class="partChangeTypeColors[pc.change_type] || 'bg-gray-100 text-gray-600'">
+                            {{ partChangeTypeLabels[pc.change_type] || pc.change_type }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 font-bold text-gray-800">{{ pc.part_number }}</td>
+                    <td class="px-4 py-3 text-gray-600">
+                        <span v-if="pc.previous_part_number">{{ pc.previous_part_number }}
+                            <span v-if="!pc.use_previous_for_calcs" class="text-xs text-gray-400 italic">(not used in calcs)</span>
+                        </span>
+                        <span v-else class="text-gray-300">—</span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600 max-w-md">
+                        <p v-if="pc.replacement_reason" class="truncate">{{ pc.replacement_reason }}</p>
+                        <p v-if="pc.carry_forward_note" class="truncate text-xs text-gray-400 italic">{{ pc.carry_forward_note }}</p>
+                        <span v-if="!pc.replacement_reason && !pc.carry_forward_note" class="text-gray-300">—</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-bold"
+                              :class="pc.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
+                            {{ pc.status === 'completed' ? 'Completed' : 'Open' }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {{ pc.created_by }}<br>{{ formatDateLocal(pc.created_at) }}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

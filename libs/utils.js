@@ -153,6 +153,45 @@ export function detectOpenOrderSection(partNumber) {
     return partNumber.trim().toUpperCase().startsWith('TC') ? 'tru_cut' : 'trac_vac';
 }
 
+// ── openOrderMatchesFilter ────────────────────────────────────
+// True when an open order row matches a search query. Checks part #,
+// description, customer, SO#, WO/PO#, bins, and notes (case-insensitive).
+// q must already be trimmed + lowercased (caller normalizes once per pass).
+export function openOrderMatchesFilter(order, q) {
+    if (!q) return true;
+    return [order.part_number, order.description, order.customer, order.sales_order,
+            order.wo_po_number, order.store_bin, order.update_store_bin, order.wo_va_notes]
+        .some(v => (v || '').toLowerCase().includes(q));
+}
+
+// ── normalizePasteDate ────────────────────────────────────────
+// Normalize a pasted date string to YYYY-MM-DD for storage/sorting.
+// Accepts: YYYY-MM-DD (pass-through), M/D, M/D/YY, M/D/YYYY (slash or dash).
+// M/D with no year assumes the current year. Returns null when unparseable.
+export function normalizePasteDate(raw) {
+    if (typeof raw !== 'string' || !raw.trim()) return null;
+    const s = raw.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2}|\d{4}))?$/);
+    if (!m) return null;
+    const mo = Number(m[1]), da = Number(m[2]);
+    let yr = m[3] ? Number(m[3]) : new Date().getFullYear();
+    if (m[3] && m[3].length === 2) yr += 2000;
+    if (mo < 1 || mo > 12 || da < 1 || da > 31) return null;
+    return `${yr}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`;
+}
+
+// ── matchOpenOrderStatus ──────────────────────────────────────
+// Case-insensitive match of a pasted status against the known status list.
+// statuses is passed as an argument so this function stays pure (no imports).
+// Returns the canonical status string, or null if unknown/blank.
+export function matchOpenOrderStatus(raw, statuses) {
+    if (typeof raw !== 'string' || !Array.isArray(statuses)) return null;
+    const key = raw.trim().toLowerCase();
+    if (!key) return null;
+    return statuses.find(s => s.toLowerCase() === key) || null;
+}
+
 // isChutePart — returns true if the part number is a chute part.
 // Chute parts are exactly 3 digits, a hyphen, then 6, 7, or 8.
 // Examples: 900-8, 123-6, 045-7. Non-examples: 900-9, TEST-001, 1234-7.
@@ -190,9 +229,12 @@ export function businessDaysSince(isoTimestamp) {
 // Staleness overrides manual row_color — call effectiveRowColor() in the page layer.
 //   New/Picking  + >1.5 business days since last update → 'yellow'
 //   WO Created   + deadline set + today > deadline+1 day  → 'blue'
+// Rows inserted before last_status_update was set at insert time have it NULL —
+// fall back to date_entered, then created_at, so fresh rows still go stale.
 export function getStaleHighlightColor(order) {
     const status = order?.status || '';
-    if (status === 'New/Picking' && businessDaysSince(order.last_status_update) > 1.5) {
+    const lastTouched = order?.last_status_update || order?.date_entered || order?.created_at;
+    if (status === 'New/Picking' && businessDaysSince(lastTouched) > 1.5) {
         return 'yellow';
     }
     if (status === 'WO Created' && order.deadline) {

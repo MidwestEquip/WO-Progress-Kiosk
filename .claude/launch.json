@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kiosk",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8323"],
+      "port": 8323,
+      "autoPort": false
+    }
+  ]
+}

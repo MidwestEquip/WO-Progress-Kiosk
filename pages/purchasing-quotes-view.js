@@ -8,6 +8,7 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
+import { _replaceInStore } from './purchasing-receive.js';
 
 // openQuoteBuilder — reset builder state and open the modal.
 export function openQuoteBuilder() {
@@ -186,4 +187,144 @@ export async function submitQuoteOrder(quote) {
     } finally {
         store.quoteOrderSaving.value = false;
     }
+}
+
+// ── Detail-modal quotes tab ───────────────────────────────────
+// Moved from purchasing-view.js (500-line cap split). These drive the
+// Quotes tab inside the order detail modal, not the cross-order builder.
+
+const BLANK_QUOTE = (sortOrder) => ({
+    id:             null,
+    sort_order:     sortOrder,
+    supplier_name:  '',
+    qty:            '',
+    price:          '',
+    lead_time:      '',
+    shipping_price: '',
+    terms:          '',
+    quote_ref:      '',
+    _saving:        false,
+});
+
+// loadOrderQuotes — fetch saved quotes and pad display list to 5 rows minimum.
+export async function loadOrderQuotes() {
+    const order = store.purchasingDetailOrder.value;
+    if (!order) return;
+    store.purchasingDetailQuotesLoading.value = true;
+    try {
+        const { data, error } = await db.fetchPurchasingQuotes(order.id);
+        if (error) throw error;
+
+        // Map DB rows to editable form objects
+        const rows = data.map(q => ({
+            id:             q.id,
+            sort_order:     q.sort_order,
+            supplier_name:  q.supplier_name  || '',
+            qty:            q.qty            ?? '',
+            price:          q.price          ?? '',
+            lead_time:      q.lead_time      || '',
+            shipping_price: q.shipping_price ?? '',
+            terms:          q.terms          || '',
+            quote_ref:      q.quote_ref      || '',
+            _saving:        false,
+        }));
+
+        // Pad to at least 5 rows
+        const needed = Math.max(5, rows.length + 1);
+        for (let i = rows.length + 1; i <= needed; i++) rows.push(BLANK_QUOTE(i));
+
+        store.purchasingDetailQuotes.value = rows;
+    } catch (err) {
+        store.showToast('Failed to load quotes: ' + err.message);
+        logError('loadOrderQuotes', err);
+    } finally {
+        store.purchasingDetailQuotesLoading.value = false;
+    }
+}
+
+// saveQuote — upsert a single quote row to DB; skips if all fields are blank.
+export async function saveQuote(row) {
+    const order = store.purchasingDetailOrder.value;
+    if (!order) return;
+
+    const hasData = row.supplier_name?.trim() || row.qty || row.price ||
+                    row.lead_time?.trim() || row.shipping_price || row.terms?.trim() || row.quote_ref?.trim();
+    if (!hasData) {
+        store.showToast('Fill in at least one field before saving.', 'error');
+        return;
+    }
+
+    row._saving = true;
+    try {
+        const fields = {
+            purchasing_order_id: order.id,
+            sort_order:          row.sort_order,
+            supplier_name:       row.supplier_name?.trim()  || null,
+            qty:                 parseFloat(row.qty)        || null,
+            price:               parseFloat(row.price)      || null,
+            lead_time:           row.lead_time?.trim()      || null,
+            shipping_price:      parseFloat(row.shipping_price) || null,
+            terms:               row.terms?.trim()          || null,
+            quote_ref:           row.quote_ref?.trim()      || null,
+        };
+        if (row.id) fields.id = row.id;
+
+        const { data, error } = await db.upsertPurchasingQuote(fields);
+        if (error) throw error;
+
+        row.id = data.id;
+        store.showToast('Quote saved.', 'success');
+
+        // Auto-advance status to 'quoting' the first time a quote is saved.
+        // (The detail form's deep watcher in purchasing-view.js sees the status
+        // change and fires one redundant-but-harmless autosave of equal values.)
+        if (order.status === 'requested') {
+            const now = new Date().toISOString();
+            const { data: updated } = await db.updatePurchasingOrder(order.id, {
+                status: 'quoting', last_status_update: now,
+            });
+            if (updated) {
+                _replaceInStore(updated);
+                store.purchasingDetailOrder.value      = updated;
+                store.purchasingDetailForm.value.status = 'quoting';
+                db.insertPurchasingEvent({
+                    orderId: order.id, eventType: 'status_change',
+                    oldStatus: 'requested', newStatus: 'quoting', createdBy: 'purchasing',
+                });
+            }
+        }
+    } catch (err) {
+        store.showToast('Failed to save quote: ' + err.message);
+        logError('saveQuote', err);
+    } finally {
+        row._saving = false;
+    }
+}
+
+// addQuoteRow — append a blank quote row to the display list.
+export function addQuoteRow() {
+    const rows = store.purchasingDetailQuotes.value;
+    rows.push(BLANK_QUOTE(rows.length + 1));
+}
+
+// removeQuoteRow — delete a saved quote from DB (if saved), then remove from list.
+export async function removeQuoteRow(index) {
+    const rows = store.purchasingDetailQuotes.value;
+    const row  = rows[index];
+    if (!row) return;
+
+    if (row.id) {
+        row._saving = true;
+        try {
+            const { error } = await db.deletePurchasingQuote(row.id);
+            if (error) throw error;
+        } catch (err) {
+            store.showToast('Failed to delete quote: ' + err.message);
+            logError('removeQuoteRow', err);
+            row._saving = false;
+            return;
+        }
+    }
+
+    store.purchasingDetailQuotes.value = rows.filter((_, i) => i !== index);
 }

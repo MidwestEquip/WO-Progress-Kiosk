@@ -4,62 +4,8 @@
                  @click.self="openOrderColorPickerRow = null; clearRowSelection()">
 
                 <!-- ── Top bar ──────────────────────────────── -->
-                <div class="shrink-0 bg-slate-900 px-4 py-2 flex items-center gap-4 border-b border-slate-700">
-                    <button @click="goBack"
-                        class="text-slate-400 hover:text-white flex items-center gap-1 text-xs font-medium transition-colors shrink-0">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
-                        </svg>
-                        Back
-                    </button>
-                    <h2 class="text-white font-bold text-base shrink-0">Open Orders</h2>
-
-                    <!-- Color legend -->
-                    <div class="flex items-center gap-3 text-xs ml-4">
-                        <span class="text-slate-400 font-semibold">Row colors:</span>
-                        <span class="flex items-center gap-1 text-slate-300">
-                            <span class="w-3 h-3 rounded-sm bg-orange-400 inline-block"></span> VA
-                        </span>
-                        <span class="flex items-center gap-1 text-slate-300">
-                            <span class="w-3 h-3 rounded-sm bg-yellow-400 inline-block"></span> Shipping
-                        </span>
-                        <span class="flex items-center gap-1 text-slate-300">
-                            <span class="w-3 h-3 rounded-sm bg-pink-400 inline-block"></span> Office / Dan K
-                        </span>
-                        <span class="flex items-center gap-1 text-slate-300">
-                            <span class="w-3 h-3 rounded-sm bg-blue-400 inline-block"></span> Dan H
-                        </span>
-                    </div>
-
-                    <div class="flex-1"></div>
-
-                    <!-- Task Reminder Emails button -->
-                    <button @click="reminderEmailModalOpen = true"
-                        class="text-slate-400 hover:text-white flex items-center gap-1.5 text-xs font-medium transition-colors shrink-0 border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                        </svg>
-                        Task Reminder Emails
-                    </button>
-
-                    <!-- Completed Orders link -->
-                    <button @click="enterCompletedOrdersView()"
-                        class="text-slate-400 hover:text-white flex items-center gap-1.5 text-xs font-medium transition-colors shrink-0 border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                        </svg>
-                        Completed Orders
-                    </button>
-
-                    <!-- Add Row(s) button -->
-                    <button @click="openOrderAddModalOpen = true"
-                        class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors shrink-0">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-                        </svg>
-                        Add Row(s)
-                    </button>
-                </div>
+                <!-- Content teleports in from view-open-orders-topbar.html (line-cap split) -->
+                <div id="oo-topbar" class="shrink-0"></div>
 
                 <!-- ── Scrollable content ────────────────────── -->
                 <div class="flex-1 overflow-y-auto p-3 space-y-4"
@@ -240,6 +186,26 @@
                                                               @mousedown.stop
                                                               class="text-xs text-slate-600 cursor-text hover:bg-black/[0.04] rounded px-0.5">
                                                             {{ order.to_ship ?? 0 }}
+                                                        </span>
+                                                    </span>
+                                                    <!-- Qty Pulled — amber when it doesn't match To Ship (partial pick) -->
+                                                    <span v-if="openOrderEditingCell.id===order.id && openOrderEditingCell.field==='qty_pulled'"
+                                                          class="inline-flex items-center gap-1" @click.stop @mousedown.stop>
+                                                        <span class="text-xs text-slate-500 font-semibold" title="Qty Pulled">PLD</span>
+                                                        <input v-model="openOrderEditingValue" type="number" min="0"
+                                                               :ref="el=>{if(el)el.focus()}"
+                                                               @blur="saveCellEdit(order.id,'qty_pulled')"
+                                                               @keydown.enter.prevent="saveCellEdit(order.id,'qty_pulled')"
+                                                               @keydown.escape.prevent="cancelCellEdit()"
+                                                               class="w-12 border border-indigo-400 rounded px-1 text-xs focus:outline-none" />
+                                                    </span>
+                                                    <span v-else class="inline-flex items-center gap-1">
+                                                        <span class="text-xs text-slate-500 font-semibold" title="Qty Pulled">PLD</span>
+                                                        <span @click.stop="startCellEdit(order.id,'qty_pulled',order.qty_pulled)"
+                                                              @mousedown.stop
+                                                              class="text-xs cursor-text hover:bg-black/[0.04] rounded px-0.5"
+                                                              :class="order.qty_pulled != null && order.qty_pulled !== order.to_ship ? 'text-amber-700 font-bold' : 'text-slate-600'">
+                                                            {{ order.qty_pulled ?? '—' }}
                                                         </span>
                                                     </span>
                                                 </div>
@@ -711,6 +677,17 @@
                                                                 {{ order.last_status_update.slice(0,10) }}
                                                             </div>
                                                         </div>
+                                                        <!-- Request WO / PO shortcuts (pre-fill + jump to request form) -->
+                                                        <div v-if="canRequestFromOpenOrder(order)" class="flex items-center gap-1 mt-1" @click.stop @mousedown.stop>
+                                                            <button @click="requestWoFromOpenOrder(order)" title="Request a WO for this part (pre-filled)"
+                                                                    class="text-purple-600 hover:text-white hover:bg-purple-500 border border-purple-300 rounded px-1 py-0.5 text-[10px] font-bold leading-none transition-colors">
+                                                                Req WO
+                                                            </button>
+                                                            <button @click="requestPoFromOpenOrder(order)" title="Request a PO for this part (pre-filled)"
+                                                                    class="text-violet-600 hover:text-white hover:bg-violet-500 border border-violet-300 rounded px-1 py-0.5 text-[10px] font-bold leading-none transition-colors">
+                                                                Req PO
+                                                            </button>
+                                                        </div>
                                                     </template>
                                                 </div>
 
@@ -768,36 +745,5 @@
 
                 </div><!-- end scrollable content -->
 
-                <!-- ── Selection action bar ───────────────────── -->
-                <div v-if="openOrderSelectedIds.length > 0"
-                     class="absolute bottom-5 left-1/2 -translate-x-1/2 z-40 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-semibold flex items-center gap-3 pointer-events-auto">
-                    <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                    <span class="text-slate-700 font-bold">
-                        {{ openOrderSelectedIds.length }} row{{ openOrderSelectedIds.length > 1 ? 's' : '' }} selected
-                    </span>
-                    <span class="text-slate-300">·</span>
-                    <span class="text-slate-400 hidden sm:inline">Drag to section</span>
-                    <span class="text-slate-300 hidden sm:inline">·</span>
-                    <!-- Bulk status change -->
-                    <span class="text-slate-500">Set status:</span>
-                    <select v-model="openOrderBulkStatus"
-                            class="border border-slate-300 bg-slate-50 text-slate-700 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer">
-                        <option value="">— pick —</option>
-                        <option v-for="s in openOrderStatuses" :key="s" :value="s">{{ s }}</option>
-                    </select>
-                    <button @click="bulkChangeStatus(openOrderSelectedIds, openOrderBulkStatus)"
-                            :disabled="!openOrderBulkStatus"
-                            class="bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1 rounded-lg transition-colors font-bold">
-                        Apply
-                    </button>
-                    <span class="text-slate-300">·</span>
-                    <button @click="clearRowSelection()"
-                        class="text-slate-400 hover:text-slate-600 transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
+                <!-- Selection action bar lives in view-open-orders-actionbar.html (split for line cap) -->
             </div><!-- end open orders view -->

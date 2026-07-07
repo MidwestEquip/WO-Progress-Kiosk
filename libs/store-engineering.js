@@ -5,9 +5,85 @@
 // ============================================================
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
+import { PART_CHANGE_CHECKLIST_ITEMS } from './config.js';
 
-// Which engineering sub-view is active: 'inquiries' | 'followup'
+// Which engineering sub-view is active: 'inquiries' | 'followup' | 'part_changes'
 export const engView = ref('inquiries');
+
+// ── BOM Lookup tab (inside Part Changes view) ────────────────
+export const partChangesTab = ref('records');   // 'records' | 'boms'
+export const bomSearch      = ref('');
+export const bomLoading     = ref(false);
+export const bomSearched    = ref(false);       // true once a lookup has run
+export const bomParent      = ref('');          // normalized parent last searched
+export const bomParentDesc  = ref('');
+export const bomLines       = ref([]);   // flat tree rows: { …line, depth, path, expanded, leaf, loading }
+
+// bomTopLevelCount — direct children of the searched parent (excludes expanded
+// deeper levels, which also live in bomLines).
+export const bomTopLevelCount = computed(() =>
+    bomLines.value.filter(l => l.depth === 0).length
+);
+
+// BOM editing (manager-only). One row edits at a time; deletes are two-click.
+export const bomEditName     = ref('');     // stamps auto-opened bom_change records
+export const bomEditLineId   = ref(null);   // id of the row in edit mode
+export const bomEditForm     = ref({});     // { item_child, qty_per_assy }
+export const bomEditSaving   = ref(false);
+export const bomDeleteLineId = ref(null);   // id of the row pending delete confirm
+export const bomAddOpen      = ref(false);
+export const bomAddForm      = ref({});     // { item_child, qty_per_assy }
+export const bomAddSaving    = ref(false);
+
+// ── Part Changes (part_changes table) ────────────────────────
+export const partChanges            = ref([]);
+export const partChangesLoading     = ref(false);
+export const partChangeSearch       = ref('');
+export const partChangeStatusFilter = ref('open');   // 'open' | 'completed' | '' (all)
+
+// New part change form
+export const partChangeFormOpen   = ref(false);
+export const partChangeSaving     = ref(false);
+export const partChangeForm       = ref({});
+export const partChangeFormErrors = ref({});
+
+// filteredPartChanges — status filter + text search over the loaded records.
+export const filteredPartChanges = computed(() => {
+    const q = partChangeSearch.value.trim().toLowerCase();
+    let rows = partChanges.value;
+    if (partChangeStatusFilter.value) rows = rows.filter(r => r.status === partChangeStatusFilter.value);
+    if (!q) return rows;
+    return rows.filter(r =>
+        (r.part_number          || '').toLowerCase().includes(q) ||
+        (r.previous_part_number || '').toLowerCase().includes(q) ||
+        (r.replacement_reason   || '').toLowerCase().includes(q) ||
+        (r.carry_forward_note   || '').toLowerCase().includes(q) ||
+        (r.created_by           || '').toLowerCase().includes(q)
+    );
+});
+
+// partChangeOpenCount — open records (for the splash badge).
+export const partChangeOpenCount = computed(() =>
+    partChanges.value.filter(r => r.status === 'open').length
+);
+
+// woRequestOpenChanges — open part_changes records for the WO Request detail's
+// part; drives the amber "engineering change in progress" warning pills.
+// Loaded by the selectedWoRequest watch in main.js.
+export const woRequestOpenChanges = ref([]);
+
+// Detail modal (record view + checklist)
+export const partChangeDetailOpen   = ref(false);
+export const partChangeSelected     = ref(null);
+export const partChangeDetailSaving = ref(false);
+export const partChangeCheckName    = ref('');   // stamps checklist items; persists per session
+
+// partChangeChecklistDone — how many of the 7 items are checked or N/A'd
+// on the selected record. Pairs with partChangeChecklistItems.length in the badge.
+export const partChangeChecklistDone = computed(() => {
+    const cl = partChangeSelected.value?.checklist || {};
+    return PART_CHANGE_CHECKLIST_ITEMS.filter(i => cl[i.key]?.state).length;
+});
 
 // Inquiry list
 export const engInquiries        = ref([]);

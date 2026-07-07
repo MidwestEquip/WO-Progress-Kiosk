@@ -25,7 +25,9 @@ export * from './db-inventory.js';
 export * from './db-cs.js';
 export * from './db-storage.js';
 export * from './db-engineering.js';
+export * from './db-bom.js';
 export * from './db-followup.js';
+export * from './db-part-changes.js';
 export * from './db-part-defaults.js';
 export * from './db-purchasing.js';
 
