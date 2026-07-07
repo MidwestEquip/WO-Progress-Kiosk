@@ -154,6 +154,11 @@ export async function openWoRequestDetail(req) {
         const r = {};
         Object.entries(req.subpart_plans).forEach(([n, v]) => { r[n] = { ...v, expanded: false, defaultsLoaded: true }; });
         store.woRequestSubpartForms.value = r;
+    } else {
+        // No subparts on this request — clear any forms carried over from a
+        // previously opened WO, otherwise those stale plans leak onto this one
+        // when it is saved / sent to manager.
+        store.woRequestSubpartForms.value = {};
     }
 
     // Replacement chain (part_changes): resolved once, shared by the history

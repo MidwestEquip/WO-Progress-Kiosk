@@ -74,10 +74,20 @@
                                 <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
                                 Already an active PO for this part
                             </p>
-                            <ul class="space-y-0.5">
-                                <li v-for="(it, i) in purchasingRequestActivePoItems" :key="i" class="flex gap-1.5">
-                                    <span class="font-mono font-semibold">{{ it.label }}</span>
-                                    <span v-if="it.detail" class="text-red-600">— {{ it.detail }}</span>
+                            <ul class="space-y-1">
+                                <li v-for="(it, i) in purchasingRequestActivePoItems" :key="i"
+                                    class="border-t border-red-200 pt-1 first:border-t-0 first:pt-0">
+                                    <div class="flex gap-1.5">
+                                        <span class="font-mono font-semibold">{{ it.label }}</span>
+                                        <span v-if="it.detail" class="text-red-600">— {{ it.detail }}</span>
+                                    </div>
+                                    <div v-if="it.qtyOrdered != null || it.dateOrdered || it.priceEach != null || it.leadTime != null"
+                                        class="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-red-700">
+                                        <span v-if="it.qtyOrdered != null">Qty <b>{{ it.qtyOrdered }}</b></span>
+                                        <span v-if="it.dateOrdered">Ordered <b>{{ it.dateOrdered }}</b></span>
+                                        <span v-if="it.priceEach != null">Each <b>${{ it.priceEach }}</b></span>
+                                        <span v-if="it.leadTime != null">Lead <b>{{ it.leadTime }}d</b></span>
+                                    </div>
                                 </li>
                             </ul>
                         </div>

@@ -34,10 +34,37 @@
 
     <!-- Results -->
     <div v-else>
-        <div class="mb-3">
-            <p class="text-lg font-extrabold text-gray-800 font-mono">{{ bomParent }}</p>
-            <p v-if="bomParentDesc" class="text-sm text-gray-500">{{ bomParentDesc }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ bomTopLevelCount }} component{{ bomTopLevelCount === 1 ? '' : 's' }} — click a row to expand its BOM</p>
+        <div class="mb-3 flex items-end gap-4">
+            <div class="flex-1">
+                <p class="text-lg font-extrabold text-gray-800 font-mono">{{ bomParent }}</p>
+                <p v-if="bomParentDesc" class="text-sm text-gray-500">{{ bomParentDesc }}</p>
+                <p class="text-xs text-gray-400 mt-0.5">{{ bomTopLevelCount }} component{{ bomTopLevelCount === 1 ? '' : 's' }} — click a row to expand its BOM</p>
+            </div>
+            <!-- Manager edit controls -->
+            <template v-if="sessionRole === 'manager'">
+                <input v-model="bomEditName" type="text" placeholder="Your name (required to edit)"
+                    class="w-56 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:border-teal-400">
+                <button @click="openBomAdd"
+                    class="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-xl font-bold text-sm active:scale-95 transition-all shrink-0 flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                    Add Component
+                </button>
+            </template>
+        </div>
+
+        <!-- Add component form (adds at the top level of the searched parent) -->
+        <div v-if="bomAddOpen" class="bg-teal-50 border border-teal-200 rounded-xl p-3 mb-3 flex items-center gap-3">
+            <input v-model="bomAddForm.item_child" type="text" placeholder="Part # to add"
+                class="w-56 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800 bg-white uppercase focus:outline-none focus:border-teal-400">
+            <input v-model="bomAddForm.qty_per_assy" type="number" min="0" step="any" placeholder="Qty"
+                class="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800 bg-white focus:outline-none focus:border-teal-400">
+            <button @click="submitBomAdd" :disabled="bomAddSaving"
+                class="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-bold text-sm active:scale-95 transition-all">
+                {{ bomAddSaving ? 'Adding…' : 'Add' }}
+            </button>
+            <button @click="cancelBomAdd"
+                class="px-3 py-2 bg-white hover:bg-gray-100 text-gray-600 font-bold rounded-lg text-sm border border-gray-300 transition-colors">Cancel</button>
+            <span class="text-xs text-gray-400">Adds to {{ bomParent }} (top level). To add inside a subassembly, look up that part directly.</span>
         </div>
         <table class="w-full bg-white rounded-xl shadow-sm border border-gray-200 text-sm">
             <thead>
@@ -46,12 +73,14 @@
                     <th class="px-4 py-3">Description</th>
                     <th class="px-4 py-3 text-right">Qty per Assy</th>
                     <th class="px-4 py-3">Source</th>
+                    <th v-if="sessionRole === 'manager'" class="px-4 py-3 text-right">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="line in bomLines" :key="line.id" @click="toggleBomLine(line)"
+                <tr v-for="line in bomLines" :key="line.id"
+                    @click="bomEditLineId === line.id ? null : toggleBomLine(line)"
                     class="border-b border-gray-100 last:border-0 hover:bg-teal-50/50"
-                    :class="line.leaf ? '' : 'cursor-pointer'">
+                    :class="line.leaf || bomEditLineId === line.id ? '' : 'cursor-pointer'">
                     <td class="px-4 py-3 font-bold text-gray-800 font-mono">
                         <div class="flex items-center gap-1.5" :style="{ paddingLeft: (line.depth * 1.5) + 'rem' }">
                             <svg v-if="line.loading" class="w-4 h-4 animate-spin text-teal-500 shrink-0" fill="none" viewBox="0 0 24 24">
@@ -63,16 +92,51 @@
                                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
                             </svg>
-                            <span :class="line.depth > 0 ? 'font-semibold text-gray-600' : ''">{{ line.item_child_normalized }}</span>
+                            <input v-if="bomEditLineId === line.id" v-model="bomEditForm.item_child" @click.stop
+                                class="w-44 px-2 py-1 border border-teal-400 rounded text-sm font-mono uppercase bg-white focus:outline-none">
+                            <span v-else :class="line.depth > 0 ? 'font-semibold text-gray-600' : ''">{{ line.item_child_normalized }}</span>
                         </div>
                     </td>
                     <td class="px-4 py-3 text-gray-600">{{ line.description || '—' }}</td>
-                    <td class="px-4 py-3 text-right font-semibold text-gray-800">{{ line.qty_per_assy }}</td>
+                    <td class="px-4 py-3 text-right font-semibold text-gray-800">
+                        <input v-if="bomEditLineId === line.id" v-model="bomEditForm.qty_per_assy" @click.stop
+                            type="number" min="0" step="any"
+                            class="w-20 px-2 py-1 border border-teal-400 rounded text-sm text-right bg-white focus:outline-none">
+                        <span v-else>{{ line.qty_per_assy }}</span>
+                    </td>
                     <td class="px-4 py-3">
                         <span class="px-2 py-0.5 rounded-full text-xs font-bold"
                               :class="line.source === 'native' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-500'">
                             {{ line.source === 'native' ? 'Native' : 'Imported' }}
                         </span>
+                    </td>
+                    <td v-if="sessionRole === 'manager'" class="px-4 py-3">
+                        <div class="flex items-center justify-end gap-1.5">
+                            <template v-if="bomEditLineId === line.id">
+                                <button @click.stop="saveBomLineEdit" :disabled="bomEditSaving"
+                                    class="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-3 py-1 rounded-lg font-bold text-xs active:scale-95 transition-all">
+                                    {{ bomEditSaving ? 'Saving…' : 'Save' }}
+                                </button>
+                                <button @click.stop="cancelBomLineEdit"
+                                    class="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-lg text-xs transition-colors">Cancel</button>
+                            </template>
+                            <template v-else-if="bomDeleteLineId === line.id">
+                                <button @click.stop="confirmBomLineDelete(line)"
+                                    class="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-lg font-bold text-xs active:scale-95 transition-all">Confirm Remove?</button>
+                                <button @click.stop="cancelBomLineDelete"
+                                    class="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold rounded-lg text-xs transition-colors">Cancel</button>
+                            </template>
+                            <template v-else>
+                                <button @click.stop="startBomLineEdit(line)" title="Edit line"
+                                    class="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </button>
+                                <button @click.stop="askBomLineDelete(line)" title="Remove from BOM"
+                                    class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                            </template>
+                        </div>
                     </td>
                 </tr>
             </tbody>

@@ -109,6 +109,11 @@ export const managerWoApprovalCount   = computed(() => managerWoApprovalList.val
 // Keyed by normalized part number; each value mirrors the planner SUBPART_FORM shape.
 export const managerWoSubpartForms    = ref({});
 export const managerWoSubpartDescs    = ref({});
+// View-only prints overlay for a single subpart (opened from its "Files attached" chip).
+export const managerWoSubpartFilesOpen    = ref(false);
+export const managerWoSubpartFilesPart    = ref('');
+export const managerWoSubpartFiles        = ref([]);
+export const managerWoSubpartFilesLoading = ref(false);
 
 // ── Time Report ───────────────────────────────────────────────
 export const timeReportSessions    = ref([]);

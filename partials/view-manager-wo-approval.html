@@ -228,6 +228,12 @@
                                             <div class="min-w-0">
                                                 <div class="font-bold text-gray-900 text-sm">{{ partNum }}</div>
                                                 <div class="text-gray-500 text-xs truncate">{{ managerWoSubpartDescs[partNum] || '—' }}</div>
+                                                <button v-if="partsWithFiles.has(sanitizePartKey(partNum))"
+                                                        @click.stop="openManagerSubpartFiles(partNum)"
+                                                        class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline font-semibold mt-0.5">
+                                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                                    Files attached
+                                                </button>
                                             </div>
                                             <div class="shrink-0">
                                                 <label class="block text-xs text-gray-400 mb-0.5">Qty</label>
@@ -362,6 +368,33 @@
                         <span v-else class="text-xs font-medium text-gray-400 italic px-2">
                             Manager login required to send to production.
                         </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Subpart Prints Overlay (view-only) ──────────────── -->
+            <div v-if="currentView === 'wo_approval' && managerWoSubpartFilesOpen"
+                 class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                 @click.self="closeManagerSubpartFiles">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[80vh]">
+                    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
+                        <div>
+                            <div class="text-xs font-bold text-gray-400 uppercase tracking-widest">&#128206; Subpart Prints</div>
+                            <div class="text-lg font-extrabold text-gray-900">{{ managerWoSubpartFilesPart }}</div>
+                        </div>
+                        <button @click="closeManagerSubpartFiles"
+                                class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none shrink-0">✕</button>
+                    </div>
+                    <div class="overflow-y-auto flex-1 p-5">
+                        <div v-if="managerWoSubpartFilesLoading" class="text-gray-400 text-sm">Loading files…</div>
+                        <div v-else-if="managerWoSubpartFiles.length === 0" class="text-gray-400 text-sm italic">No files for this part.</div>
+                        <div v-else class="space-y-2">
+                            <a v-for="f in managerWoSubpartFiles" :key="f.name" :href="f.signedUrl" target="_blank"
+                               class="flex items-center gap-2 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg px-3 py-2 transition-colors">
+                                <span class="text-xs font-bold text-gray-500 uppercase shrink-0">{{ f.name.split('.').pop() }}</span>
+                                <span class="text-blue-600 text-sm font-medium truncate">{{ f.name }}</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

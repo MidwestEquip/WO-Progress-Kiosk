@@ -25,8 +25,12 @@ export async function checkPoActiveOrders() {
         return;
     }
     const items = (data || []).map(p => ({
-        label:  p.po_number ? 'PO ' + p.po_number : 'PO request',
-        detail: PURCHASING_STATUS_LABELS[p.status] || p.status,
+        label:       p.po_number ? 'PO ' + p.po_number : 'PO request',
+        detail:      PURCHASING_STATUS_LABELS[p.status] || p.status,
+        qtyOrdered:  p.qty_ordered         ?? null,
+        dateOrdered: p.date_ordered         ?? null,
+        priceEach:   p.price_each           ?? null,
+        leadTime:    p.estimated_lead_time  ?? null,
     }));
     store.purchasingRequestActivePos.value = { part, items };
 }

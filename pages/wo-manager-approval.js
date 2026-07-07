@@ -70,6 +70,27 @@ export async function handleManagerWoFileUpload(event) {
     store.partsWithFiles.value = await db.fetchPartsWithFiles();
 }
 
+// openManagerSubpartFiles — load + show a subpart's prints in a view-only overlay.
+// partNum is the subpart's normalized part number; listWoFiles sanitizes it to the
+// storage folder, matching what the "Files attached" indicator checks.
+export async function openManagerSubpartFiles(partNum) {
+    store.managerWoSubpartFilesPart.value    = partNum;
+    store.managerWoSubpartFiles.value        = [];
+    store.managerWoSubpartFilesOpen.value    = true;
+    store.managerWoSubpartFilesLoading.value = true;
+    const { data, error } = await db.listWoFiles(partNum);
+    store.managerWoSubpartFilesLoading.value = false;
+    if (error) { store.showToast('Could not load files: ' + error.message, 'error'); return; }
+    store.managerWoSubpartFiles.value = data || [];
+}
+
+// closeManagerSubpartFiles — dismiss the subpart prints overlay and reset its state.
+export function closeManagerSubpartFiles() {
+    store.managerWoSubpartFilesOpen.value = false;
+    store.managerWoSubpartFilesPart.value = '';
+    store.managerWoSubpartFiles.value     = [];
+}
+
 // handleManagerWoFileDelete — remove a file from the selected request's part folder.
 export async function handleManagerWoFileDelete(filename) {
     const partNumber = store.managerWoSelectedRequest.value?.part_number;
@@ -146,6 +167,7 @@ export function closeManagerWoDetail() {
     store.woFiles.value                  = [];
     store.managerWoSubpartForms.value    = {};
     store.managerWoSubpartDescs.value    = {};
+    closeManagerSubpartFiles();
 }
 
 // _buildUpdates — convert the manager detail form to DB update shape.
@@ -348,6 +370,21 @@ export async function managerFinalApproveWo() {
                 submitted_by:        'System',
                 request_date:        today,
             }));
+            // Fire-and-forget: learn routing defaults for each subpart, same as the
+            // parent above. Fills only blank stored fields — never overwrites a
+            // populated default, so future WOs auto-fill this subpart's routing.
+            subpartEntries.forEach(([n, f]) => {
+                db.learnPartApprovalDefaults(n, {
+                    fab:              f.fab        || null,
+                    fab_print:        f.fab_print  || null,
+                    weld:             f.weld       || null,
+                    weld_print:       f.weld_print || null,
+                    assy_wo:          f.assy_wo    || null,
+                    color:            f.color      || null,
+                    bent_rolled_part: f.bent_rolled_part === 'yes' ? true : f.bent_rolled_part === 'no' ? false : null,
+                }).catch(err => logError('managerFinalApproveWo:learnSubpartDefaults', err, { part: n }));
+            });
+
             const { data: subData, error: subErr } = await db.batchInsertWoRequests(subRows);
             if (subErr) throw subErr;
 

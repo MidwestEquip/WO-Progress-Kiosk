@@ -5,7 +5,7 @@
 // ============================================================
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
-import { PART_CHANGE_CHECKLIST_ITEMS } from './config.js';
+import { PART_CHANGE_CHECKLIST_ITEMS, ENG_RECORD_CATEGORIES } from './config.js';
 
 // Which engineering sub-view is active: 'inquiries' | 'followup' | 'part_changes'
 export const engView = ref('inquiries');
@@ -266,4 +266,22 @@ export const filteredEngInquiries = computed(() => {
         out.sort((a, b) => (PRIORITY[a.priority] ?? 4) - (PRIORITY[b.priority] ?? 4));
     }
     return out;
+});
+
+// groupedEngInquiries — partitions filteredEngInquiries into the record-category
+// sections (Orders / Issues-Warranty / Inquiries) in config order, preserving the
+// filter+sort order within each group. Empty groups are dropped so headers only
+// appear when there are rows. Each group carries its badge/label for the template.
+export const groupedEngInquiries = computed(() => {
+    const rows = filteredEngInquiries.value;
+    return ENG_RECORD_CATEGORIES
+        .map(cat => ({ ...cat, rows: rows.filter(r => (r.record_category || 'inquiry') === cat.key) }))
+        .filter(g => g.rows.length > 0);
+});
+
+// engCreateCategoryLabel — singular heading for the create modal, driven by the
+// category the form was opened with. Falls back to the inquiry badge.
+export const engCreateCategoryLabel = computed(() => {
+    const key = engInquiryForm.value?.record_category || 'inquiry';
+    return (ENG_RECORD_CATEGORIES.find(c => c.key === key) || {}).badge || 'Inquiry';
 });

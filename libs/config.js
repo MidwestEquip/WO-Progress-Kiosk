@@ -203,6 +203,15 @@ export const ENG_PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 
 export const ENG_ASSIGNEES = ['CSR', 'Engineering', 'Customer'];
 
+// Record category for an eng_inquiries row. Array order = board display order
+// (Orders on top). `key` is stored in record_category; `badge`/`badgeClass`
+// label the card; `label` heads the board section. Default is 'inquiry'.
+export const ENG_RECORD_CATEGORIES = [
+    { key: 'order',          label: 'Orders',                 badge: 'Order',           badgeClass: 'bg-emerald-100 text-emerald-700' },
+    { key: 'issue_warranty', label: 'Issues / Warranty',      badge: 'Issue/Warranty',  badgeClass: 'bg-amber-100 text-amber-700' },
+    { key: 'inquiry',        label: 'Engineering Inquiries',  badge: 'Inquiry',         badgeClass: 'bg-sky-100 text-sky-700' },
+];
+
 export const ENG_FOLLOWUP_STATUSES = [
     'new_intake',
     'waiting_to_ship',

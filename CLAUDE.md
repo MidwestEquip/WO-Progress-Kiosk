@@ -543,7 +543,10 @@ part_changes record; editing/creating is manager-only (read-only otherwise).
   #bom-tab-body), pages/bom-editor.js. 3B: expandable tree — click a row to load the child's
   own BOM indented one level (flat bomLines rows carry depth/path/expanded/leaf; cycle guard,
   depth cap 10, leaf rows lose the chevron).
-- Patch 4: manager-only BOM editing + auto-open bom_change record per parent.
+- Patch 4 (DONE): manager-only BOM editing — inline row edit (part # must exist in item_master,
+  qty > 0), two-click delete (BOM row only), top-level Add Component (self/unknown/duplicate
+  blocked); all writes stamped source='native'; name required; auto-opens ONE bom_change
+  part_changes record per parent (deduped via fetchOpenChangesForPart).
 - Patch 5: New Part form (modal-new-part.html) from unknown-part flow + standalone button.
 
 OPS RULE (from Patch 1): any Alere import/squash into item_master or all_boms must skip or

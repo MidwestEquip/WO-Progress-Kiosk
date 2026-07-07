@@ -7,6 +7,7 @@
 
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
+import { validateEngInquiryForm } from '../libs/utils.js';
 
 // enterEngineeringInquiriesView — navigate to Engineering > Customer Inquiries & Concerns.
 export async function enterEngineeringInquiriesView() {
@@ -24,9 +25,10 @@ export async function loadEngInquiries() {
     store.engInquiries.value = data;
 }
 
-// openEngInquiryForm — reset and open the new inquiry modal.
-export function openEngInquiryForm() {
+// openEngInquiryForm — reset/open the new inquiry modal for the given category.
+export function openEngInquiryForm(category = 'inquiry') {
     store.engInquiryForm.value = {
+        record_category:           category,
         inquiry_type:              'chute',
         wrong_numbers:             '',
         part_number_trying:        '',
@@ -79,23 +81,7 @@ export function removeEngNewInquiryFile(index) {
 // submitEngInquiry — validate, insert, upload queued images, reload list.
 export async function submitEngInquiry() {
     const form = store.engInquiryForm.value;
-    const errors = {};
-    if (!form.sales_order_number?.trim()) errors.sales_order_number = true;
-    if (!form.customer_name?.trim())      errors.customer_name      = true;
-    if (!form.customer_phone?.trim())     errors.customer_phone     = true;
-    if (!form.customer_email?.trim())     errors.customer_email     = true;
-    if (!form.csr_rep?.trim())            errors.csr_rep            = true;
-    if (!form.brand?.trim())              errors.brand              = true;
-    if (!form.year?.trim())               errors.year               = true;
-    if (!form.csr_notes?.trim())          errors.csr_notes          = true;
-    if (form.inquiry_type === 'hitch') {
-        if (!form.mower_model?.trim())           errors.mower_model           = true;
-        if (!form.trac_vac_trailer_model?.trim()) errors.trac_vac_trailer_model = true;
-    } else {
-        if (!form.deck_model?.trim())  errors.deck_model  = true;
-        if (!form.deck_width?.trim())  errors.deck_width  = true;
-        if (!form.hose_size?.trim())   errors.hose_size   = true;
-    }
+    const errors = validateEngInquiryForm(form);
     if (Object.keys(errors).length) {
         store.engInquiryFormErrors.value = errors;
         return;
@@ -169,6 +155,7 @@ export async function saveEngInquiryInline(inq) {
     if (!inq?.id) return;
     store.loading.value = true;
     const { error } = await db.updateEngInquiry(inq.id, {
+        record_category:          inq.record_category          || 'inquiry',
         wrong_numbers:            inq.wrong_numbers            || null,
         part_number_trying:       (inq.part_number_trying || '').trim().toUpperCase() || null,
         correct_part_number:      (inq.correct_part_number || '').trim().toUpperCase() || null,

@@ -9,7 +9,7 @@ import { watch } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-brow
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
-import { APP_LOCATION, PURCHASING_3YR_START } from '../libs/config.js';
+import { APP_LOCATION, PURCHASING_3YR_START, PURCHASING_STATUS_LABELS } from '../libs/config.js';
 import { _replaceInStore, _syncOpenOrderForPo } from './purchasing-receive.js';
 
 // ── Autosave machinery ────────────────────────────────────────
@@ -268,6 +268,7 @@ export function openOrderDetail(order, section = 'ordering') {
         expected_date:        order.expected_date        || '',
         qty_ordered:          order.qty_ordered          ?? '',
         cost:                 order.cost                 ?? '',
+        price_each:           order.price_each           ?? '',
         purchaser_notes:      order.purchaser_notes      || '',
         purchaser_questions:  order.purchaser_questions  || '',
         production_notes:     order.production_notes     || '',
@@ -279,11 +280,32 @@ export function openOrderDetail(order, section = 'ordering') {
     store.purchasingDetailOpen.value = true;
     // Snapshot after setting so the watcher doesn't trigger an immediate save
     _formSnapshot = JSON.stringify(store.purchasingDetailForm.value);
+
+    // Other open POs for the same part (excludes this order) — top-of-modal panel.
+    // Fire-and-forget; guarded against a fast A→B open by comparing the order id.
+    store.purchasingDetailActivePos.value = [];
+    if (order.request_type === 'part' && order.part_number) {
+        db.fetchActivePosForPart(order.part_number).then(({ data, error }) => {
+            if (store.purchasingDetailOrder.value?.id !== order.id) return; // stale
+            if (error) return;
+            store.purchasingDetailActivePos.value = (data || [])
+                .filter(p => p.id !== order.id)
+                .map(p => ({
+                    label:       p.po_number ? 'PO ' + p.po_number : 'PO request',
+                    detail:      PURCHASING_STATUS_LABELS[p.status] || p.status,
+                    qtyOrdered:  p.qty_ordered        ?? null,
+                    dateOrdered: p.date_ordered        ?? null,
+                    priceEach:   p.price_each          ?? null,
+                    leadTime:    p.estimated_lead_time ?? null,
+                }));
+        });
+    }
 }
 
 // closeOrderDetail — dismiss the detail modal.
 export function closeOrderDetail() {
     store.purchasingDetailOpen.value = false;
+    store.purchasingDetailActivePos.value = [];
 }
 
 // syncDetailFromRealtime — called by the realtime handler when a purchasing_orders UPDATE
@@ -304,6 +326,7 @@ export function syncDetailFromRealtime(row) {
         expected_date:        row.expected_date        || '',
         qty_ordered:          row.qty_ordered          ?? '',
         cost:                 row.cost                 ?? '',
+        price_each:           row.price_each           ?? '',
         purchaser_notes:      row.purchaser_notes      || '',
         purchaser_questions:  row.purchaser_questions  || '',
         production_notes:     row.production_notes     || '',
@@ -328,6 +351,7 @@ async function _doSave() {
         expected_date:        form.expected_date                   || null,
         qty_ordered:          parseFloat(form.qty_ordered)         || null,
         cost:                 parseFloat(form.cost)                || null,
+        price_each:           parseFloat(form.price_each)          || null,
         purchaser_notes:      form.purchaser_notes?.trim()         || null,
         purchaser_questions:  form.purchaser_questions?.trim()     || null,
         production_notes:     form.production_notes?.trim()        || null,

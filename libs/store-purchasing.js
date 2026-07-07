@@ -134,6 +134,7 @@ export const purchasingDetailForm = ref({
     expected_date:        '',
     qty_ordered:          '',
     cost:                 '',
+    price_each:           '',
     purchaser_notes:      '',
     purchaser_questions:  '',
     production_notes:     '',
@@ -146,6 +147,10 @@ export const purchasingReceiveForm = ref({
 
 export const purchasingDetailEvents        = ref([]);
 export const purchasingDetailEventsLoading = ref(false);
+
+// Other open POs for the part being viewed (excludes the open order itself).
+// Formatted items { label, detail, qtyOrdered, dateOrdered, priceEach, leadTime }.
+export const purchasingDetailActivePos     = ref([]);
 
 // ── Quotes tab ────────────────────────────────────────────────
 export const purchasingDetailQuotes        = ref([]);

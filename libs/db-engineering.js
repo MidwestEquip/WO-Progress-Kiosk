@@ -69,6 +69,7 @@ export async function restoreEngInquiry(inq) {
         .from('eng_inquiries')
         .insert({
             id:                      inq.original_id || undefined,
+            record_category:         inq.record_category         || 'inquiry',
             inquiry_type:            inq.inquiry_type            || null,
             wrong_numbers:           inq.wrong_numbers           || null,
             part_number_trying:      inq.part_number_trying      || null,
@@ -113,6 +114,7 @@ export async function archiveEngInquiry(inq) {
         .insert({
             original_id:             inq.id,
             archived_at:             new Date().toISOString(),
+            record_category:         inq.record_category         || 'inquiry',
             inquiry_type:            inq.inquiry_type            || null,
             wrong_numbers:           inq.wrong_numbers           || null,
             part_number_trying:      inq.part_number_trying      || null,

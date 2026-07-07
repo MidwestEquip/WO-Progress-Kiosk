@@ -4,7 +4,7 @@
 // ============================================================
 
 import * as store from './libs/store.js';
-import { ENG_STATUSES, ENG_PRIORITIES, ENG_ASSIGNEES,
+import { ENG_STATUSES, ENG_PRIORITIES, ENG_ASSIGNEES, ENG_RECORD_CATEGORIES,
          ENG_FOLLOWUP_STATUSES, ENG_FOLLOWUP_PRIORITIES, ENG_FOLLOWUP_FIT_STATUSES,
          ENG_FOLLOWUP_STATUS_LABELS, ENG_FOLLOWUP_STATUS_COLORS,
          PART_CHANGE_TYPES, PART_CHANGE_TYPE_LABELS, PART_CHANGE_TYPE_COLORS,
@@ -14,7 +14,10 @@ import { enterPartChangesView, loadPartChanges,
          openPartChangeDetail, closePartChangeDetail,
          setPartChangeChecklistItem, savePartChangeDetail,
          completePartChange, reopenPartChange } from './pages/part-changes-view.js';
-import { runBomSearch, clearBomSearch, toggleBomLine } from './pages/bom-editor.js';
+import { runBomSearch, clearBomSearch, toggleBomLine,
+         startBomLineEdit, cancelBomLineEdit, saveBomLineEdit,
+         askBomLineDelete, cancelBomLineDelete, confirmBomLineDelete,
+         openBomAdd, cancelBomAdd, submitBomAdd } from './pages/bom-editor.js';
 import { enterEngineeringInquiriesView,
          openEngInquiryForm, closeEngInquiryForm, submitEngInquiry,
          handleEngNewInquiryFileSelect, removeEngNewInquiryFile,
@@ -85,7 +88,18 @@ export function buildEngExpose() {
         bomParentDesc:  store.bomParentDesc,
         bomLines:         store.bomLines,
         bomTopLevelCount: store.bomTopLevelCount,
+        bomEditName:      store.bomEditName,
+        bomEditLineId:    store.bomEditLineId,
+        bomEditForm:      store.bomEditForm,
+        bomEditSaving:    store.bomEditSaving,
+        bomDeleteLineId:  store.bomDeleteLineId,
+        bomAddOpen:       store.bomAddOpen,
+        bomAddForm:       store.bomAddForm,
+        bomAddSaving:     store.bomAddSaving,
         runBomSearch, clearBomSearch, toggleBomLine,
+        startBomLineEdit, cancelBomLineEdit, saveBomLineEdit,
+        askBomLineDelete, cancelBomLineDelete, confirmBomLineDelete,
+        openBomAdd, cancelBomAdd, submitBomAdd,
 
         // Engineering inquiries
         engView:               store.engView,
@@ -106,9 +120,12 @@ export function buildEngExpose() {
         engInquiryImages:      store.engInquiryImages,
         engImagesLoading:      store.engImagesLoading,
         filteredEngInquiries:  store.filteredEngInquiries,
+        groupedEngInquiries:   store.groupedEngInquiries,
+        engCreateCategoryLabel: store.engCreateCategoryLabel,
         engStatuses:           ENG_STATUSES,
         engPriorities:         ENG_PRIORITIES,
         engAssignees:          ENG_ASSIGNEES,
+        engRecordCategories:   ENG_RECORD_CATEGORIES,
 
         // Engineering Follow-Up
         engFollowups:              store.engFollowups,

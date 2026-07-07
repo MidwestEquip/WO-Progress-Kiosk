@@ -406,3 +406,33 @@ export function missingSubpartRoutingFields(form) {
         .filter(([key]) => form[key] === '' || form[key] == null)
         .map(([, label]) => label);
 }
+
+// validateEngInquiryForm — returns an { field: true } errors object for the
+// create-inquiry form. Category-aware: for record_category 'inquiry' the sales
+// order # and all mower/trailer info are optional (only customer contact + CSR
+// notes are required); for 'order' / 'issue_warranty' the full field set is
+// required. Pure: no side effects. Empty object means valid.
+export function validateEngInquiryForm(form) {
+    const errors = {};
+    const f = form || {};
+    const mowerRequired = f.record_category === 'order' || f.record_category === 'issue_warranty';
+    if (!f.customer_name?.trim())  errors.customer_name  = true;
+    if (!f.customer_phone?.trim()) errors.customer_phone = true;
+    if (!f.customer_email?.trim()) errors.customer_email = true;
+    if (!f.csr_rep?.trim())        errors.csr_rep        = true;
+    if (!f.csr_notes?.trim())      errors.csr_notes      = true;
+    if (mowerRequired) {
+        if (!f.sales_order_number?.trim()) errors.sales_order_number = true;
+        if (!f.brand?.trim())              errors.brand              = true;
+        if (!f.year?.trim())               errors.year               = true;
+        if (f.inquiry_type === 'hitch') {
+            if (!f.mower_model?.trim())            errors.mower_model            = true;
+            if (!f.trac_vac_trailer_model?.trim()) errors.trac_vac_trailer_model = true;
+        } else {
+            if (!f.deck_model?.trim()) errors.deck_model = true;
+            if (!f.deck_width?.trim()) errors.deck_width = true;
+            if (!f.hose_size?.trim())  errors.hose_size  = true;
+        }
+    }
+    return errors;
+}
