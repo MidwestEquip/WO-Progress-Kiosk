@@ -74,20 +74,21 @@
             <div v-else class="flex flex-col gap-1">
                 <div v-for="(row, i) in subassyUsedOnRows" :key="i"
                     :style="{ marginLeft: (row.depth * 20) + 'px' }">
-                    <div class="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 flex items-center gap-2 flex-wrap"
-                        :class="row.isUnit ? 'cursor-pointer select-none hover:border-emerald-600' : ''"
-                        @click="row.isUnit && toggleUnitChildren(row.part)">
-                        <span v-if="row.isUnit" class="text-emerald-400 text-xs font-bold w-3">{{ subassyUnitExpanded[row.part] ? '▾' : '▸' }}</span>
+                    <div class="bg-slate-800 border border-slate-700 border-l-4 rounded px-3 py-1.5 flex items-center gap-2 flex-wrap cursor-pointer select-none hover:border-emerald-600"
+                        :class="subassyDepthBorder(row.depth)"
+                        @click="toggleUnitChildren(row.part)">
+                        <span class="text-emerald-400 text-xs font-bold w-3">{{ subassyUnitExpanded[row.part] ? '▾' : '▸' }}</span>
+                        <span class="text-[10px] font-mono font-bold text-slate-500 bg-slate-900 border border-slate-700 rounded px-1">L{{ row.depth }}</span>
                         <span class="text-xs text-slate-500">{{ row.child }} used on</span>
                         <span class="font-semibold text-white text-sm">{{ row.part }}</span>
                         <span class="text-xs text-slate-400">×{{ row.qty }}/assy</span>
                         <span v-if="row.isUnit"
                             class="text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-900/40 border border-emerald-700 rounded px-1.5 py-0.5">Unit</span>
                         <span v-if="row.desc" class="text-xs text-slate-500 truncate">— {{ row.desc }}</span>
-                        <span v-if="row.isUnit && !subassyUnitExpanded[row.part]" class="text-[10px] text-emerald-500/70 italic">click to see components</span>
+                        <span v-if="!subassyUnitExpanded[row.part]" class="text-[10px] text-emerald-500/70 italic">click to see components</span>
                     </div>
-                    <!-- Expanded unit first-level components -->
-                    <div v-if="row.isUnit && subassyUnitExpanded[row.part]" class="ml-5 mt-1 flex flex-col gap-1">
+                    <!-- Expanded first-level components (any row) -->
+                    <div v-if="subassyUnitExpanded[row.part]" class="ml-5 mt-1 flex flex-col gap-1">
                         <div v-if="subassyUnitExpanded[row.part].loading" class="text-xs text-slate-500 italic">Loading components…</div>
                         <div v-else-if="subassyUnitExpanded[row.part].children.length === 0" class="text-xs text-slate-500 italic">No components in the BOM.</div>
                         <div v-else v-for="c in subassyUnitExpanded[row.part].children" :key="c.part"

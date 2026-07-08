@@ -8,7 +8,8 @@ import * as store from './libs/store.js';
 import { OPERATORS_BY_DEPT, HOLD_REASONS, SCRAP_REASONS,
          STAGING_AREAS, ROLE_DISPLAY_NAMES, LAST_REPORT_DATE } from './libs/config.js';
 import { formatDateLocal, formatTimestamp, getStageCum, detectTcMode,
-         sanitizePartKey, isChutePart, isPurchasingOrderLate, formatMsgTime } from './libs/utils.js';
+         sanitizePartKey, isChutePart, isPurchasingOrderLate, formatMsgTime,
+         subassyDepthBorder } from './libs/utils.js';
 import { openMessagesView, openThread, backToInbox, sendMessage,
          dmAvatarClass, dmContacts, canDeleteMessages,
          openMsgDeleteConfirm, cancelMsgDelete, confirmMsgDelete } from './pages/messages-view.js';
@@ -321,6 +322,7 @@ export function buildCoreExpose() {
 
         // Utilities
         formatDateLocal, formatTimestamp, detectTcMode, sanitizePartKey, isChutePart, isPurchasingOrderLate,
+        subassyDepthBorder,
 
         // Direct messaging
         messagesView:    store.messagesView,

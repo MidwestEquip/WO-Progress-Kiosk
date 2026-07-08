@@ -143,6 +143,7 @@ async function _ensureBomChangeRecord(parentPart, name) {
 export function openNewPartForm(prefillPart = '') {
     store.newPartForm.value = {
         item: (prefillPart || '').trim().toUpperCase(), descrip: '',
+        created_by: (store.bomEditName.value || '').trim(), replaces: '',
         item_type: '', prodclas: '', pricegrp: '', glinvtgr: '',
         lonhand: '', regprice: '', ship_price: '',
         box_weight: '', box_length: '', box_width: '', box_height: '',
@@ -150,14 +151,31 @@ export function openNewPartForm(prefillPart = '') {
         attr_lot_costing: false, attr_ecommerce: false, attr_drop_ship: false,
         attr_sellable: false, attr_manufactured: false,
     };
-    store.newPartErrors.value   = {};
-    store.newPartBomLines.value = [];
-    store.newPartOpen.value     = true;
+    store.newPartErrors.value        = {};
+    store.newPartBomLines.value      = [];
+    store.newPartReplaceBoms.value   = [];
+    store.newPartReplaceSearched.value = false;
+    store.newPartOpen.value          = true;
 }
 
 // closeNewPartForm — dismiss without saving.
 export function closeNewPartForm() {
     store.newPartOpen.value = false;
+}
+
+// lookupReplaceBoms — find every BOM the replaced part appears in so the manager
+// can pick which lines swap to the new part. All rows start selected.
+export async function lookupReplaceBoms() {
+    const replaced = (store.newPartForm.value.replaces || '').trim().toUpperCase();
+    store.newPartReplaceBoms.value = [];
+    store.newPartReplaceSearched.value = false;
+    if (!replaced) { store.showToast('Enter the part # this replaces first', 'error'); return; }
+    store.newPartReplaceLoading.value = true;
+    const { data, error } = await db.fetchBomLinesForChild(replaced);
+    store.newPartReplaceLoading.value = false;
+    if (error) { store.showToast('Could not look up BOMs: ' + error.message, 'error'); return; }
+    store.newPartReplaceBoms.value = (data || []).map(r => ({ ...r, selected: true }));
+    store.newPartReplaceSearched.value = true;
 }
 
 // addNewPartBomRow / removeNewPartBomRow — manage the initial-BOM rows
@@ -176,17 +194,54 @@ function _num(v) {
     return isNaN(n) ? null : n;
 }
 
+// _swapReplaceBoms — swap each SELECTED BOM line from the replaced part to the
+// new part (source re-stamped 'native' by updateBomLine). Returns how many
+// lines were swapped. Failures toast but don't abort (the part already exists).
+async function _swapReplaceBoms(newItem) {
+    const rows = store.newPartReplaceBoms.value.filter(r => r.selected);
+    let swapped = 0;
+    for (const row of rows) {
+        const { error } = await db.updateBomLine(row.id, { item_child: newItem });
+        if (error) { store.showToast(`Could not update BOM ${row.item_parent_normalized}: ${error.message}`, 'error'); continue; }
+        swapped++;
+    }
+    return swapped;
+}
+
+// _openNewPartChangeRecord — every native part creation drops a part_changes
+// record so print/BOM follow-up is tracked. Becomes a 'replacement' record when
+// the part replaces another; otherwise 'new_part'. Refreshes the Records tab
+// list. Non-fatal (the part is already created).
+async function _openNewPartChangeRecord(item, name, replaced) {
+    const isReplacement = !!replaced;
+    const { error } = await db.insertPartChange({
+        change_type: isReplacement ? 'replacement' : 'new_part',
+        part_number: item,
+        previous_part_number: replaced || null,
+        use_previous_for_calcs: isReplacement,
+        carry_forward_note: isReplacement
+            ? `New part ${item} replaces ${replaced}`
+            : 'Part created in New Part form',
+        checklist: {}, status: PART_CHANGE_STATUS_OPEN, created_by: name,
+    });
+    if (error) return;
+    const { data } = await db.fetchPartChanges();
+    if (data) store.partChanges.value = data;
+}
+
 // submitNewPart — validate + create the item_master row (record_source='native'
 // stamped in db-bom.js), then insert any initial BOM lines. Every BOM child
 // must already exist; the part number must be new.
 export async function submitNewPart() {
     const f = store.newPartForm.value;
     const item = (f.item || '').trim().toUpperCase();
+    const name = (f.created_by || '').trim();
     const errors = {};
-    if (!item)                       errors.item    = true;
-    if (!(f.descrip || '').trim())   errors.descrip = true;
+    if (!item)                       errors.item       = true;
+    if (!(f.descrip || '').trim())   errors.descrip    = true;
+    if (!name)                       errors.created_by = true;
     store.newPartErrors.value = errors;
-    if (Object.keys(errors).length) { store.showToast('Part # and description are required', 'error'); return; }
+    if (Object.keys(errors).length) { store.showToast('Part #, description, and your name are required', 'error'); return; }
 
     // validate initial BOM rows before writing anything
     const bomRows = [];
@@ -234,7 +289,14 @@ export async function submitNewPart() {
             const { error: bomErr } = await db.insertBomLine(item, child, qty);
             if (bomErr) { store.showToast(`Part created, but BOM line ${child} failed: ${bomErr.message}`, 'error'); }
         }
-        store.showToast(`Part ${item} created${bomRows.length ? ` with ${bomRows.length} BOM line(s)` : ''}`, 'success');
+        // Swap the replaced part → new part on the selected BOM lines.
+        const replaced = (f.replaces || '').trim().toUpperCase();
+        const swapped  = replaced ? await _swapReplaceBoms(item) : 0;
+        // Every new part opens a Change Record (source of truth for print/BOM follow-up).
+        await _openNewPartChangeRecord(item, name, replaced || null);
+        const bomMsg  = bomRows.length ? ` with ${bomRows.length} BOM line(s)` : '';
+        const swapMsg = replaced ? `; replaced ${replaced} in ${swapped} BOM(s)` : '';
+        store.showToast(`Part ${item} created${bomMsg}${swapMsg}`, 'success');
         store.newPartOpen.value = false;
     } catch (err) {
         store.showToast('Could not create part: ' + err.message, 'error');

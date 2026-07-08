@@ -149,8 +149,10 @@ async function buildUsedOnTree(rootNormalized) {
     return { rows, truncated };
 }
 
-// toggleUnitChildren — expand/collapse a unit's immediate components (one level
-// down). Lazily fetches the first-level BOM the first time a unit is expanded.
+// toggleUnitChildren — expand/collapse a row's immediate components (one level
+// down). Works for any used-on row, not just units. Lazily fetches the
+// first-level BOM the first time a part is expanded. Keyed by part number, so a
+// part appearing at multiple depths toggles consistently in every spot.
 export async function toggleUnitChildren(unitPart) {
     const map = store.subassyUnitExpanded.value;
     if (map[unitPart]) {                       // already expanded → collapse

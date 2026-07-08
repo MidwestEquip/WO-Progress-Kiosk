@@ -7,6 +7,18 @@
 //  - Input validation included
 // ============================================================
 
+// subassyDepthBorder — Subassy Setup tree level aid. Returns a Tailwind
+// left-border color class, cycling by depth so each level reads as a distinct
+// colored stripe. Input: depth (int >= 0). Output: class string.
+export function subassyDepthBorder(depth) {
+    const palette = [
+        'border-l-sky-500', 'border-l-violet-500', 'border-l-emerald-500',
+        'border-l-amber-500', 'border-l-rose-500', 'border-l-cyan-500',
+    ];
+    const d = Number.isInteger(depth) && depth >= 0 ? depth : 0;
+    return palette[d % palette.length];
+}
+
 // Format a date string or Date object to a locale-friendly date string
 export function formatDateLocal(d) {
     if (!d) return '';

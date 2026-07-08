@@ -18,7 +18,7 @@ import { runBomSearch, clearBomSearch, toggleBomLine,
          startBomLineEdit, cancelBomLineEdit, saveBomLineEdit,
          askBomLineDelete, cancelBomLineDelete, confirmBomLineDelete,
          openBomAdd, cancelBomAdd, submitBomAdd,
-         openNewPartForm, closeNewPartForm,
+         openNewPartForm, closeNewPartForm, lookupReplaceBoms,
          addNewPartBomRow, removeNewPartBomRow, submitNewPart } from './pages/bom-editor.js';
 import { enterEngineeringInquiriesView,
          openEngInquiryForm, closeEngInquiryForm, submitEngInquiry,
@@ -109,8 +109,11 @@ export function buildEngExpose() {
         newPartForm:     store.newPartForm,
         newPartErrors:   store.newPartErrors,
         newPartBomLines: store.newPartBomLines,
+        newPartReplaceLoading:  store.newPartReplaceLoading,
+        newPartReplaceSearched: store.newPartReplaceSearched,
+        newPartReplaceBoms:     store.newPartReplaceBoms,
         itemAttributes:  ITEM_ATTRIBUTES,
-        openNewPartForm, closeNewPartForm,
+        openNewPartForm, closeNewPartForm, lookupReplaceBoms,
         addNewPartBomRow, removeNewPartBomRow, submitNewPart,
 
         // Engineering inquiries

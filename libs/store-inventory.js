@@ -333,6 +333,8 @@ export const openOrderPasteWarnCount = computed(() =>
 
 export const openOrderEditingCell  = ref({ id: null, field: null });
 export const openOrderEditingValue = ref('');
+// Confirm gate before editing To Ship / order qty. { id, value } while open, id=null when closed.
+export const openOrderQtyConfirm   = ref({ id: null, value: null });
 export const openOrderSelectedIds  = ref([]);
 export const openOrderBulkStatus   = ref('');
 export const openOrderDragOverSection = ref('');

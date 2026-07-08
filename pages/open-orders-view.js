@@ -26,6 +26,40 @@ export async function loadOpenOrders() {
     }
 }
 
+// _openOrderRowsEqualIgnoringVolatile — self-echo check; ignores the
+// server-stamped updated_at so our own saves (already applied locally) don't
+// force a re-render.
+function _openOrderRowsEqualIgnoringVolatile(a, b) {
+    if (!a || !b) return false;
+    const strip = ({ updated_at, ...rest }) => rest;
+    return JSON.stringify(strip(a)) === JSON.stringify(strip(b));
+}
+
+// reconcileOpenOrderRealtime — surgical in-place merge of a realtime open_orders
+// change into store.openOrders, replacing the old full-list reload that reset
+// scroll/focus on every cell edit. The open_orders table holds only active rows
+// (shipped/deleted rows move to open_orders_completed), so every row belongs —
+// no status predicate needed; the view computeds handle section ordering.
+// Input: realtime payload { eventType, new: row, old }. No return value.
+export function reconcileOpenOrderRealtime({ eventType, new: row, old }) {
+    const list = store.openOrders.value;
+    if (eventType === 'DELETE') {
+        const id = old?.id;
+        if (id != null) store.openOrders.value = list.filter(o => o.id !== id);
+        return;
+    }
+    if (!row) return;
+    const idx = list.findIndex(o => o.id === row.id);
+    if (idx === -1) {
+        store.openOrders.value = [...list, row];
+        return;
+    }
+    if (_openOrderRowsEqualIgnoringVolatile(list[idx], row)) return; // self-echo, no-op
+    const next = [...list];
+    next[idx]  = row;
+    store.openOrders.value = next;
+}
+
 // setSectionSort — toggle sort field/dir for one section.
 // section: 'emergency'|'freight'|'trac_vac'|'tru_cut', field: column name string.
 export function setSectionSort(section, field) {
@@ -181,9 +215,10 @@ export async function bulkChangeStatus(ids, newStatus) {
 }
 
 // openOrderHasLine3 — true if this row has supplementary line-3 data.
-// holding_bin now in Holding Bin col; chute/bracket now in Status col; only wt/override remain.
+// holding_bin now in Holding Bin col; chute/bracket now in Status col;
+// weight now lives only in the DIMS/Wt col; only override remains here.
 export function openOrderHasLine3(order) {
-    return !!(order.weight_lbs || order.override);
+    return !!order.override;
 }
 
 // ── Inline cell editing ───────────────────────────────────────
@@ -193,6 +228,24 @@ export function openOrderHasLine3(order) {
 export function startCellEdit(id, field, value) {
     store.openOrderEditingCell.value  = { id, field };
     store.openOrderEditingValue.value = value ?? '';
+}
+
+// requestToShipEdit — open the confirm gate before editing the To Ship / order qty.
+// id: row uuid, value: current to_ship to pre-fill once confirmed.
+export function requestToShipEdit(id, value) {
+    store.openOrderQtyConfirm.value = { id, value };
+}
+
+// confirmToShipEdit — user confirmed; close the gate and start the inline qty edit.
+export function confirmToShipEdit() {
+    const { id, value } = store.openOrderQtyConfirm.value;
+    store.openOrderQtyConfirm.value = { id: null, value: null };
+    if (id != null) startCellEdit(id, 'to_ship', value);
+}
+
+// cancelToShipEdit — user declined; close the gate without editing.
+export function cancelToShipEdit() {
+    store.openOrderQtyConfirm.value = { id: null, value: null };
 }
 
 // cancelCellEdit — discard edit without saving.

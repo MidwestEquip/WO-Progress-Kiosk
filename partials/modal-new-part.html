@@ -26,6 +26,51 @@
             </div>
         </div>
 
+        <!-- Your name (stamps the auto-opened Change Record) -->
+        <div class="grid grid-cols-3 gap-3 mb-3">
+            <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Your Name <span class="text-red-500">*</span></label>
+                <input v-model="newPartForm.created_by" type="text"
+                    class="w-full px-3 py-2 border rounded-lg text-gray-800 text-sm focus:outline-none focus:border-teal-400"
+                    :class="newPartErrors.created_by ? 'border-red-400' : 'border-gray-300'">
+            </div>
+            <p class="col-span-2 self-end text-xs text-gray-400 pb-2">Creating a part opens a "New Part #" change record for print/BOM follow-up.</p>
+        </div>
+
+        <!-- Replaces (optional) -->
+        <div class="border border-indigo-200 bg-indigo-50/40 rounded-xl p-3 mb-3">
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Replaces Part # <span class="font-normal normal-case text-gray-400">— optional; leave blank if this is a brand-new part</span></label>
+            <div class="flex items-center gap-2">
+                <input v-model="newPartForm.replaces" type="text" @keyup.enter="lookupReplaceBoms"
+                    placeholder="Old part # this replaces"
+                    class="w-64 px-3 py-2 border border-gray-300 rounded-lg text-gray-800 text-sm font-mono uppercase bg-white focus:outline-none focus:border-indigo-400">
+                <button @click="lookupReplaceBoms" :disabled="newPartReplaceLoading"
+                    class="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-bold text-sm active:scale-95 transition-all shrink-0">
+                    {{ newPartReplaceLoading ? 'Finding…' : 'Find BOMs using it' }}
+                </button>
+            </div>
+
+            <!-- BOM picker -->
+            <div v-if="newPartReplaceSearched" class="mt-3">
+                <p v-if="!newPartReplaceBoms.length" class="text-xs text-gray-500 italic">
+                    {{ (newPartForm.replaces || '').trim().toUpperCase() }} is not used in any BOMs — the part will still be created.
+                </p>
+                <template v-else>
+                    <p class="text-xs font-bold text-gray-600 mb-1.5">Replace it in these BOMs? ({{ newPartReplaceBoms.filter(b => b.selected).length }} of {{ newPartReplaceBoms.length }} selected)</p>
+                    <div class="max-h-40 overflow-y-auto border border-indigo-200 rounded-lg bg-white divide-y divide-gray-100">
+                        <label v-for="b in newPartReplaceBoms" :key="b.id"
+                            class="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-indigo-50 cursor-pointer select-none">
+                            <input v-model="b.selected" type="checkbox"
+                                class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-400">
+                            <span class="font-mono font-semibold text-gray-800">{{ b.item_parent_normalized }}</span>
+                            <span class="text-xs text-gray-400">qty {{ b.qty_per_assy }}</span>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">Checked BOMs will have {{ (newPartForm.replaces || '').trim().toUpperCase() }} swapped to the new part.</p>
+                </template>
+            </div>
+        </div>
+
         <!-- Classification -->
         <div class="grid grid-cols-4 gap-3 mb-3">
             <div>

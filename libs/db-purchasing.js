@@ -6,6 +6,7 @@
 // ============================================================
 
 import { supabase } from './db-shared.js';
+import { PURCHASING_ACTIVE_STATUSES } from './config.js';
 
 // fetchActivePosForPart — active part-type POs (status not received/canceled) for a part,
 // matched dash/space-insensitively via the get_active_pos_for_part RPC.
@@ -24,7 +25,7 @@ export async function fetchPurchasingOrders() {
     const { data, error } = await supabase
         .from('purchasing_orders')
         .select('*')
-        .in('status', ['requested', 'quoting', 'quoted', 'approved', 'not_approved'])
+        .in('status', PURCHASING_ACTIVE_STATUSES)
         .eq('forecasted', false)
         .order('created_at', { ascending: false });
     return { data: data || [], error };

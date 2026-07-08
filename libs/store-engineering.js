@@ -42,6 +42,12 @@ export const newPartForm     = ref({});
 export const newPartErrors   = ref({});
 export const newPartBomLines = ref([]);   // initial BOM rows: { item_child, qty_per_assy }
 
+// "Replaces" — the BOMs the replaced part appears in; each row carries a
+// `selected` flag so the manager picks which BOM lines swap to the new part.
+export const newPartReplaceLoading = ref(false);
+export const newPartReplaceSearched = ref(false);   // true once a lookup has run
+export const newPartReplaceBoms    = ref([]);   // [{ id, item_parent_normalized, qty_per_assy, selected }]
+
 // ── Part Changes (part_changes table) ────────────────────────
 export const partChanges            = ref([]);
 export const partChangesLoading     = ref(false);

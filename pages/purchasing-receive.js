@@ -8,11 +8,67 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
+import { PURCHASING_ACTIVE_STATUSES } from '../libs/config.js';
 
 export function _replaceInStore(updated) {
     store.purchasingOrders.value = store.purchasingOrders.value.map(o =>
         o.id === updated.id ? updated : o
     );
+}
+
+// _padSteelQuotes — mirror of normalizeSteelQuotes (purchasing-view.js) for a
+// single realtime row so a spliced-in steel order matches the padded shape the
+// initial list load produces. Kept local to avoid a cross-page circular import.
+function _padSteelQuotes(o) {
+    if (o.request_type !== 'steel') return;
+    const q = Array.isArray(o.steel_quotes) ? o.steel_quotes : [];
+    while (q.length < 5) q.push({ supplier: '', price: '', lead_time: '', best: false, notes: '', file_path: '', file_name: '' });
+    q.forEach(slot => {
+        if (slot.notes     === undefined) slot.notes     = '';
+        if (slot.file_path === undefined) slot.file_path = '';
+        if (slot.file_name === undefined) slot.file_name = '';
+        slot._uploading = false;
+    });
+    o.steel_quotes = q;
+}
+
+// _rowsEqualIgnoringVolatile — cheap self-echo check. Ignores the server-stamped
+// updated_at so our own writes (already applied locally) don't force a re-render.
+function _rowsEqualIgnoringVolatile(a, b) {
+    if (!a || !b) return false;
+    const strip = ({ updated_at, ...rest }) => rest;
+    return JSON.stringify(strip(a)) === JSON.stringify(strip(b));
+}
+
+// reconcilePurchasingRealtime — surgical in-place merge of a realtime
+// purchasing_orders change into store.purchasingOrders, replacing the old
+// full-list reload that reset scroll/focus on every edit. Honors the same
+// active-status + forecasted filter as fetchPurchasingOrders, so rows that leave
+// the active set are dropped and re-entrants are added.
+// Input: realtime payload { eventType, new: row, old }. No return value.
+export function reconcilePurchasingRealtime({ eventType, new: row, old }) {
+    const list = store.purchasingOrders.value;
+    if (eventType === 'DELETE') {
+        const id = old?.id;
+        if (id != null) store.purchasingOrders.value = list.filter(o => o.id !== id);
+        return;
+    }
+    if (!row) return;
+    const idx     = list.findIndex(o => o.id === row.id);
+    const belongs = row.forecasted === false && PURCHASING_ACTIVE_STATUSES.includes(row.status);
+    if (!belongs) {
+        if (idx !== -1) store.purchasingOrders.value = list.filter(o => o.id !== row.id);
+        return;
+    }
+    _padSteelQuotes(row);
+    if (idx === -1) {
+        store.purchasingOrders.value = [row, ...list]; // newest first, matches created_at desc
+        return;
+    }
+    if (_rowsEqualIgnoringVolatile(list[idx], row)) return; // self-echo, no-op
+    const next = [...list];
+    next[idx]  = row;
+    store.purchasingOrders.value = next;
 }
 
 // _syncOpenOrderForPo — mirror a purchasing status change onto the matching

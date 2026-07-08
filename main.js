@@ -26,9 +26,10 @@ import { loadPoReceiveOrders } from './pages/inventory-view.js';
 import { loadWoRequests } from './pages/wo-request-view.js';
 import { loadForecastedItems } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems } from './pages/create-wo-view.js';
-import { loadOpenOrders, loadReminderEmail } from './pages/open-orders-view.js';
+import { loadOpenOrders, loadReminderEmail, reconcileOpenOrderRealtime } from './pages/open-orders-view.js';
 import { loadCompletedOrders } from './pages/completed-orders-view.js';
 import { loadPurchasingOrders, loadOrderEvents, syncDetailFromRealtime } from './pages/purchasing-view.js';
+import { reconcilePurchasingRealtime } from './pages/purchasing-receive.js';
 import { loadOrderQuotes } from './pages/purchasing-quotes-view.js';
 import { loadPoForecast, checkForecastRevisits } from './pages/purchasing-forecast.js';
 import { loadAllQuotes } from './pages/purchasing-quotes-view.js';
@@ -161,11 +162,12 @@ try {
                                     store.orders.value = store.orders.value.filter(o => o.id !== old.id);
                                 }
                             },
-                            purchasing_orders: ({ eventType, new: row }) => {
-                                console.log('[RT] purchasing_orders', eventType, row?.id, 'view:', store.currentView.value, 'modalOpen:', store.purchasingDetailOpen.value, 'openId:', store.purchasingDetailOrder.value?.id);
+                            purchasing_orders: (payload) => {
+                                const { eventType, new: row } = payload;
                                 const v = store.currentView.value;
                                 if (v === 'purchasing' || v === 'po_request') {
-                                    loadPurchasingOrders();
+                                    // Surgical row reconcile (no full-list reload → no scroll/focus reset)
+                                    reconcilePurchasingRealtime(payload);
                                     if (eventType === 'UPDATE' && row) syncDetailFromRealtime(row);
                                 } else if (v === 'po_forecasting') loadPoForecast();
                             },
@@ -174,8 +176,9 @@ try {
                                 if (v === 'wo_request') loadWoRequests();
                                 else if (v === 'wo_approval' || v === 'manager') loadManagerPendingWoRequests();
                             },
-                            open_orders: () => {
-                                if (store.currentView.value === 'open_orders') loadOpenOrders();
+                            open_orders: (payload) => {
+                                // Surgical row reconcile (no full-list reload → no scroll/focus reset)
+                                if (store.currentView.value === 'open_orders') reconcileOpenOrderRealtime(payload);
                             },
                             engineering_followups: () => {
                                 if (store.currentView.value === 'engineering' && store.engView.value === 'followup')

@@ -1,0 +1,36 @@
+<!-- ============================================================
+     modal-open-orders-qty-confirm.html — confirm gate before
+     editing an open order's To Ship / order qty.
+     Opened by requestToShipEdit(); Yes → confirmToShipEdit() starts
+     the inline edit, No → cancelToShipEdit() closes.
+     ============================================================ -->
+<div v-if="openOrderQtyConfirm.id !== null"
+     class="fixed z-[60] inset-0 flex items-center justify-center bg-black/50 p-4"
+     @click.self="cancelToShipEdit()">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="px-6 pt-6 pb-4 flex items-start gap-4">
+            <div class="shrink-0 w-11 h-11 rounded-full bg-amber-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <h3 class="text-lg font-bold text-slate-800">Change order quantity?</h3>
+                <p class="text-sm text-slate-600 mt-1">
+                    Are you sure you want to change the <span class="font-semibold">Qty to Ship / order qty</span> for this order?
+                </p>
+            </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 pb-5 pt-1">
+            <button @click="cancelToShipEdit()"
+                class="px-5 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-semibold active:scale-95">
+                No
+            </button>
+            <button @click="confirmToShipEdit()"
+                class="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold active:scale-95">
+                Yes, change
+            </button>
+        </div>
+    </div>
+</div>

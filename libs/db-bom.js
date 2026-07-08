@@ -44,6 +44,21 @@ export async function fetchBomWithDescriptions(parentPart) {
     };
 }
 
+// fetchBomLinesForChild — every all_boms line where this child part appears,
+// with the row id so a specific line can be swapped to a replacement part.
+// Returns { data: [{ id, item_parent, item_parent_normalized, qty_per_assy }], error }.
+export async function fetchBomLinesForChild(childPart) {
+    const normalized = normalizePartNumber(childPart);
+    if (!normalized) return { data: [], error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.from('all_boms')
+            .select('id, item_parent, item_parent_normalized, qty_per_assy')
+            .eq('item_child_normalized', normalized)
+            .order('item_parent_normalized', { ascending: true })
+    );
+    return { data: data || [], error };
+}
+
 // checkPartExists — true when any item_master row matches the part number.
 // Returns { data: boolean, error }.
 export async function checkPartExists(partNumber) {

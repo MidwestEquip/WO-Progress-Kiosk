@@ -113,6 +113,11 @@ export const PURCHASING_STATUSES = [
     'canceled',
 ];
 
+// Statuses that keep a purchasing order in the active ordering list.
+// Single source of truth for fetchPurchasingOrders (db-purchasing.js) and the
+// realtime reconcile in purchasing-receive.js — the two MUST agree.
+export const PURCHASING_ACTIVE_STATUSES = ['requested', 'quoting', 'quoted', 'approved', 'not_approved'];
+
 export const PURCHASING_TYPES = [
     { value: 'part',   label: 'Part'   },
     { value: 'supply', label: 'Supply' },
@@ -169,7 +174,7 @@ export const PARTIAL_NAMES = [
     'modal-tc-unit', 'modal-tc-stock',
     'modal-tv-unit', 'modal-tv-stock',
     'modal-wo-request', 'modal-wo-request-subparts', 'modal-wo-request-data',
-    'modal-misc', 'modal-open-orders-add',
+    'modal-misc', 'modal-open-orders-add', 'modal-open-orders-qty-confirm',
     'modal-action-panel-print',
     'modal-eng-inquiry',
     'modal-eng-images',
@@ -263,6 +268,7 @@ export const PART_CHANGE_TYPES = [
     { value: '2d_to_3d',    label: '2D → 3D Conversion' },
     { value: 'finalized',   label: 'Finalized' },
     { value: 'bom_change',  label: 'BOM Change' },
+    { value: 'new_part',    label: 'New Part #' },
 ];
 
 export const PART_CHANGE_TYPE_LABELS = {
@@ -271,6 +277,7 @@ export const PART_CHANGE_TYPE_LABELS = {
     '2d_to_3d':  '2D → 3D Conversion',
     finalized:   'Finalized',
     bom_change:  'BOM Change',
+    new_part:    'New Part #',
 };
 
 export const PART_CHANGE_TYPE_COLORS = {
@@ -279,6 +286,7 @@ export const PART_CHANGE_TYPE_COLORS = {
     '2d_to_3d':  'bg-violet-100 text-violet-700',
     finalized:   'bg-emerald-100 text-emerald-700',
     bom_change:  'bg-amber-100 text-amber-700',
+    new_part:    'bg-teal-100 text-teal-700',
 };
 
 export const PART_CHANGE_STATUS_OPEN      = 'open';
