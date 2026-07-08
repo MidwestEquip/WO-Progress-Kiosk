@@ -29,7 +29,11 @@
         Enter a part number to see its current BOM.
     </div>
     <div v-else-if="!bomLines.length" class="text-center text-gray-400 py-12">
-        No BOM found for <span class="font-bold text-gray-600">{{ bomParent }}</span>.
+        <p>No BOM found for <span class="font-bold text-gray-600">{{ bomParent }}</span>.</p>
+        <button v-if="sessionRole === 'manager'" @click="openNewPartForm(bomParent)"
+            class="mt-4 bg-white hover:bg-teal-50 text-teal-700 border-2 border-teal-500 px-4 py-2 rounded-xl font-bold text-sm active:scale-95 transition-all">
+            Create {{ bomParent }} as a New Part
+        </button>
     </div>
 
     <!-- Results -->
@@ -48,6 +52,10 @@
                     class="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-xl font-bold text-sm active:scale-95 transition-all shrink-0 flex items-center gap-1.5">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                     Add Component
+                </button>
+                <button @click="openNewPartForm()"
+                    class="bg-white hover:bg-teal-50 text-teal-700 border-2 border-teal-500 px-4 py-2 rounded-xl font-bold text-sm active:scale-95 transition-all shrink-0">
+                    New Part #
                 </button>
             </template>
         </div>

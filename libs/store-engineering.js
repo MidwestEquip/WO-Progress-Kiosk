@@ -35,6 +35,13 @@ export const bomAddOpen      = ref(false);
 export const bomAddForm      = ref({});     // { item_child, qty_per_assy }
 export const bomAddSaving    = ref(false);
 
+// New Part form (native item_master creation, manager-only)
+export const newPartOpen     = ref(false);
+export const newPartSaving   = ref(false);
+export const newPartForm     = ref({});
+export const newPartErrors   = ref({});
+export const newPartBomLines = ref([]);   // initial BOM rows: { item_child, qty_per_assy }
+
 // ── Part Changes (part_changes table) ────────────────────────
 export const partChanges            = ref([]);
 export const partChangesLoading     = ref(false);

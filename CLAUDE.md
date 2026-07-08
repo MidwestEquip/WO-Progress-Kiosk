@@ -547,7 +547,13 @@ part_changes record; editing/creating is manager-only (read-only otherwise).
   qty > 0), two-click delete (BOM row only), top-level Add Component (self/unknown/duplicate
   blocked); all writes stamped source='native'; name required; auto-opens ONE bom_change
   part_changes record per parent (deduped via fetchOpenChangesForPart).
-- Patch 5: New Part form (modal-new-part.html) from unknown-part flow + standalone button.
+- Patch 5 (DONE): New Part form — modal-new-part.html (z-60 over the BOM tab), pages/bom-editor.js
+  openNewPartForm/submitNewPart. Full field set (identity, classification, pricing, box dims,
+  8 attr checkboxes) + initial BOM lines (raw material = a BOM line, not a column). All BOM
+  children pre-validated before any write; duplicate parts blocked; record_source='native'.
+  Reached from: unknown part # in add/edit flows (auto-opens prefilled), "New Part #" toolbar
+  button, and a "Create X as a New Part" button on the no-BOM-found state.
+SERIES COMPLETE (July 8, 2026).
 
 OPS RULE (from Patch 1): any Alere import/squash into item_master or all_boms must skip or
 preserve rows WHERE record_source/source = 'native'.

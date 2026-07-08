@@ -136,6 +136,113 @@ async function _ensureBomChangeRecord(parentPart, name) {
     if (data) store.partChanges.value = data;
 }
 
+// ── New Part form (native item_master creation) ──────────────
+
+// openNewPartForm — open the New Part form, optionally prefilled with the
+// part number that failed an existence check in the BOM editor.
+export function openNewPartForm(prefillPart = '') {
+    store.newPartForm.value = {
+        item: (prefillPart || '').trim().toUpperCase(), descrip: '',
+        item_type: '', prodclas: '', pricegrp: '', glinvtgr: '',
+        lonhand: '', regprice: '', ship_price: '',
+        box_weight: '', box_length: '', box_width: '', box_height: '',
+        attr_purchased: false, attr_stocking: false, attr_component: false,
+        attr_lot_costing: false, attr_ecommerce: false, attr_drop_ship: false,
+        attr_sellable: false, attr_manufactured: false,
+    };
+    store.newPartErrors.value   = {};
+    store.newPartBomLines.value = [];
+    store.newPartOpen.value     = true;
+}
+
+// closeNewPartForm — dismiss without saving.
+export function closeNewPartForm() {
+    store.newPartOpen.value = false;
+}
+
+// addNewPartBomRow / removeNewPartBomRow — manage the initial-BOM rows
+// (this is where raw material / steel usage goes: child part + qty).
+export function addNewPartBomRow() {
+    store.newPartBomLines.value.push({ item_child: '', qty_per_assy: 1 });
+}
+export function removeNewPartBomRow(idx) {
+    store.newPartBomLines.value.splice(idx, 1);
+}
+
+// _num — form string → number or null (empty stays null, never NaN).
+function _num(v) {
+    if (v === '' || v === null || v === undefined) return null;
+    const n = Number(v);
+    return isNaN(n) ? null : n;
+}
+
+// submitNewPart — validate + create the item_master row (record_source='native'
+// stamped in db-bom.js), then insert any initial BOM lines. Every BOM child
+// must already exist; the part number must be new.
+export async function submitNewPart() {
+    const f = store.newPartForm.value;
+    const item = (f.item || '').trim().toUpperCase();
+    const errors = {};
+    if (!item)                       errors.item    = true;
+    if (!(f.descrip || '').trim())   errors.descrip = true;
+    store.newPartErrors.value = errors;
+    if (Object.keys(errors).length) { store.showToast('Part # and description are required', 'error'); return; }
+
+    // validate initial BOM rows before writing anything
+    const bomRows = [];
+    const seen = new Set();
+    for (const row of store.newPartBomLines.value) {
+        const child = (row.item_child || '').trim().toUpperCase();
+        const qty   = Number(row.qty_per_assy);
+        if (!child) continue;                              // blank rows are ignored
+        if (child === item)   { store.showToast('A part cannot be a component of itself', 'error'); return; }
+        if (seen.has(child))  { store.showToast(`${child} is listed twice in the BOM`, 'error'); return; }
+        if (!(qty > 0))       { store.showToast(`Qty for ${child} must be greater than 0`, 'error'); return; }
+        const { data: exists, error } = await db.checkPartExists(child);
+        if (error)   { store.showToast('Could not verify part: ' + error.message, 'error'); return; }
+        if (!exists) { store.showToast(`BOM component ${child} is not in the item master`, 'error'); return; }
+        seen.add(child);
+        bomRows.push({ child, qty });
+    }
+
+    store.newPartSaving.value = true;
+    try {
+        const { error } = await db.insertItemMasterPart({
+            item, descrip: f.descrip.trim(),
+            item_type: (f.item_type || '').trim() || null,
+            prodclas:  (f.prodclas  || '').trim() || null,
+            pricegrp:  (f.pricegrp  || '').trim() || null,
+            glinvtgr:  (f.glinvtgr  || '').trim() || null,
+            lonhand:    _num(f.lonhand),
+            regprice:   _num(f.regprice),
+            ship_price: _num(f.ship_price),
+            box_weight: _num(f.box_weight),
+            box_length: _num(f.box_length),
+            box_width:  _num(f.box_width),
+            box_height: _num(f.box_height),
+            attr_purchased:    !!f.attr_purchased,
+            attr_stocking:     !!f.attr_stocking,
+            attr_component:    !!f.attr_component,
+            attr_lot_costing:  !!f.attr_lot_costing,
+            attr_ecommerce:    !!f.attr_ecommerce,
+            attr_drop_ship:    !!f.attr_drop_ship,
+            attr_sellable:     !!f.attr_sellable,
+            attr_manufactured: !!f.attr_manufactured,
+        });
+        if (error) throw error;
+        for (const { child, qty } of bomRows) {
+            const { error: bomErr } = await db.insertBomLine(item, child, qty);
+            if (bomErr) { store.showToast(`Part created, but BOM line ${child} failed: ${bomErr.message}`, 'error'); }
+        }
+        store.showToast(`Part ${item} created${bomRows.length ? ` with ${bomRows.length} BOM line(s)` : ''}`, 'success');
+        store.newPartOpen.value = false;
+    } catch (err) {
+        store.showToast('Could not create part: ' + err.message, 'error');
+    } finally {
+        store.newPartSaving.value = false;
+    }
+}
+
 // startBomLineEdit — put one row into inline edit mode (part # + qty).
 export function startBomLineEdit(line) {
     store.bomDeleteLineId.value = null;
@@ -165,7 +272,11 @@ export async function saveBomLineEdit() {
     if (childChanged) {
         const { data: exists, error } = await db.checkPartExists(newChild);
         if (error)   { store.showToast('Could not verify part: ' + error.message, 'error'); return; }
-        if (!exists) { store.showToast(`${newChild} is not in the item master — create the part first`, 'error'); return; }
+        if (!exists) {
+            store.showToast(`${newChild} is not in the item master — fill out the New Part form`, 'error');
+            openNewPartForm(newChild);
+            return;
+        }
     }
     store.bomEditSaving.value = true;
     const { data, error } = await db.updateBomLine(line.id,
@@ -236,7 +347,11 @@ export async function submitBomAdd() {
     if (child === store.bomParent.value) { store.showToast('A part cannot be a component of itself', 'error'); return; }
     const { data: exists, error: checkErr } = await db.checkPartExists(child);
     if (checkErr) { store.showToast('Could not verify part: ' + checkErr.message, 'error'); return; }
-    if (!exists)  { store.showToast(`${child} is not in the item master — create the part first`, 'error'); return; }
+    if (!exists) {
+        store.showToast(`${child} is not in the item master — fill out the New Part form`, 'error');
+        openNewPartForm(child);
+        return;
+    }
     if (store.bomLines.value.some(l => l.depth === 0 && l.item_child_normalized === child)) {
         store.showToast(`${child} is already on this BOM`, 'error'); return;
     }

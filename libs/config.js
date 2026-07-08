@@ -176,7 +176,8 @@ export const PARTIAL_NAMES = [
     'modal-eng-create',
     'modal-eng-confirm',
     'modal-eng-followup',
-    'modal-part-change'
+    'modal-part-change',
+    'modal-new-part'
 ];
 
 export const OPEN_ORDER_SORT_FIELDS = [

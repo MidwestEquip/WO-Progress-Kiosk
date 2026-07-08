@@ -8,7 +8,7 @@ import { ENG_STATUSES, ENG_PRIORITIES, ENG_ASSIGNEES, ENG_RECORD_CATEGORIES,
          ENG_FOLLOWUP_STATUSES, ENG_FOLLOWUP_PRIORITIES, ENG_FOLLOWUP_FIT_STATUSES,
          ENG_FOLLOWUP_STATUS_LABELS, ENG_FOLLOWUP_STATUS_COLORS,
          PART_CHANGE_TYPES, PART_CHANGE_TYPE_LABELS, PART_CHANGE_TYPE_COLORS,
-         PART_CHANGE_CHECKLIST_ITEMS } from './libs/config.js';
+         PART_CHANGE_CHECKLIST_ITEMS, ITEM_ATTRIBUTES } from './libs/config.js';
 import { enterPartChangesView, loadPartChanges,
          openPartChangeCreate, closePartChangeCreate, submitPartChangeCreate,
          openPartChangeDetail, closePartChangeDetail,
@@ -17,7 +17,9 @@ import { enterPartChangesView, loadPartChanges,
 import { runBomSearch, clearBomSearch, toggleBomLine,
          startBomLineEdit, cancelBomLineEdit, saveBomLineEdit,
          askBomLineDelete, cancelBomLineDelete, confirmBomLineDelete,
-         openBomAdd, cancelBomAdd, submitBomAdd } from './pages/bom-editor.js';
+         openBomAdd, cancelBomAdd, submitBomAdd,
+         openNewPartForm, closeNewPartForm,
+         addNewPartBomRow, removeNewPartBomRow, submitNewPart } from './pages/bom-editor.js';
 import { enterEngineeringInquiriesView,
          openEngInquiryForm, closeEngInquiryForm, submitEngInquiry,
          handleEngNewInquiryFileSelect, removeEngNewInquiryFile,
@@ -100,6 +102,16 @@ export function buildEngExpose() {
         startBomLineEdit, cancelBomLineEdit, saveBomLineEdit,
         askBomLineDelete, cancelBomLineDelete, confirmBomLineDelete,
         openBomAdd, cancelBomAdd, submitBomAdd,
+
+        // New Part form
+        newPartOpen:     store.newPartOpen,
+        newPartSaving:   store.newPartSaving,
+        newPartForm:     store.newPartForm,
+        newPartErrors:   store.newPartErrors,
+        newPartBomLines: store.newPartBomLines,
+        itemAttributes:  ITEM_ATTRIBUTES,
+        openNewPartForm, closeNewPartForm,
+        addNewPartBomRow, removeNewPartBomRow, submitNewPart,
 
         // Engineering inquiries
         engView:               store.engView,
