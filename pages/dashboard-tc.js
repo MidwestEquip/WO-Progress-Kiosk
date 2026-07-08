@@ -61,6 +61,32 @@ export function openTcAssyEntry(order) {
     else                 openTcAssyStock(order);
     // Set AFTER openTcAssyUnit/Stock — they both reset opEditing to false
     store.tcAssyOpEditing.value = !order.operator;
+    loadAssyProductionNote(order);
+}
+
+// ── loadAssyProductionNote ────────────────────────────────────
+// Non-blocking fetch of this WO's production note for the red banner on the open
+// card. Primary source is the spawning WO request (matched by job_number, which
+// is where the note is authored); falls back to the persistent per-part note
+// (part_notes.wo_production_note) for manual WOs with no request. Guards against a
+// fast card-to-card switch via activeOrder id. Input: order (work_orders row).
+export async function loadAssyProductionNote(order) {
+    store.assyProductionNote.value = null;
+    if (!order) return;
+    const oid = order.id;
+    try {
+        if (order.job_number) {
+            const { data: reqNote } = await db.fetchWoRequestProductionNote(order.job_number);
+            if (store.activeOrder.value?.id !== oid) return;   // a different card was opened mid-fetch
+            if (reqNote && reqNote.trim()) { store.assyProductionNote.value = { text: reqNote.trim(), date: null }; return; }
+        }
+        if (!order.part_number) return;
+        const { data } = await db.fetchPartNote(order.part_number);
+        if (store.activeOrder.value?.id !== oid) return;
+        if (data?.wo_production_note) store.assyProductionNote.value = { text: data.wo_production_note, date: data.wo_production_note_date };
+    } catch (err) {
+        logError('loadAssyProductionNote', err, { part: order.part_number, job: order.job_number });
+    }
 }
 
 // ── toggleTcEntryMode ─────────────────────────────────────────

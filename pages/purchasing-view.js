@@ -9,7 +9,7 @@ import { watch } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-brow
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
-import { APP_LOCATION, PURCHASING_3YR_START, PURCHASING_STATUS_LABELS } from '../libs/config.js';
+import { APP_LOCATION, PURCHASING_3YR_START, PURCHASING_STATUS_LABELS, PART_NOTE_KIND } from '../libs/config.js';
 import { _replaceInStore, _syncOpenOrderForPo } from './purchasing-receive.js';
 
 // ── Autosave machinery ────────────────────────────────────────
@@ -374,6 +374,10 @@ async function _doSave() {
         _replaceInStore(data);
         store.purchasingDetailOrder.value  = data;
         _formSnapshot = JSON.stringify(store.purchasingDetailForm.value);
+        // Remember purchaser notes → carry forward to next PO (part orders; non-fatal).
+        if (order.request_type === 'part' && order.part_number)
+            db.upsertPartNote(order.part_number, PART_NOTE_KIND.PURCHASER, updates.purchaser_notes)
+                .then(({ error }) => { if (error) logError('_doSave:rememberNote', error); });
         store.purchasingDetailAutoSaved.value = true;
         setTimeout(() => { store.purchasingDetailAutoSaved.value = false; }, 2000);
 

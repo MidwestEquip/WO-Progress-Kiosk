@@ -16,6 +16,11 @@
                     </div>
                 </div>
 
+                <!-- Production notes banner (persistent per-part note) -->
+                <div v-if="assyProductionNote" class="shrink-0 bg-yellow-400 border-b border-yellow-500 px-5 py-1.5 text-black text-sm">
+                    <span class="font-bold uppercase tracking-wide text-xs mr-2">Production Notes</span>{{ assyProductionNote.text }}
+                </div>
+
                 <!-- Body: sidebar + main -->
                 <div class="flex flex-1 min-h-0 overflow-hidden">
 

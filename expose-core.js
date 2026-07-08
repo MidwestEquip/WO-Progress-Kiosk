@@ -110,6 +110,7 @@ export function buildCoreExpose() {
         actionPanelReadOnly:  store.actionPanelReadOnly,
         activeOrder:          store.activeOrder,
         linkedWoRequest:      store.linkedWoRequest,
+        assyProductionNote:   store.assyProductionNote,
         selectedOperator:     store.selectedOperator,
         selectedOperators:    store.selectedOperators,
         fabWeldOperatorReady: store.fabWeldOperatorReady,

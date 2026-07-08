@@ -152,6 +152,11 @@ export const purchasingDetailEventsLoading = ref(false);
 // Formatted items { label, detail, qtyOrdered, dateOrdered, priceEach, leadTime }.
 export const purchasingDetailActivePos     = ref([]);
 
+// Carry-forward purchaser note (part_notes) for the open PO's part, or null.
+// { text, date } — set by loadPurchasingCarriedNote; shown as a dated caption
+// and pre-filled into purchaser_notes only when that field is currently empty.
+export const purchasingCarriedNote         = ref(null);
+
 // ── Quotes tab ────────────────────────────────────────────────
 export const purchasingDetailQuotes        = ref([]);
 export const purchasingDetailQuotesLoading = ref(false);

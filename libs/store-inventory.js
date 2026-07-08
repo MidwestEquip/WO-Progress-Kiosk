@@ -143,6 +143,13 @@ export const woRequestChainParts = computed(() =>
     (woRequestCalcChain.value?.chain || []).slice(1)
 );
 
+// Carry-forward notes (part_notes) for the open WO request's part. Each is
+// { text, date } or null — set by loadWoRequestCarriedNotes when the detail
+// modal opens. Shown as a dated caption and pre-filled into the matching note
+// field only when that field is currently empty (never clobbers a typed note).
+export const woRequestCarriedStatusNote     = ref(null);
+export const woRequestCarriedProductionNote = ref(null);
+
 // woRequestEstQtyInStock — estimated parts on hand or embedded in assemblies.
 // Formula: qty_used_in_mfg − (direct_sold + parent_demand) + qty_made
 // Returns null when all inputs are zero (nothing to show yet).

@@ -307,6 +307,15 @@ export const PART_CHANGE_CHECKLIST_ITEMS = [
 // Max hops when resolving a replacement chain for calculations (A→B→C…).
 export const PART_CHANGE_CALC_CHAIN_MAX_DEPTH = 5;
 
+// Per-part carry-forward note kinds — map to the column groups in the
+// part_notes table (see libs/db-part-notes.js). Notes remembered per Part #
+// are brought forward the next time a WO Request / Purchasing order opens.
+export const PART_NOTE_KIND = {
+    WO_STATUS:     'wo_status',
+    WO_PRODUCTION: 'wo_production',
+    PURCHASER:     'purchaser',
+};
+
 // ----- Native part / BOM authoring -----
 // Marks rows authored in this app (vs bulk Alere imports). Import/squash
 // procedures must skip or preserve rows carrying this marker.

@@ -11,6 +11,10 @@ import { ref } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browse
 // ── Right-panel active tab ────────────────────────────────────
 export const woActionTab = ref('notes');  // 'attach' | 'notes' | 'complete'
 
+// Persistent per-part production note (part_notes.wo_production_note) shown as a
+// red banner on the open TC/TV card. { text, date } or null. Loaded on card open.
+export const assyProductionNote = ref(null);
+
 // ── TV Assy state ─────────────────────────────────────────────
 export const tvModeSelectOpen   = ref(false);  // mode picker shown when tv_job_mode not yet saved
 export const tvAssyEntryName    = ref('');

@@ -340,6 +340,22 @@ export async function checkWoNumberExists(woNumber) {
     return (count || 0) > 0;
 }
 
+// fetchWoRequestProductionNote — the production_notes for the WO request that
+// spawned a work order, matched by its job_number. One request per job_number.
+// Input: job_number string. Output: { data: production_notes|null, error }.
+export async function fetchWoRequestProductionNote(jobNumber) {
+    if (!jobNumber) return { data: null, error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.from('wo_requests')
+            .select('production_notes')
+            .eq('job_number', jobNumber)
+            .limit(1)
+            .maybeSingle()
+    );
+    if (error) return { data: null, error };
+    return { data: data?.production_notes || null, error: null };
+}
+
 // fetchAllWorkOrdersByJobNumber — all WOs sharing a job_number (pending official WO#).
 // Used by openCreatedWoDetail before alere_wo_number is set.
 export async function fetchAllWorkOrdersByJobNumber(jobNumber) {

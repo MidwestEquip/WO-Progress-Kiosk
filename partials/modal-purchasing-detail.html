@@ -331,6 +331,10 @@
                         <textarea v-model="purchasingDetailForm.purchaser_notes" rows="2"
                             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-amber-400 resize-none"
                             placeholder="Internal notes for purchasing team…"></textarea>
+                        <p v-if="purchasingCarriedNote" class="mt-1 text-xs text-gray-500 italic">
+                            Carried from {{ purchasingCarriedNote.date || 'a prior order' }}:
+                            <span class="text-gray-600 not-italic">{{ purchasingCarriedNote.text }}</span>
+                        </p>
                     </div>
 
                     <!-- Questions for Requester -->

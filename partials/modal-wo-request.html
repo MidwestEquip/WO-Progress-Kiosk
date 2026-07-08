@@ -79,6 +79,10 @@
                                 placeholder="Status notes — e.g. waiting on info before filling out request…"
                                 class="w-[28rem] max-w-full px-2.5 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-800 focus:outline-none focus:border-blue-400">
                         </div>
+                        <p v-if="!isSubpartInspect && woRequestCarriedStatusNote" class="mt-1 text-xs text-gray-500 italic">
+                            Carried from {{ woRequestCarriedStatusNote.date || 'a prior request' }}:
+                            <span class="text-gray-600 not-italic">{{ woRequestCarriedStatusNote.text }}</span>
+                        </p>
                     </div>
                     <div class="flex items-center gap-2 shrink-0 ml-4">
                         <span v-if="woRequestReadOnly" class="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">View Only</span>
@@ -307,6 +311,10 @@
                                 :readonly="woRequestReadOnly"
                                 placeholder="e.g. Use jig #4, check weld spec sheet..."
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:border-blue-400 text-sm resize-none"></textarea>
+                            <p v-if="woRequestCarriedProductionNote" class="mt-1 text-xs text-gray-500 italic">
+                                Carried from {{ woRequestCarriedProductionNote.date || 'a prior request' }}:
+                                <span class="text-gray-600 not-italic">{{ woRequestCarriedProductionNote.text }}</span>
+                            </p>
                         </div>
 
                         <!-- Prints & Files -->

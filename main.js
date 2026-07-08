@@ -23,7 +23,7 @@ import { loadManagerAlerts } from './pages/manager-view.js';
 import { loadManagerPendingWoRequests } from './pages/wo-manager-approval.js';
 import { loadReceivingEligible } from './pages/wo-status-view.js';
 import { loadPoReceiveOrders } from './pages/inventory-view.js';
-import { loadWoRequests } from './pages/wo-request-view.js';
+import { loadWoRequests, loadWoRequestCarriedNotes } from './pages/wo-request-view.js';
 import { loadForecastedItems } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems } from './pages/create-wo-view.js';
 import { loadOpenOrders, loadReminderEmail, reconcileOpenOrderRealtime } from './pages/open-orders-view.js';
@@ -39,6 +39,7 @@ import { startAppRealtime, stopAppRealtime } from './libs/realtime.js';
 import { loadEngFollowups, loadEngFollowupEvents } from './pages/engineering-followup.js';
 import { loadEngInquiries } from './pages/engineering-view.js';
 import { loadWoRequestOpenChanges } from './pages/part-changes-view.js';
+import { loadPurchasingCarriedNote } from './pages/purchasing-notes.js';
 
 import { buildCoreExpose } from './expose-core.js';
 import { buildOpsExpose } from './expose-ops.js';
@@ -240,6 +241,12 @@ try {
             // Open engineering-change warning on the WO Request detail modal
             watch(store.selectedWoRequest, (r) => {
                 loadWoRequestOpenChanges(r?.part_number || null);
+                loadWoRequestCarriedNotes(r || null);
+            });
+            // Purchaser-note carry-forward: load the remembered note when the
+            // purchasing detail modal opens.
+            watch(store.purchasingDetailOpen, (open) => {
+                if (open) loadPurchasingCarriedNote(store.purchasingDetailOrder.value);
             });
             watch(store.versionUpdateAvailable, (v) => {
                 if (v) setTimeout(() => location.reload(), 10_000);

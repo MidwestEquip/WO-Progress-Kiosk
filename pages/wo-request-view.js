@@ -12,6 +12,7 @@ import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
 import { missingSubpartRoutingFields, normalizePartNumber } from '../libs/utils.js';
+import { PART_NOTE_KIND } from '../libs/config.js';
 
 // checkWoRequestPartMatch — on blur of Part # field:
 //   1. Queries open_orders for a SO# hint.
@@ -212,6 +213,44 @@ async function _syncAfterSave(id) {
     if (updated) store.selectedWoRequest.value = updated;
 }
 
+// _rememberWoRequestNotes — persist the current status + production notes to the
+// part_notes carry-forward store so they pre-fill the next WO request for this part.
+// Non-blocking (remember-only side effect); logs but never surfaces failures.
+function _rememberWoRequestNotes(form) {
+    const sel = store.selectedWoRequest.value;
+    if (!sel?.part_number) return;
+    const by = sel.submitted_by || null;
+    db.upsertPartNote(sel.part_number, PART_NOTE_KIND.WO_STATUS, form.status_notes, by)
+        .then(({ error }) => { if (error) logError('_rememberWoRequestNotes:status', error); });
+    db.upsertPartNote(sel.part_number, PART_NOTE_KIND.WO_PRODUCTION, form.production_notes, by)
+        .then(({ error }) => { if (error) logError('_rememberWoRequestNotes:production', error); });
+}
+
+// loadWoRequestCarriedNotes — on WO request detail open, fetch the part's remembered
+// status/production notes (part_notes), expose them as dated captions, and pre-fill
+// each note field ONLY when it is currently empty (never clobbers a typed note).
+// Non-blocking; guarded against a fast A→B open via the selected request id.
+export async function loadWoRequestCarriedNotes(req) {
+    store.woRequestCarriedStatusNote.value     = null;
+    store.woRequestCarriedProductionNote.value = null;
+    if (!req?.part_number) return;
+    const reqId = req.id;
+    const { data, error } = await db.fetchPartNote(req.part_number);
+    if (error) { logError('loadWoRequestCarriedNotes', error, { part: req.part_number }); return; }
+    if (store.selectedWoRequest.value?.id !== reqId) return;   // stale: a different request opened
+    if (!data) return;
+
+    const form = store.woRequestDetailForm.value;
+    if (data.wo_status_note) {
+        store.woRequestCarriedStatusNote.value = { text: data.wo_status_note, date: data.wo_status_note_date };
+        if (!(form.status_notes || '').trim()) form.status_notes = data.wo_status_note;
+    }
+    if (data.wo_production_note) {
+        store.woRequestCarriedProductionNote.value = { text: data.wo_production_note, date: data.wo_production_note_date };
+        if (!(form.production_notes || '').trim()) form.production_notes = data.wo_production_note;
+    }
+}
+
 // saveWoRequestDetail — save manager fields without changing status.
 export async function saveWoRequestDetail() {
     const id   = store.selectedWoRequest.value?.id;
@@ -224,6 +263,7 @@ export async function saveWoRequestDetail() {
         Object.entries(store.woRequestSubpartForms.value).forEach(([n, { expanded, defaultsLoaded, ...d }]) => { plans[n] = d; });
         const { error } = await db.updateWoRequest(id, { ..._buildDetailUpdates(form), subpart_plans: Object.keys(plans).length ? plans : null });
         if (error) throw error;
+        _rememberWoRequestNotes(form);
         store.showToast('Saved.', 'success');
         await _syncAfterSave(id);
     } catch (err) {
@@ -278,6 +318,12 @@ export async function saveWoRequestStatusNote() {
         if (idx !== -1) store.woRequests.value[idx] = { ...store.woRequests.value[idx], status_notes: note };
         if (store.woRequestInlineState.value[id]) {
             store.woRequestInlineState.value[id].status_notes = note ?? '';
+        }
+        // Remember for carry-forward to the next WO request for this part (non-blocking).
+        const sel = store.selectedWoRequest.value;
+        if (sel?.part_number) {
+            db.upsertPartNote(sel.part_number, PART_NOTE_KIND.WO_STATUS, note, sel.submitted_by || null)
+                .then(({ error }) => { if (error) logError('saveWoRequestStatusNote:remember', error); });
         }
     } catch (err) {
         store.showToast('Failed to save note: ' + err.message, 'error');
@@ -357,6 +403,7 @@ export async function sendToManagerApproval() {
         };
         const { error } = await db.updateWoRequest(id, updates);
         if (error) throw error;
+        _rememberWoRequestNotes(form);
         store.showToast('Sent to manager for final approval.', 'success');
         store.selectedWoRequest.value = null;
         store.woRequestReadOnly.value = false;
