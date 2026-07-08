@@ -8,8 +8,12 @@
 
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
-import { getStaleHighlightColor } from '../libs/utils.js';
+import { getStaleHighlightColor, openOrderGroupClass } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
+
+// Re-exported so the shipping expose binds it from this domain file (like the
+// other presentation-class helpers) without importing utils.js directly.
+export { openOrderGroupClass };
 
 // loadOpenOrders — fetch all open_orders rows into store.
 export async function loadOpenOrders() {
@@ -140,6 +144,7 @@ export function chuteStatusClass(status) {
 export function openOrderStatusClass(status) {
     const map = {
         'New/Picking':  'bg-blue-100   text-blue-800',
+        'In Progress':  'bg-amber-100  text-amber-800',
         'WO Requested': 'bg-purple-100 text-purple-800',
         'PO Requested': 'bg-violet-100 text-violet-800',
         'WO Created':   'bg-indigo-100 text-indigo-800',

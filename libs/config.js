@@ -94,7 +94,7 @@ export const DEPT_NAMES = ["Fab", "Weld", "Trac Vac Assy", "Tru Cut Assy", "WO S
 
 // ----- Open Orders -----
 export const OPEN_ORDER_STATUSES = [
-    'New/Picking', 'WO Requested', 'PO Requested',
+    'New/Picking', 'In Progress', 'WO Requested', 'PO Requested',
     'WO Created', 'PO Created', 'Boxed', 'Shipped', 'On Hold'
 ];
 

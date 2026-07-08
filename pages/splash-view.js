@@ -280,6 +280,12 @@ export function enterCreateWoView() {
 // as the back destination.
 export function enterOpenOrdersView() {
     store.openOrdersFilter.value  = '';   // stale filter must never silently hide rows
+    store.openOrdersSort.value    = {     // always start sorted by Sales Order # ascending
+        emergency: { field: 'sales_order', dir: 'asc' },
+        freight:   { field: 'sales_order', dir: 'asc' },
+        trac_vac:  { field: 'sales_order', dir: 'asc' },
+        tru_cut:   { field: 'sales_order', dir: 'asc' },
+    };
     store.splashLevel.value       = 2;
     store.splashCategory.value    = 'production';
     store.splashSubCategory.value = 'shipping';
@@ -301,6 +307,41 @@ export function enterPoReceiveView() {
     store.poReceiveTab.value   = 'part';
     store.poReceiveOrders.value = [];
     store.currentView.value    = 'inventory';
+}
+
+// ── goHome ────────────────────────────────────────────────────
+// Full reset to the root splash screen (level 0) from anywhere.
+// Unlike goBack, this clears splash category/sub-category too.
+export function goHome() {
+    store.currentView.value       = 'splash';
+    store.splashLevel.value       = 0;
+    store.splashCategory.value    = '';
+    store.splashSubCategory.value = '';
+    store.selectedDept.value      = '';
+    store.dashSearch.value        = '';
+    store.managerSubView.value    = 'home';
+    store.priorityDept.value      = '';
+    store.priorityOrders.value    = [];
+    // Close any open modals
+    store.actionPanelOpen.value   = false;
+    store.newWoModalOpen.value    = false;
+    store.notesPanelOpen.value    = false;
+    store.pinModalOpen.value      = false;
+}
+
+// ── enterActiveWosView ────────────────────────────────────────
+// Jump straight to the Production → Active WO's department picker
+// (Fab / Weld / TV Assy / TC Assy) from anywhere.
+export function enterActiveWosView() {
+    store.currentView.value       = 'splash';
+    store.splashLevel.value       = 2;
+    store.splashCategory.value    = 'production';
+    store.splashSubCategory.value = 'active-wos';
+    // Close any open modals
+    store.actionPanelOpen.value   = false;
+    store.newWoModalOpen.value    = false;
+    store.notesPanelOpen.value    = false;
+    store.pinModalOpen.value      = false;
 }
 
 // ── goBack ────────────────────────────────────────────────────

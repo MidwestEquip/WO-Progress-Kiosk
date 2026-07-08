@@ -101,7 +101,7 @@
                                     <template v-for="(order, idx) in section.orders" :key="order.id">
 
                                         <!-- Order row -->
-                                        <div :class="openOrderRowClass(effectiveRowColor(order), openOrderSelectedIds.includes(order.id))"
+                                        <div :class="[openOrderRowClass(effectiveRowColor(order), openOrderSelectedIds.includes(order.id)), openOrderGroupClass(order, section.orders[idx-1], section.orders[idx+1])]"
                                              :draggable="openOrderSelectedIds.includes(order.id)"
                                              class="flex flex-col border-b border-slate-100 last:border-0 select-none"
                                              @mousedown="onRowMouseDown($event, order.id, order.status)"

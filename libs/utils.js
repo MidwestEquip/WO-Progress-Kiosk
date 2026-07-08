@@ -176,6 +176,49 @@ export function openOrderMatchesFilter(order, q) {
         .some(v => (v || '').toLowerCase().includes(q));
 }
 
+// ── compareSalesOrder ─────────────────────────────────────────
+// Ascending comparator for sales_order strings, numeric-aware so "99" sorts
+// before "100". Extracts the first run of digits from each value and compares
+// numerically; ties (or non-numeric values) fall back to case-insensitive
+// string compare. Blank sales orders always sort last.
+export function compareSalesOrder(a, b) {
+    const sa = (a || '').trim();
+    const sb = (b || '').trim();
+    if (!sa && !sb) return 0;
+    if (!sa) return 1;
+    if (!sb) return -1;
+    const na = sa.match(/\d+/);
+    const nb = sb.match(/\d+/);
+    if (na && nb) {
+        const diff = Number(na[0]) - Number(nb[0]);
+        if (diff !== 0) return diff;
+    }
+    const la = sa.toLowerCase(), lb = sb.toLowerCase();
+    return la < lb ? -1 : la > lb ? 1 : 0;
+}
+
+// ── openOrderGroupClass ───────────────────────────────────────
+// Border classes that box consecutive rows sharing the same non-blank
+// sales_order into a single dark rounded rectangle. Neighbor-based:
+//   first of a 2+ group → top+sides dark, rounded top
+//   middle of a group   → sides dark
+//   last of a group     → bottom+sides dark, rounded bottom
+// A lone SO (no matching neighbor) or a blank SO returns '' (no outline).
+// prev/next are the adjacent rows in the already-sorted section (or undefined).
+// Uses the ! important modifier so the dark border deterministically wins over
+// the row's existing left color stripe (border-l-4) and light bottom divider
+// (border-slate-100), which otherwise resolve by Tailwind source order.
+export function openOrderGroupClass(order, prev, next) {
+    const so = (order?.sales_order || '').trim();
+    if (!so) return '';
+    const samePrev = !!prev && (prev.sales_order || '').trim() === so;
+    const sameNext = !!next && (next.sales_order || '').trim() === so;
+    if (!samePrev && !sameNext) return '';
+    if (!samePrev && sameNext)  return '!border-t-2 !border-x-2 !border-slate-700 rounded-t-lg';
+    if (samePrev && sameNext)   return '!border-x-2 !border-slate-700';
+    return '!border-b-2 !border-x-2 !border-slate-700 rounded-b-lg';
+}
+
 // ── normalizePasteDate ────────────────────────────────────────
 // Normalize a pasted date string to YYYY-MM-DD for storage/sorting.
 // Accepts: YYYY-MM-DD (pass-through), M/D, M/D/YY, M/D/YYYY (slash or dash).

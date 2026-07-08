@@ -6,7 +6,7 @@
 // ============================================================
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
-import { openOrderMatchesFilter } from './utils.js';
+import { openOrderMatchesFilter, compareSalesOrder } from './utils.js';
 
 // ── Customer Service ──────────────────────────────────────────
 export const csSearchTerm  = ref('');
@@ -353,10 +353,10 @@ export const openOrderWoPanelOrders  = ref([]);
 export const openOrderWoPanelLoading = ref(false);
 
 export const openOrdersSort = ref({
-    emergency: { field: 'sort_order', dir: 'asc' },
-    freight:   { field: 'sort_order', dir: 'asc' },
-    trac_vac:  { field: 'sort_order', dir: 'asc' },
-    tru_cut:   { field: 'sort_order', dir: 'asc' },
+    emergency: { field: 'sales_order', dir: 'asc' },
+    freight:   { field: 'sales_order', dir: 'asc' },
+    trac_vac:  { field: 'sales_order', dir: 'asc' },
+    tru_cut:   { field: 'sales_order', dir: 'asc' },
 });
 
 function _openSectionSorted(type) {
@@ -365,6 +365,11 @@ function _openSectionSorted(type) {
         const q = openOrdersFilter.value.trim().toLowerCase();
         const rows = openOrders.value.filter(o => o.order_type === type && openOrderMatchesFilter(o, q));
         return [...rows].sort((a, b) => {
+            if (field === 'sales_order') {
+                return dir === 'asc'
+                    ? compareSalesOrder(a.sales_order, b.sales_order)
+                    : compareSalesOrder(b.sales_order, a.sales_order);
+            }
             let av = a[field] ?? '';
             let bv = b[field] ?? '';
             if (typeof av === 'string') av = av.toLowerCase();

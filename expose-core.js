@@ -14,6 +14,7 @@ import { openMessagesView, openThread, backToInbox, sendMessage,
          dmAvatarClass, dmContacts, canDeleteMessages,
          openMsgDeleteConfirm, cancelMsgDelete, confirmMsgDelete } from './pages/messages-view.js';
 import { selectDept, promptPin, submitPin, goBack,
+         goHome, enterActiveWosView,
          selectCategory, selectSubCategory, splashBack,
          enterEngineeringMenu, enterPurchasingMenu,
          submitLogin, logout, enterManagerView,
@@ -278,6 +279,7 @@ export function buildCoreExpose() {
 
         // Navigation
         selectDept, promptPin, submitPin, goBack,
+        goHome, enterActiveWosView,
         selectCategory, selectSubCategory, splashBack,
         enterEngineeringMenu, enterPurchasingMenu,
         submitLogin, logout, enterManagerView,
