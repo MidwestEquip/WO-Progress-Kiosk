@@ -191,6 +191,7 @@ CREATE TABLE IF NOT EXISTS open_orders (
     ship_quote_2            TEXT,
     ship_cost_3             TEXT,
     ship_paid_4             TEXT,
+    tracking_number         TEXT,
     chute_status            TEXT,
     chute_date              TEXT,
     bracket_adapter_status  TEXT,

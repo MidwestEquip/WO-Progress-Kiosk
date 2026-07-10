@@ -276,19 +276,22 @@ export function enterCreateWoView() {
 }
 
 // ── enterOpenOrdersView ───────────────────────────────────────
-// Navigate to the Open Orders shipping view. Preserves shipping sub-menu
-// as the back destination.
+// Navigate to the Open Orders shipping view. Shipping has no sub-menu anymore
+// (Open Orders is its only view), so the back destination is the Production menu.
 export function enterOpenOrdersView() {
     store.openOrdersFilter.value  = '';   // stale filter must never silently hide rows
+    store.shippingTab.value       = 'orders';  // always land on the Open Orders tab
     store.openOrdersSort.value    = {     // always start sorted by Sales Order # ascending
+        new:       { field: 'sales_order', dir: 'asc' },
         emergency: { field: 'sales_order', dir: 'asc' },
         freight:   { field: 'sales_order', dir: 'asc' },
         trac_vac:  { field: 'sales_order', dir: 'asc' },
         tru_cut:   { field: 'sales_order', dir: 'asc' },
+        boxed:     { field: 'sales_order', dir: 'asc' },
     };
-    store.splashLevel.value       = 2;
+    store.splashLevel.value       = 1;
     store.splashCategory.value    = 'production';
-    store.splashSubCategory.value = 'shipping';
+    store.splashSubCategory.value = '';
     store.currentView.value       = 'open_orders';
 }
 

@@ -44,7 +44,7 @@ export async function fetchManagerAlerts() {
         withRetry(() =>
             supabase.from('open_orders')
                 .select('id,customer,sales_order,part_number,status,last_status_update,deadline,wo_va_notes,wo_po_number')
-                .in('status', ['New/Picking', 'WO Created'])
+                .in('status', ['New', 'New/Picking', 'WO Created'])
         ),
         withRetry(() =>
             supabase.from('manager_alert_resolutions')

@@ -7,7 +7,8 @@
 
 import * as store from './libs/store.js';
 import { OPEN_ORDER_STATUSES, CHUTE_PART_STATUSES,
-         OPEN_ORDER_SORT_FIELDS } from './libs/config.js';
+         OPEN_ORDER_SORT_FIELDS,
+         OPEN_ORDER_GRID_COLS_FULL, OPEN_ORDER_GRID_COLS_NEW } from './libs/config.js';
 import { enterOpenOrdersView } from './pages/splash-view.js';
 import { loadOpenOrders, setSectionSort, openOrderSortIcon,
          setRowColor, effectiveRowColor, openOrderRowClass, openOrderColorDotClass,
@@ -18,9 +19,13 @@ import { loadOpenOrders, setSectionSort, openOrderSortIcon,
          requestToShipEdit, confirmToShipEdit, cancelToShipEdit,
          toggleOpenOrderExpand,
          canRequestFromOpenOrder, requestWoFromOpenOrder, requestPoFromOpenOrder,
-         openWoDetailPanel, closeWoDetailPanel,
+         moveSalesOrderToFreight,
+         openWoDetailPanel, closeWoDetailPanel, goToActiveWo,
          woDeptBadgeClass, woStatusBadgeClass } from './pages/open-orders-view.js';
-import { cancelAddModal, parsePasteRows, saveOpenOrderRow } from './pages/open-orders-add.js';
+import { cancelAddModal, parsePasteRows, saveOpenOrderRow,
+         enrichPasteRowsWithWoAttach, pasteWoScenarioLabel,
+         pasteWoScenarioClass } from './pages/open-orders-add.js';
+import { startPicking, startAssembly, setShippingTab, markShipped, printPickingTicket } from './pages/open-orders-shipping.js';
 import { onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
          onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
          onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
@@ -35,7 +40,11 @@ export function buildShippingExpose() {
         openOrdersFilter:         store.openOrdersFilter,
         openOrdersSort:           store.openOrdersSort,
         openOrderSections:        store.openOrderSections,
+        shippingTab:              store.shippingTab,
+        boxedOrders:              store.boxedOrders,
+        soSplit:                  store.soSplit,
         openOrderColorPickerRow:  store.openOrderColorPickerRow,
+        openOrderWoMenuRow:       store.openOrderWoMenuRow,
         openOrderEditingCell:     store.openOrderEditingCell,
         openOrderEditingValue:    store.openOrderEditingValue,
         openOrderQtyConfirm:      store.openOrderQtyConfirm,
@@ -56,6 +65,8 @@ export function buildShippingExpose() {
         openOrderStatuses:        OPEN_ORDER_STATUSES,
         chutePartStatuses:        CHUTE_PART_STATUSES,
         openOrderSortFields:      OPEN_ORDER_SORT_FIELDS,
+        ooGridColsFull:           OPEN_ORDER_GRID_COLS_FULL,
+        ooGridColsNew:            OPEN_ORDER_GRID_COLS_NEW,
 
         // Open Orders — functions
         enterOpenOrdersView,
@@ -72,6 +83,9 @@ export function buildShippingExpose() {
         openOrderGroupClass,
         cancelAddModal,
         parsePasteRows,
+        enrichPasteRowsWithWoAttach,
+        pasteWoScenarioLabel,
+        pasteWoScenarioClass,
         saveOpenOrderRow,
         bulkChangeStatus,
         onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
@@ -82,12 +96,14 @@ export function buildShippingExpose() {
         requestToShipEdit, confirmToShipEdit, cancelToShipEdit,
         toggleOpenOrderExpand,
         canRequestFromOpenOrder, requestWoFromOpenOrder, requestPoFromOpenOrder,
+        startPicking, startAssembly, setShippingTab, markShipped, printPickingTicket,
+        moveSalesOrderToFreight,
 
         // WO detail drill-down panel
         openOrderWoPanel:        store.openOrderWoPanel,
         openOrderWoPanelOrders:  store.openOrderWoPanelOrders,
         openOrderWoPanelLoading: store.openOrderWoPanelLoading,
-        openWoDetailPanel, closeWoDetailPanel,
+        openWoDetailPanel, closeWoDetailPanel, goToActiveWo,
         woDeptBadgeClass, woStatusBadgeClass,
 
         // Task reminder email settings

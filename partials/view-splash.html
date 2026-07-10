@@ -194,8 +194,8 @@
                             </svg>
                             <span class="text-2xl font-bold uppercase">Create WO</span>
                         </button>
-                        <!-- Shipping -->
-                        <button @click="selectSubCategory('shipping')"
+                        <!-- Shipping — goes straight to Open Orders (its only view) -->
+                        <button @click="enterOpenOrdersView"
                             class="bg-white hover:bg-blue-50 text-gray-800 rounded-2xl shadow-md p-8 flex flex-col items-center gap-3 border-2 border-blue-300 active:scale-95 transition-transform">
                             <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
@@ -405,25 +405,6 @@
                                 <span class="text-xl font-bold uppercase text-center leading-tight">Open Orders<br>Shipping</span>
                             </button>
                         </div>
-                    </div>
-                </div>
-
-                <!-- ── Level 2: Shipping ────────────────────────── -->
-                <div v-else-if="splashLevel === 2 && splashSubCategory === 'shipping'"
-                    class="w-full max-w-7xl px-4 flex flex-col items-center gap-8">
-                    <div class="grid grid-cols-2 gap-6 w-full max-w-2xl">
-                        <!-- Open Orders -->
-                        <button @click="enterOpenOrdersView"
-                            class="bg-white hover:bg-indigo-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-indigo-400 active:scale-95 transition-transform">
-                            <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                            <span class="text-2xl font-bold uppercase">Open Orders</span>
-                        </button>
-                        <!-- Completed Units in Stock (stub) -->
-                        <button disabled class="bg-white text-gray-400 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-gray-200 opacity-50 cursor-not-allowed">
-                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            <span class="text-2xl font-bold uppercase">Completed Units in Stock</span>
-                            <span class="text-xs uppercase tracking-widest">Coming Soon</span>
-                        </button>
                     </div>
                 </div>
 

@@ -62,6 +62,31 @@ export function openReceiveModal(order) {
     store.receiveModalOpen.value     = true;
 }
 
+// _syncOpenOrdersForWoReceive — flip matching Open Orders rows to
+// 'WO/PO Complete' when a finished WO is received into stock, so shipping
+// knows the parts are on the shelf. Matches by WO/PO # or SO# + part #;
+// only WO-path rows flip (Boxed/Picked/New etc. untouched). Non-fatal:
+// the receive has already succeeded, so toast + log only.
+// order: the work_orders row being received. No return value.
+async function _syncOpenOrdersForWoReceive(order) {
+    try {
+        const { data, error } = await db.findOpenOrdersForWo(
+            order.wo_number, order.sales_order, order.part_number);
+        if (error) throw error;
+        const rows = (data || []).filter(o =>
+            ['WO Requested', 'WO Created', 'In Progress'].includes(o.status));
+        if (!rows.length) return;
+        const now = new Date().toISOString();
+        const results = await Promise.all(rows.map(o =>
+            db.updateOpenOrder(o.id, { status: 'WO/PO Complete', last_status_update: now })));
+        const failed = results.filter(r => r.error);
+        if (failed.length) throw new Error(`${failed.length} row(s) failed to update`);
+    } catch (err) {
+        store.showToast('Received, but the Open Orders board did not sync: ' + err.message);
+        logError('_syncOpenOrdersForWoReceive', err, { wo_number: order?.wo_number });
+    }
+}
+
 // ── submitReceive ─────────────────────────────────────────────
 export async function submitReceive() {
     store.receiverNameError.value = !isNonEmpty(store.receiverName.value);
@@ -70,10 +95,12 @@ export async function submitReceive() {
     store.loading.value = true;
     try {
         const order = store.receiveTarget.value;
-        const qty   = store.receiverQty.value
-                        || order.qty_completed
-                        || order.qty_required
-                        || 0;
+        // Blank receiver qty (null / '') falls back to the completed qty;
+        // an entered or completed 0 is preserved (not bumped to the WO qty).
+        const rq    = store.receiverQty.value;
+        const qty   = (rq === null || rq === undefined || rq === '')
+                        ? (order.qty_completed ?? order.qty_required ?? 0)
+                        : rq;
 
         const { error } = await db.receiveWorkOrder(
             order,
@@ -90,6 +117,9 @@ export async function submitReceive() {
         store.officeSuccessMsg.value     = `WO #${woNum} received by ${recName} \u2713`;
         store.officeSearchTerm.value     = '';
         store.officeSearchResults.value  = [];
+
+        // Open Orders board: finished goods in stock — hand rows back to shipping.
+        await _syncOpenOrdersForWoReceive(order);
 
         await _refreshWoStatusData();
         await loadReceivingEligible();

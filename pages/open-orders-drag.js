@@ -179,6 +179,11 @@ export function onSectionDragLeave(event, type) {
     }
 }
 
+// Real order_type sections a row can be dropped into. 'new' and 'boxed' are
+// status-derived sections (not order_types) — dropping there must be ignored or
+// it would write an invalid order_type and orphan the row.
+const DROPPABLE_ORDER_TYPES = ['emergency', 'freight', 'trac_vac', 'tru_cut'];
+
 // onSectionDrop — move all pending drag rows to the dropped section in parallel.
 export async function onSectionDrop(event, type) {
     event.preventDefault();
@@ -186,6 +191,8 @@ export async function onSectionDrop(event, type) {
     const ids = [..._pendingDragIds];
     _pendingDragIds = [];
     if (!ids.length) return;
+    // Ignore drops onto the New Orders / Boxed sections (not real order_types).
+    if (!DROPPABLE_ORDER_TYPES.includes(type)) return;
 
     const results = await Promise.all(ids.map(id => db.updateOpenOrder(id, { order_type: type })));
     const failed  = results.filter(r => r.error);

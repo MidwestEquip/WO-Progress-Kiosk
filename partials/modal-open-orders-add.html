@@ -152,7 +152,7 @@
                         <div v-if="openOrderAddPasteRows.length === 0">
                             <label class="block text-xs font-semibold text-slate-600 mb-1">Paste data here</label>
                             <textarea v-model="openOrderAddPasteText" rows="8"
-                                @input="parsePasteRows()"
+                                @input="parsePasteRows(); enrichPasteRowsWithWoAttach()"
                                 class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
                                 placeholder="Paste from Excel..."></textarea>
                         </div>
@@ -173,7 +173,7 @@
                             <p v-if="openOrderPasteDupCount > 0"
                                class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
                                 ⚠ {{ openOrderPasteDupCount }} row(s) look like duplicates already on the board
-                                (same Part # + Sales Order). They will be <span class="font-bold">skipped</span> unless you check "Add anyway".
+                                (same Part # + Sales Order). They will be <span class="font-bold">added anyway</span> — uncheck the box on any row you want skipped.
                             </p>
                             <p v-if="openOrderPasteWarnCount > 0"
                                class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
@@ -182,19 +182,23 @@
                             </p>
 
                             <div class="border border-slate-200 rounded-lg overflow-x-auto">
-                                <table class="w-full text-xs">
+                                <table class="w-max min-w-full text-xs">
                                     <thead class="bg-slate-50 text-slate-500 uppercase tracking-wider">
                                         <tr>
-                                            <th class="px-2 py-1.5 text-left">Add?</th>
-                                            <th class="px-2 py-1.5 text-left">Section</th>
-                                            <th class="px-2 py-1.5 text-left">Part #</th>
-                                            <th class="px-2 py-1.5 text-left">Ship</th>
-                                            <th class="px-2 py-1.5 text-left">Pulled</th>
-                                            <th class="px-2 py-1.5 text-left">Description</th>
-                                            <th class="px-2 py-1.5 text-left">Customer</th>
-                                            <th class="px-2 py-1.5 text-left">Sales Ord</th>
-                                            <th class="px-2 py-1.5 text-left">Date</th>
-                                            <th class="px-2 py-1.5 text-left">Status</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Add?</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Section</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Part #</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Ship</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Pulled</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Description</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Store/Bin</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Upd Bin</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Customer</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Sales Ord</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Date</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Status</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">WO Auto</th>
+                                            <th class="px-2 py-1.5 text-left whitespace-nowrap">Notes</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -217,7 +221,9 @@
                                             <td class="px-2 py-1.5 font-mono font-medium text-slate-800">{{ row.part_number || '—' }}</td>
                                             <td class="px-2 py-1.5 text-slate-600">{{ row.to_ship || '' }}</td>
                                             <td class="px-2 py-1.5 text-slate-600">{{ row.qty_pulled || '' }}</td>
-                                            <td class="px-2 py-1.5 text-slate-600 max-w-[160px] truncate">{{ row.description || '' }}</td>
+                                            <td class="px-2 py-1.5 text-slate-600 max-w-[160px] truncate" :title="row.description || ''">{{ row.description || '' }}</td>
+                                            <td class="px-2 py-1.5 text-slate-600 whitespace-nowrap">{{ row.store_bin || '' }}</td>
+                                            <td class="px-2 py-1.5 text-slate-600 whitespace-nowrap">{{ row.update_store_bin || '' }}</td>
                                             <td class="px-2 py-1.5 text-slate-600">{{ row.customer || '' }}</td>
                                             <td class="px-2 py-1.5 text-slate-600">{{ row.sales_order || '' }}</td>
                                             <td class="px-2 py-1.5 whitespace-nowrap"
@@ -227,9 +233,19 @@
                                             </td>
                                             <td class="px-2 py-1.5 whitespace-nowrap"
                                                 :class="row._status_warn ? 'text-amber-700 font-semibold' : 'text-slate-600'"
-                                                :title="row._status_warn ? 'Unknown status “' + row._status_warn + '” — New/Picking will be used' : ''">
+                                                :title="row._status_warn ? 'Unknown status “' + row._status_warn + '” — New will be used' : ''">
                                                 {{ row.status }}<span v-if="row._status_warn"> ⚠</span>
                                             </td>
+                                            <td class="px-2 py-1.5 whitespace-nowrap">
+                                                <span v-if="row._scenario && row._scenario !== 'no_wo'"
+                                                      :class="pasteWoScenarioClass(row._scenario)"
+                                                      class="px-1.5 py-0.5 rounded text-xs font-semibold cursor-help"
+                                                      :title="row._wo_reason || ''">
+                                                    {{ pasteWoScenarioLabel(row._scenario) }}
+                                                </span>
+                                                <span v-else class="text-slate-300">—</span>
+                                            </td>
+                                            <td class="px-2 py-1.5 text-slate-600 max-w-[220px] truncate" :title="row.wo_va_notes || ''">{{ row.wo_va_notes || '' }}</td>
                                         </tr>
                                     </tbody>
                                 </table>

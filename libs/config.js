@@ -93,10 +93,30 @@ export const CS_LEAD_TIME_DEFAULTS = {
 export const DEPT_NAMES = ["Fab", "Weld", "Trac Vac Assy", "Tru Cut Assy", "WO Status", "CS"];
 
 // ----- Open Orders -----
+// 'New' = freshly imported/added, not yet triaged by shipping. Rows sit in the
+// NEW ORDERS inbox atop the board until shipping picks/requests-WO/assembles,
+// which moves them into their brand section. Kept distinct from 'New/Picking'
+// (a picker has started) so the inbox is a true untriaged-only list.
+export const OPEN_ORDER_STATUS_NEW = 'New';
+// 'Label Printed' rests in the Boxed/Ship tab (a box waiting on its label).
+// 'Labelled' is a transient trigger: selecting it ships the row to
+// open_orders_completed with status 'Shipped' (see open-orders-view.js).
+export const OPEN_ORDER_STATUS_LABEL_PRINTED = 'Label Printed';
+export const OPEN_ORDER_STATUS_LABELLED      = 'Labelled';
 export const OPEN_ORDER_STATUSES = [
-    'New/Picking', 'In Progress', 'WO Requested', 'PO Requested',
-    'WO Created', 'PO Created', 'Boxed', 'Shipped', 'On Hold'
+    'New', 'Picked', 'New/Picking', 'In Progress', 'WO Requested', 'PO Requested',
+    'WO Created', 'PO Created', 'WO/PO Complete', 'Boxed', 'Label Printed', 'Labelled',
+    'Shipped', 'On Hold'
 ];
+
+// Open Orders row-grid column templates (shared header + rows). NEW omits
+// DIMS/Wt, Quotes, Boxes, WO/PO #, Est. Leadtime, and Status/Last Upd, and adds
+// a triage-buttons column between Notes and Customer. Both must stay in sync
+// with the cell v-ifs in view-open-orders.html.
+export const OPEN_ORDER_GRID_COLS_FULL =
+    '46px 22px 88px minmax(180px,1.4fr) 108px 78px 112px 138px 76px minmax(210px,2fr) minmax(140px,1.1fr) 74px 74px 78px 98px 128px 82px 28px';
+export const OPEN_ORDER_GRID_COLS_NEW =
+    '46px 22px 88px minmax(180px,1.4fr) 108px 78px minmax(210px,2fr) 120px minmax(140px,1.1fr) 74px 98px 82px 28px';
 
 export const CHUTE_PART_STATUSES = [
     'Ordered', 'In Stock', 'Ready', 'Complete', 'N/A'
@@ -314,6 +334,17 @@ export const PART_NOTE_KIND = {
     WO_STATUS:     'wo_status',
     WO_PRODUCTION: 'wo_production',
     PURCHASER:     'purchaser',
+};
+
+// Open Orders WO auto-attach scenarios — display labels for the codes returned
+// by decideOpenOrderWoAttach() in libs/utils-open-orders.js. The codes are the
+// source of truth in that pure function (utils has no imports); this map is only
+// for human-readable display in the paste preview.
+export const OPEN_ORDER_WO_SCENARIO_LABEL = {
+    no_wo:         'No active WO',
+    covered:       'Covered by active WO',
+    short_new:     'WO short — production notified',
+    short_started: 'WO started & short — new WO needed',
 };
 
 // ----- Native part / BOM authoring -----

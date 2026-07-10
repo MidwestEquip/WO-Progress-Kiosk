@@ -9,6 +9,7 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { getStaleHighlightColor, openOrderGroupClass } from '../libs/utils.js';
+import { OPEN_ORDER_STATUS_LABELLED } from '../libs/config.js';
 import { logError } from '../libs/db-shared.js';
 
 // Re-exported so the shipping expose binds it from this domain file (like the
@@ -104,17 +105,23 @@ export function effectiveRowColor(order) {
     return getStaleHighlightColor(order) || order.row_color || null;
 }
 
-// openOrderRowClass — Tailwind classes for row bg + left border.
-// selected=true gives a white lifted card look with a dark border.
+// openOrderRowClass — Tailwind classes for row bg + left color stripe.
+// The stripe is an INSET left box-shadow (not a border) so the same-SO grouping
+// box (openOrderGroupClass uses !border-* on the left edge) can't override it —
+// on grouped rows the black outline and the color stripe are now both visible.
+// selected=true gives a white lifted card look with an indigo stripe.
 export function openOrderRowClass(color, selected = false) {
-    if (selected) return 'bg-indigo-50 border-l-4 border-l-indigo-500 transition-colors cursor-grab';
+    if (selected) return 'bg-indigo-50 shadow-[inset_6px_0_0_0_#6366f1] transition-colors cursor-grab';
     const map = {
-        orange: 'bg-orange-50 border-l-4 border-l-orange-400',
-        yellow: 'bg-yellow-50 border-l-4 border-l-yellow-400',
-        pink:   'bg-pink-50   border-l-4 border-l-pink-400',
-        blue:   'bg-blue-50   border-l-4 border-l-blue-400',
+        orange: 'bg-orange-50 shadow-[inset_6px_0_0_0_#fb923c]',
+        yellow: 'bg-yellow-50 shadow-[inset_6px_0_0_0_#eab308]',
+        // amber/red are stale-escalation colors (levels 2/3), not manual picks.
+        amber:  'bg-amber-100 shadow-[inset_6px_0_0_0_#d97706]',
+        red:    'bg-red-200   shadow-[inset_6px_0_0_0_#b91c1c]',
+        pink:   'bg-pink-50   shadow-[inset_6px_0_0_0_#f472b6]',
+        blue:   'bg-blue-50   shadow-[inset_6px_0_0_0_#60a5fa]',
     };
-    return (map[color] || 'bg-white border-l-4 border-l-slate-100') + ' transition-colors';
+    return (map[color] || 'bg-white shadow-[inset_6px_0_0_0_#f1f5f9]') + ' transition-colors';
 }
 
 // openOrderColorDotClass — bg class for the color picker trigger dot.
@@ -143,13 +150,18 @@ export function chuteStatusClass(status) {
 // openOrderStatusClass — badge bg+text classes for a status value.
 export function openOrderStatusClass(status) {
     const map = {
+        'New':          'bg-sky-100    text-sky-800',
+        'Picked':       'bg-cyan-100   text-cyan-800',
         'New/Picking':  'bg-blue-100   text-blue-800',
         'In Progress':  'bg-amber-100  text-amber-800',
         'WO Requested': 'bg-purple-100 text-purple-800',
         'PO Requested': 'bg-violet-100 text-violet-800',
         'WO Created':   'bg-indigo-100 text-indigo-800',
         'PO Created':   'bg-indigo-100 text-indigo-800',
+        'WO/PO Complete': 'bg-lime-100 text-lime-800',
         'Boxed':        'bg-green-100  text-green-800',
+        'Label Printed':'bg-fuchsia-100 text-fuchsia-800',
+        'Labelled':     'bg-pink-100   text-pink-800',
         'Shipped':      'bg-teal-100   text-teal-800',
         'On Hold':      'bg-red-100    text-red-800',
         'Deleted':      'bg-rose-100   text-rose-800',
@@ -191,12 +203,13 @@ export function toggleOpenOrderExpand(id, col) {
 
 // bulkChangeStatus — update status on all selected rows in parallel, then clear selection.
 // ids: array of row uuids, newStatus: status string.
-// If newStatus is 'Shipped', rows are moved to completed_orders and removed from open_orders.
+// If newStatus is 'Shipped' or 'Labelled', rows are moved to completed_orders
+// (stamped 'Shipped') and removed from open_orders.
 export async function bulkChangeStatus(ids, newStatus) {
     if (!ids.length || !newStatus) return;
     const now = new Date().toISOString();
 
-    if (newStatus === 'Shipped') {
+    if (newStatus === 'Shipped' || newStatus === OPEN_ORDER_STATUS_LABELLED) {
         const toShip = store.openOrders.value.filter(o => ids.includes(o.id));
         const results = await Promise.all(
             toShip.map(o => db.shipOpenOrder({ ...o, status: 'Shipped', last_status_update: now }))
@@ -281,13 +294,30 @@ export async function saveCellEdit(id, field) {
 
     cancelCellEdit(); // clear immediately so the UI snaps back
 
-    // Shipping moves the row to completed_orders instead of updating in place
-    if (field === 'status' && value === 'Shipped') {
+    // Shipping (or 'Labelled') moves the row to completed_orders (stamped
+    // 'Shipped') instead of updating in place.
+    if (field === 'status' && (value === 'Shipped' || value === OPEN_ORDER_STATUS_LABELLED)) {
         const order = store.openOrders.value.find(o => o.id === id);
         if (order) {
             const { error } = await db.shipOpenOrder({ ...order, status: 'Shipped', last_status_update: new Date().toISOString() });
             if (error) { store.showToast('Failed to ship: ' + error.message); return; }
             store.openOrders.value = store.openOrders.value.filter(o => o.id !== id);
+        }
+        return;
+    }
+
+    // Updated Bin: entering a new "Upd" value promotes it to the canonical bin
+    // location (store_bin) and clears the pending update, so the row shows the
+    // new bin next time. A blank "Upd" is just a normal clear (handled below).
+    if (field === 'update_store_bin' && value) {
+        const binUpdates = { store_bin: value, update_store_bin: null };
+        const { error } = await db.updateOpenOrder(id, binUpdates);
+        if (error) { store.showToast('Failed to save: ' + error.message); await loadOpenOrders(); return; }
+        const bIdx = store.openOrders.value.findIndex(o => o.id === id);
+        if (bIdx !== -1) {
+            const updated = [...store.openOrders.value];
+            updated[bIdx]  = { ...updated[bIdx], ...binUpdates };
+            store.openOrders.value = updated;
         }
         return;
     }
@@ -320,6 +350,33 @@ export async function deleteOpenOrder(id, partNumber) {
     store.openOrders.value = store.openOrders.value.filter(o => o.id !== id);
 }
 
+// moveSalesOrderToFreight — move every open-order row sharing this row's sales
+// order (SO#) into the Freight section (order_type='freight'). A row with no SO#
+// moves only itself. Reversible by dragging back to another section.
+// order: the clicked open_orders row.
+export async function moveSalesOrderToFreight(order) {
+    if (!order) return;
+    const so   = (order.sales_order || '').trim();
+    const rows = so
+        ? store.openOrders.value.filter(o => (o.sales_order || '').trim() === so && o.order_type !== 'freight')
+        : store.openOrders.value.filter(o => o.id === order.id && o.order_type !== 'freight');
+    if (!rows.length) { store.showToast('Already in Freight Orders.'); return; }
+
+    const label = so
+        ? `SO# ${so} (${rows.length} row${rows.length > 1 ? 's' : ''})`
+        : (order.part_number || 'this row');
+    if (!window.confirm(`Move ${label} to Freight Orders?`)) return;
+
+    const ids     = rows.map(r => r.id);
+    const results = await Promise.all(ids.map(id => db.updateOpenOrder(id, { order_type: 'freight' })));
+    const failed  = results.filter(r => r.error);
+    if (failed.length) { store.showToast(`Failed to move ${failed.length} row(s)`); }
+
+    store.openOrders.value = store.openOrders.value.map(o =>
+        ids.includes(o.id) ? { ...o, order_type: 'freight' } : o
+    );
+}
+
 // ── Add Row(s) modal ──────────────────────────────────────────
 // cancelAddModal / parsePasteRows / saveOpenOrderRow live in
 // pages/open-orders-add.js (split for the 500-line cap).
@@ -330,7 +387,7 @@ export async function deleteOpenOrder(id, partNumber) {
 // a WO or PO makes sense (nothing requested/created yet). Input: order row.
 export function canRequestFromOpenOrder(order) {
     const status = order?.status || 'New/Picking';
-    return status === 'New/Picking' || status === 'On Hold';
+    return status === 'New' || status === 'New/Picking' || status === 'On Hold';
 }
 
 // requestWoFromOpenOrder — pre-fill the WO Request form from an open order row
@@ -378,10 +435,10 @@ export function requestPoFromOpenOrder(order) {
     store.currentView.value    = 'po_request';
 }
 
-// openWoDetailPanel — fetch active WOs for a "WO Created" row and open the detail modal.
-// Silently returns if status is not "WO Created" or wo_po_number is missing.
+// openWoDetailPanel — fetch active WOs for a row's WO/PO # and open the detail modal.
+// Silently returns if wo_po_number is missing (nothing to look up).
 export async function openWoDetailPanel(order) {
-    if (order.status !== 'WO Created' || !order.wo_po_number) return;
+    if (!order.wo_po_number) return;
     store.openOrderWoPanel.value = order;
     store.openOrderWoPanelOrders.value = [];
     store.openOrderWoPanelLoading.value = true;
@@ -401,6 +458,42 @@ export async function openWoDetailPanel(order) {
 export function closeWoDetailPanel() {
     store.openOrderWoPanel.value = null;
     store.openOrderWoPanelOrders.value = [];
+}
+
+// goToActiveWo — jump from an open-order row to the live, editable WO on its
+// department dashboard. Looks up the active WO by wo_po_number to learn its
+// department, then loads that dept's Active WOs (full field set) filtered to the
+// WO# so the operator can open it and edit. order: the clicked open_orders row.
+export async function goToActiveWo(order) {
+    store.openOrderWoMenuRow.value = null;
+    const woNum = (order.wo_po_number || '').trim();
+    if (!woNum) return;
+    try {
+        const { data, error } = await db.fetchWorkOrdersByWoNumber(woNum);
+        if (error) throw error;
+        const wos = data || [];
+        if (!wos.length) { store.showToast(`No active WO found for #${woNum} — it may be completed or not started.`); return; }
+        const dept = wos[0].department;
+        if (!dept) { store.showToast('That WO has no department set.'); return; }
+
+        // Navigate to the department dashboard, filtered to this WO#.
+        store.selectedDept.value = dept;
+        store.dashSearch.value   = woNum;
+        store.currentView.value  = 'dashboard';
+        store.loading.value      = true;
+        const [ordRes, partsSet] = await Promise.all([
+            db.fetchDeptOrders(dept),
+            db.fetchPartsWithFiles()
+        ]);
+        if (ordRes.error) throw ordRes.error;
+        store.orders.value         = ordRes.data || [];
+        store.partsWithFiles.value = partsSet;
+    } catch (err) {
+        store.showToast('Failed to open WO: ' + err.message);
+        logError('goToActiveWo', err);
+    } finally {
+        store.loading.value = false;
+    }
 }
 
 // loadReminderEmail — read saved reminder email from app_settings into store on view enter.

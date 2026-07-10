@@ -308,6 +308,26 @@ export async function findOpenOrderBySoAndPart(soNumber, partNumber) {
     return { data: (data && data[0]) || null, error };
 }
 
+// findOpenOrdersForWo — open_orders rows tied to a work order, for the office
+// receive → board sync. Matches by WO/PO # (create-WO sync / paste auto-attach)
+// OR by SO# + part # (rows never linked to the WO#). Bounded by exact-match
+// filters. Inputs: WO#, SO#, part # strings (any may be blank). Output:
+// { data: [{ id, status }], error }; data is [] when no usable filter.
+export async function findOpenOrdersForWo(woNumber, salesOrder, partNumber) {
+    const wo   = (woNumber   || '').trim();
+    const so   = (salesOrder || '').trim();
+    const part = (partNumber || '').trim().toUpperCase();
+    const conds = [];
+    if (wo)         conds.push(`wo_po_number.eq.${wo}`);
+    if (so && part) conds.push(`and(sales_order.eq.${so},part_number.eq.${part})`);
+    if (!conds.length) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('open_orders')
+            .select('id, status')
+            .or(conds.join(','))
+    );
+}
+
 // findOpenOrdersByPartNumber — look up open_orders rows matching a part number
 // that also have a sales_order value, for the WO Request SO# hint feature.
 export async function findOpenOrdersByPartNumber(partNumber) {
@@ -325,6 +345,30 @@ export async function fetchOpenOrders() {
         supabase.from('open_orders')
             .select('*')
             .order('sort_order', { ascending: true })
+    );
+}
+
+// fetchActiveWosForParts — active (not-completed) work orders for a set of part
+// numbers, for the Open Orders import auto-attach. One query filtered by the
+// pasted part list (bounded — never a full scan). Only WOs with an assigned
+// wo_number are returned; a WO still awaiting its official Alere WO# has nothing
+// to put in the row's WO/PO field. Because one WO spans multiple department
+// rows (Fab/Weld/Assy) that share qty_required + sales_order, the caller
+// collapses rows per wo_number. Input: array of part # strings. Output:
+// { data: rows, error }; data is [] for empty/invalid input.
+export async function fetchActiveWosForParts(parts) {
+    const list = Array.from(new Set(
+        (Array.isArray(parts) ? parts : [])
+            .map(p => (p || '').trim().toUpperCase())
+            .filter(Boolean)
+    ));
+    if (!list.length) return { data: [], error: null };
+    return withRetry(() =>
+        supabase.from('work_orders')
+            .select('wo_number, part_number, sales_order, qty_required, qty_completed, status')
+            .in('part_number', list)
+            .neq('status', 'completed')
+            .not('wo_number', 'is', null)
     );
 }
 

@@ -7,6 +7,10 @@
 //  - Input validation included
 // ============================================================
 
+// Open Orders (shipping) pure helpers live in a sibling sub-file to stay
+// under the 500-line cap. Re-exported here so `from './utils.js'` still works.
+export * from './utils-open-orders.js';
+
 // subassyDepthBorder — Subassy Setup tree level aid. Returns a Tailwind
 // left-border color class, cycling by depth so each level reads as a distinct
 // colored stripe. Input: depth (int >= 0). Output: class string.
@@ -156,150 +160,6 @@ export function detectReelWeld(partNumber, reelList) {
     return reelList.includes(partNumber.trim().toUpperCase());
 }
 
-// ── detectOpenOrderSection ────────────────────────────────────
-// Auto-routes an open order to a section based on part number prefix.
-// Part # starts with "TC" (case-insensitive) → 'tru_cut', else → 'trac_vac'.
-// Freight and Emergency are assigned manually after creation.
-export function detectOpenOrderSection(partNumber) {
-    if (typeof partNumber !== 'string') return 'trac_vac';
-    return partNumber.trim().toUpperCase().startsWith('TC') ? 'tru_cut' : 'trac_vac';
-}
-
-// ── openOrderMatchesFilter ────────────────────────────────────
-// True when an open order row matches a search query. Checks part #,
-// description, customer, SO#, WO/PO#, bins, and notes (case-insensitive).
-// q must already be trimmed + lowercased (caller normalizes once per pass).
-export function openOrderMatchesFilter(order, q) {
-    if (!q) return true;
-    return [order.part_number, order.description, order.customer, order.sales_order,
-            order.wo_po_number, order.store_bin, order.update_store_bin, order.wo_va_notes]
-        .some(v => (v || '').toLowerCase().includes(q));
-}
-
-// ── compareSalesOrder ─────────────────────────────────────────
-// Ascending comparator for sales_order strings, numeric-aware so "99" sorts
-// before "100". Extracts the first run of digits from each value and compares
-// numerically; ties (or non-numeric values) fall back to case-insensitive
-// string compare. Blank sales orders always sort last.
-export function compareSalesOrder(a, b) {
-    const sa = (a || '').trim();
-    const sb = (b || '').trim();
-    if (!sa && !sb) return 0;
-    if (!sa) return 1;
-    if (!sb) return -1;
-    const na = sa.match(/\d+/);
-    const nb = sb.match(/\d+/);
-    if (na && nb) {
-        const diff = Number(na[0]) - Number(nb[0]);
-        if (diff !== 0) return diff;
-    }
-    const la = sa.toLowerCase(), lb = sb.toLowerCase();
-    return la < lb ? -1 : la > lb ? 1 : 0;
-}
-
-// ── openOrderGroupClass ───────────────────────────────────────
-// Border classes that box consecutive rows sharing the same non-blank
-// sales_order into a single dark rounded rectangle. Neighbor-based:
-//   first of a 2+ group → top+sides dark, rounded top
-//   middle of a group   → sides dark
-//   last of a group     → bottom+sides dark, rounded bottom
-// A lone SO (no matching neighbor) or a blank SO returns '' (no outline).
-// prev/next are the adjacent rows in the already-sorted section (or undefined).
-// Uses the ! important modifier so the dark border deterministically wins over
-// the row's existing left color stripe (border-l-4) and light bottom divider
-// (border-slate-100), which otherwise resolve by Tailwind source order.
-export function openOrderGroupClass(order, prev, next) {
-    const so = (order?.sales_order || '').trim();
-    if (!so) return '';
-    const samePrev = !!prev && (prev.sales_order || '').trim() === so;
-    const sameNext = !!next && (next.sales_order || '').trim() === so;
-    if (!samePrev && !sameNext) return '';
-    if (!samePrev && sameNext)  return '!border-t-2 !border-x-2 !border-slate-700 rounded-t-lg';
-    if (samePrev && sameNext)   return '!border-x-2 !border-slate-700';
-    return '!border-b-2 !border-x-2 !border-slate-700 rounded-b-lg';
-}
-
-// ── normalizePasteDate ────────────────────────────────────────
-// Normalize a pasted date string to YYYY-MM-DD for storage/sorting.
-// Accepts: YYYY-MM-DD (pass-through), M/D, M/D/YY, M/D/YYYY (slash or dash).
-// M/D with no year assumes the current year. Returns null when unparseable.
-export function normalizePasteDate(raw) {
-    if (typeof raw !== 'string' || !raw.trim()) return null;
-    const s = raw.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2}|\d{4}))?$/);
-    if (!m) return null;
-    const mo = Number(m[1]), da = Number(m[2]);
-    let yr = m[3] ? Number(m[3]) : new Date().getFullYear();
-    if (m[3] && m[3].length === 2) yr += 2000;
-    if (mo < 1 || mo > 12 || da < 1 || da > 31) return null;
-    return `${yr}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`;
-}
-
-// ── matchOpenOrderStatus ──────────────────────────────────────
-// Case-insensitive match of a pasted status against the known status list.
-// statuses is passed as an argument so this function stays pure (no imports).
-// Returns the canonical status string, or null if unknown/blank.
-export function matchOpenOrderStatus(raw, statuses) {
-    if (typeof raw !== 'string' || !Array.isArray(statuses)) return null;
-    const key = raw.trim().toLowerCase();
-    if (!key) return null;
-    return statuses.find(s => s.toLowerCase() === key) || null;
-}
-
-// isChutePart — returns true if the part number is a chute part.
-// Chute parts are exactly 3 digits, a hyphen, then 6, 7, or 8.
-// Examples: 900-8, 123-6, 045-7. Non-examples: 900-9, TEST-001, 1234-7.
-// Input: raw part number string. Trims and uppercases before checking.
-export function isChutePart(partNumber) {
-    if (typeof partNumber !== 'string') return false;
-    return /^\d{3}-[678]$/.test(partNumber.trim());
-}
-
-// ── businessDaysSince ─────────────────────────────────────────
-// Counts Mon–Fri elapsed days between an ISO timestamp and now.
-// Returns a float; partial days included. Returns 0 for null/invalid input.
-export function businessDaysSince(isoTimestamp) {
-    if (!isoTimestamp) return 0;
-    const start = new Date(isoTimestamp);
-    if (isNaN(start.getTime())) return 0;
-    const now = new Date();
-    if (start >= now) return 0;
-    let elapsed = 0;
-    const cursor = new Date(start);
-    while (cursor < now) {
-        const day = cursor.getDay(); // 0=Sun, 6=Sat
-        if (day !== 0 && day !== 6) {
-            const nextMidnight = new Date(cursor);
-            nextMidnight.setHours(24, 0, 0, 0);
-            elapsed += Math.min(nextMidnight.getTime(), now.getTime()) - cursor.getTime();
-        }
-        cursor.setHours(24, 0, 0, 0);
-    }
-    return elapsed / 86400000;
-}
-
-// ── getStaleHighlightColor ─────────────────────────────────────
-// Returns a row highlight color when an order is overdue, or null if fresh.
-// Staleness overrides manual row_color — call effectiveRowColor() in the page layer.
-//   New/Picking  + >1.5 business days since last update → 'yellow'
-//   WO Created   + deadline set + today > deadline+1 day  → 'blue'
-// Rows inserted before last_status_update was set at insert time have it NULL —
-// fall back to date_entered, then created_at, so fresh rows still go stale.
-export function getStaleHighlightColor(order) {
-    const status = order?.status || '';
-    const lastTouched = order?.last_status_update || order?.date_entered || order?.created_at;
-    if (status === 'New/Picking' && businessDaysSince(lastTouched) > 1.5) {
-        return 'yellow';
-    }
-    if (status === 'WO Created' && order.deadline) {
-        const cutoff = new Date(order.deadline);
-        cutoff.setDate(cutoff.getDate() + 1);
-        if (new Date() > cutoff) return 'blue';
-    }
-    return null;
-}
-
 // addBusinessDays — add n Mon–Fri business days to a YYYY-MM-DD date string. Returns YYYY-MM-DD or null.
 export function addBusinessDays(dateStr, n) {
     if (!dateStr || n <= 0) return dateStr || null;
@@ -321,24 +181,6 @@ export function addCalendarDays(dateStr, n) {
     if (isNaN(d.getTime())) return null;
     d.setDate(d.getDate() + n);
     return d.toISOString().slice(0, 10);
-}
-
-// ── getStaleInfo ──────────────────────────────────────────────
-// Returns { owner, reason } if an open order is stale, or null if fresh.
-// Mirrors the staleness rules used in the open-orders row highlight.
-export function getStaleInfo(order) {
-    const status = order?.status || '';
-    if (status === 'New/Picking' && businessDaysSince(order.last_status_update) > 1.5) {
-        return { owner: 'Shipping', reason: 'No update in 1.5+ business days' };
-    }
-    if (status === 'WO Created' && order.deadline) {
-        const cutoff = new Date(order.deadline);
-        cutoff.setDate(cutoff.getDate() + 1);
-        if (new Date() > cutoff) {
-            return { owner: 'Dan H', reason: `Past est. leadtime (${order.deadline})` };
-        }
-    }
-    return null;
 }
 
 // ── detectTcMode ──────────────────────────────────────────────

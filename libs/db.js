@@ -108,11 +108,8 @@ export async function updateOrderStatus({ id, currentOrder, newStatus, stageKey,
     }
     if (overallStatus === 'completed') {
         updates.comp_date = now;
-        if (!stageKey &&
-            currentOrder.department !== 'Tru Cut Assy' &&
-            currentOrder.department !== 'Trac Vac Assy') {
-            if (!updates.qty_completed) updates.qty_completed = currentOrder.qty_required;
-        }
+        // qty_completed is stored exactly as entered (including 0 / blank).
+        // We no longer default a 0 to qty_required — an explicit 0 means 0.
     }
 
     // ── Notes / history log ───────────────────────────────────

@@ -42,7 +42,7 @@ export async function fetchWoStatusOrders() {
 
     const closeout = received.map(r => ({
         ...r,
-        qty_completed_fallback: woLookup[r.wo_number] || null
+        qty_completed_fallback: woLookup[r.wo_number] ?? null
     }));
 
     return { woStatus: trackRes.data || [], closeout, error: null };
@@ -103,7 +103,7 @@ export async function receiveWorkOrder(order, qty, receivedBy, binLocation) {
         part_number:  order.part_number,
         description:  order.description,
         qty_required: order.qty_required,
-        qty_received: qty || order.qty_completed || order.qty_required || 0,
+        qty_received: qty ?? order.qty_completed ?? order.qty_required ?? 0,
         received_by:  receivedBy.trim(),
         erp_status:   'received',
         received_at:  new Date().toISOString(),
@@ -151,7 +151,7 @@ export async function autoReceiveAssyWo(order, operator) {
             job_number:              order.job_number || null,
             part_number:             order.part_number,
             qty_required:            order.qty_required,
-            qty_received:            order.qty_completed || order.qty_required || 0,
+            qty_received:            order.qty_completed ?? order.qty_required ?? 0,
             received_by:             operator || 'Auto (Assy Complete)',
             erp_status:              'received',
             received_at:             new Date().toISOString(),

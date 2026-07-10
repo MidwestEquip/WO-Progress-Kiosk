@@ -229,7 +229,7 @@ export async function submitReceiving() {
         // Open Orders board: parts arrived — row becomes actionable again.
         // Only rows still on the PO path flip; WO-path/Boxed rows are untouched.
         if (newStatus === 'received') {
-            await _syncOpenOrderForPo(data, { status: 'New/Picking' },
+            await _syncOpenOrderForPo(data, { status: 'WO/PO Complete' },
                 { onlyIf: ['PO Requested', 'PO Created'] });
         }
     } catch (err) {

@@ -7,6 +7,7 @@
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
 import { openOrderMatchesFilter, compareSalesOrder } from './utils.js';
+import { OPEN_ORDER_STATUS_NEW, OPEN_ORDER_STATUS_LABEL_PRINTED } from './config.js';
 
 // ── Customer Service ──────────────────────────────────────────
 export const csSearchTerm  = ref('');
@@ -315,7 +316,9 @@ export const completedOrdersLoading = ref(false);
 export const openOrders        = ref([]);
 export const openOrdersLoading = ref(false);
 export const openOrdersFilter  = ref('');   // search box across all sections
+export const shippingTab       = ref('orders');  // 'orders' | 'boxed' — shipping board sub-tab
 export const openOrderColorPickerRow = ref(null);
+export const openOrderWoMenuRow      = ref(null);   // WO/PO # cell action menu (Edit / Go to WO)
 
 export const openOrderAddModalOpen = ref(false);
 export const openOrderAddMode      = ref('manual');
@@ -324,7 +327,7 @@ export const openOrderAddPasteRows = ref([]);
 export const openOrderAddForm      = ref({
     part_number: '', to_ship: '', qty_pulled: '', description: '',
     store_bin: '', update_store_bin: '', customer: '', sales_order: '',
-    date_entered: new Date().toISOString().split('T')[0], deadline: '', status: 'New/Picking',
+    date_entered: new Date().toISOString().split('T')[0], deadline: '', status: OPEN_ORDER_STATUS_NEW,
     wo_va_notes: '', wo_po_number: '',
 });
 export const openOrderAddFormErrors = ref({});
@@ -353,31 +356,45 @@ export const openOrderWoPanelOrders  = ref([]);
 export const openOrderWoPanelLoading = ref(false);
 
 export const openOrdersSort = ref({
+    new:       { field: 'sales_order', dir: 'asc' },
     emergency: { field: 'sales_order', dir: 'asc' },
     freight:   { field: 'sales_order', dir: 'asc' },
     trac_vac:  { field: 'sales_order', dir: 'asc' },
     tru_cut:   { field: 'sales_order', dir: 'asc' },
+    boxed:     { field: 'sales_order', dir: 'asc' },
 });
 
+// _sortSectionRows — sort one section's rows by its openOrdersSort entry.
+// Sales-order sort is numeric-aware; other fields fall back to case-insensitive
+// string compare. Shared by every section so all sort uniformly.
+function _sortSectionRows(rows, sortKey) {
+    const { field, dir } = openOrdersSort.value[sortKey];
+    return [...rows].sort((a, b) => {
+        if (field === 'sales_order') {
+            return dir === 'asc'
+                ? compareSalesOrder(a.sales_order, b.sales_order)
+                : compareSalesOrder(b.sales_order, a.sales_order);
+        }
+        let av = a[field] ?? '';
+        let bv = b[field] ?? '';
+        if (typeof av === 'string') av = av.toLowerCase();
+        if (typeof bv === 'string') bv = bv.toLowerCase();
+        if (av < bv) return dir === 'asc' ? -1 : 1;
+        if (av > bv) return dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+}
+
+// Brand sections: rows for one order_type, excluding 'New' (New Orders section)
+// and 'Boxed' (Boxed tab) which render in their own sections.
 function _openSectionSorted(type) {
     return computed(() => {
-        const { field, dir } = openOrdersSort.value[type];
         const q = openOrdersFilter.value.trim().toLowerCase();
-        const rows = openOrders.value.filter(o => o.order_type === type && openOrderMatchesFilter(o, q));
-        return [...rows].sort((a, b) => {
-            if (field === 'sales_order') {
-                return dir === 'asc'
-                    ? compareSalesOrder(a.sales_order, b.sales_order)
-                    : compareSalesOrder(b.sales_order, a.sales_order);
-            }
-            let av = a[field] ?? '';
-            let bv = b[field] ?? '';
-            if (typeof av === 'string') av = av.toLowerCase();
-            if (typeof bv === 'string') bv = bv.toLowerCase();
-            if (av < bv) return dir === 'asc' ? -1 : 1;
-            if (av > bv) return dir === 'asc' ? 1 : -1;
-            return 0;
-        });
+        const rows = openOrders.value.filter(o =>
+            o.order_type === type && o.status !== OPEN_ORDER_STATUS_NEW && o.status !== 'Boxed'
+            && o.status !== OPEN_ORDER_STATUS_LABEL_PRINTED
+            && openOrderMatchesFilter(o, q));
+        return _sortSectionRows(rows, type);
     });
 }
 export const emergencyOrders = _openSectionSorted('emergency');
@@ -385,12 +402,61 @@ export const freightOrders   = _openSectionSorted('freight');
 export const tracVacOrders   = _openSectionSorted('trac_vac');
 export const truCutOrders    = _openSectionSorted('tru_cut');
 
-export const openOrderSections = computed(() => [
-    { type: 'emergency', label: 'EMERGENCY ORDERS', orders: emergencyOrders.value, hdr: 'bg-green-700'  },
-    { type: 'freight',   label: 'FREIGHT ORDERS',   orders: freightOrders.value,   hdr: 'bg-amber-700'  },
-    { type: 'trac_vac',  label: 'TRAC VAC ORDERS',  orders: tracVacOrders.value,   hdr: 'bg-slate-900'  },
-    { type: 'tru_cut',   label: 'TRU CUT ORDERS',   orders: truCutOrders.value,    hdr: 'bg-red-700'    },
-]);
+// New Orders: every untriaged row (status === 'New') across all brands. Sorted
+// by sales order like the brand sections so same-SO rows group together.
+export const newOrders = computed(() => {
+    const q = openOrdersFilter.value.trim().toLowerCase();
+    const rows = openOrders.value.filter(o =>
+        (o.status || '') === OPEN_ORDER_STATUS_NEW && openOrderMatchesFilter(o, q));
+    return _sortSectionRows(rows, 'new');
+});
+
+// Boxed, Ready to Ship: rows waiting on a physical label + ship. Includes
+// 'Label Printed' (label printed, awaiting the final 'Labelled' → ship step).
+export const boxedOrders = computed(() => {
+    const q = openOrdersFilter.value.trim().toLowerCase();
+    const rows = openOrders.value.filter(o =>
+        ((o.status || '') === 'Boxed' || (o.status || '') === OPEN_ORDER_STATUS_LABEL_PRINTED)
+        && openOrderMatchesFilter(o, q));
+    return _sortSectionRows(rows, 'boxed');
+});
+
+// Board sections for the current shipping tab. 'boxed' tab shows only the Boxed
+// staging section; 'orders' tab shows New Orders atop the 4 brand boards. All
+// render through the one grid (view-open-orders.html) — so New/Boxed inherit
+// SO# grouping and the full row layout for free.
+export const openOrderSections = computed(() => {
+    if (shippingTab.value === 'boxed') {
+        return [{ type: 'boxed', label: 'BOXED, READY TO SHIP', orders: boxedOrders.value, hdr: 'bg-emerald-700' }];
+    }
+    return [
+        { type: 'new',       label: 'NEW ORDERS',       orders: newOrders.value,       hdr: 'bg-sky-700'    },
+        { type: 'emergency', label: 'EMERGENCY ORDERS', orders: emergencyOrders.value, hdr: 'bg-green-700'  },
+        { type: 'freight',   label: 'FREIGHT ORDERS',   orders: freightOrders.value,   hdr: 'bg-amber-700'  },
+        { type: 'trac_vac',  label: 'TRAC VAC ORDERS',  orders: tracVacOrders.value,   hdr: 'bg-slate-900'  },
+        { type: 'tru_cut',   label: 'TRU CUT ORDERS',   orders: truCutOrders.value,    hdr: 'bg-red-700'    },
+    ];
+});
+
+// soSplit — { [sales_order]: { newCount, movedCount } } for sales orders that
+// are SPLIT: some line rows still in New Orders, some already moved out. Only
+// split SOs get an entry (presence = show the badge). Blank SOs ignored.
+// newCount = rows still 'New'; movedCount = active rows moved past New.
+export const soSplit = computed(() => {
+    const tally = {};
+    for (const o of openOrders.value) {
+        const so = (o.sales_order || '').trim();
+        if (!so) continue;
+        if (!tally[so]) tally[so] = { newCount: 0, movedCount: 0 };
+        if ((o.status || '') === OPEN_ORDER_STATUS_NEW) tally[so].newCount++;
+        else tally[so].movedCount++;
+    }
+    const split = {};
+    for (const so in tally) {
+        if (tally[so].newCount > 0 && tally[so].movedCount > 0) split[so] = tally[so];
+    }
+    return split;
+});
 
 // ── TEMPORARY: Subassy Setup (where-used explorer) ────────────
 // Read-only BOM explorer state. Safe to delete this whole block when
