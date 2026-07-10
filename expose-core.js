@@ -12,7 +12,8 @@ import { formatDateLocal, formatTimestamp, getStageCum, detectTcMode,
          subassyDepthBorder } from './libs/utils.js';
 import { openMessagesView, openThread, backToInbox, sendMessage,
          dmAvatarClass, dmContacts, canDeleteMessages,
-         openMsgDeleteConfirm, cancelMsgDelete, confirmMsgDelete } from './pages/messages-view.js';
+         openMsgDeleteConfirm, cancelMsgDelete, confirmMsgDelete,
+         onMessageMediaPick, clearMessageMedia } from './pages/messages-view.js';
 import { selectDept, promptPin, submitPin, goBack,
          goHome, enterActiveWosView,
          selectCategory, selectSubCategory, splashBack,
@@ -339,12 +340,17 @@ export function buildCoreExpose() {
         dmUnreadCount:   store.dmUnreadCount,
         dmAlertActive:   store.dmAlertActive,
         msgDeleteId:     store.msgDeleteId,
+        messageMediaFile:       store.messageMediaFile,
+        messageMediaPreviewUrl: store.messageMediaPreviewUrl,
+        messageMediaType:       store.messageMediaType,
+        messageMediaUploading:  store.messageMediaUploading,
         dmContacts,
         canDeleteMessages,
         ROLE_DISPLAY_NAMES,
         LAST_REPORT_DATE,
         openMessagesView, openThread, backToInbox, sendMessage,
         openMsgDeleteConfirm, cancelMsgDelete, confirmMsgDelete,
+        onMessageMediaPick, clearMessageMedia,
         dmAvatarClass, formatMsgTime,
     };
 }

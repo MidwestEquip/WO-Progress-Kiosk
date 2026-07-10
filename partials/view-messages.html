@@ -145,9 +145,19 @@
                                     </span>
                                     <span class="text-xs text-slate-500">{{ formatMsgTime(msg.created_at) }}</span>
                                 </div>
-                                <p class="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap break-words bg-slate-800/60 rounded-xl px-4 py-2.5">
+                                <p v-if="msg.body" class="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap break-words bg-slate-800/60 rounded-xl px-4 py-2.5">
                                     {{ msg.body }}
                                 </p>
+                                <!-- Inline attachment (private bucket → signed media_url) -->
+                                <a v-if="msg.media_url && msg.media_type === 'image'"
+                                    :href="msg.media_url" target="_blank" rel="noopener"
+                                    class="block mt-1.5 w-fit">
+                                    <img :src="msg.media_url" alt="attachment"
+                                        class="max-w-xs max-h-72 rounded-xl border border-slate-700 object-cover"/>
+                                </a>
+                                <video v-else-if="msg.media_url && msg.media_type === 'video'"
+                                    :src="msg.media_url" controls preload="metadata"
+                                    class="mt-1.5 max-w-xs max-h-72 rounded-xl border border-slate-700 bg-black"></video>
                             </div>
                             <!-- Delete (manager login only) -->
                             <button v-if="canDeleteMessages" @click="openMsgDeleteConfirm(msg.id)"
@@ -162,20 +172,49 @@
                     </div>
 
                     <!-- Compose box -->
-                    <div class="px-6 py-4 border-t border-slate-700 flex gap-3 items-end shrink-0">
-                        <textarea v-model="messageBody"
-                            @keydown.ctrl.enter.prevent="sendMessage"
-                            :disabled="messagesSending"
-                            placeholder="Type a message… (Ctrl+Enter to send)"
-                            rows="2"
-                            class="flex-1 bg-slate-800 border border-slate-600 text-white rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-blue-500 disabled:opacity-50 placeholder-slate-500">
-                        </textarea>
-                        <button @click="sendMessage"
-                            :disabled="messagesSending || !messageBody.trim()"
-                            class="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors active:scale-95 shrink-0 self-end">
-                            <span v-if="messagesSending">Sending…</span>
-                            <span v-else>Send</span>
-                        </button>
+                    <div class="px-6 py-4 border-t border-slate-700 shrink-0">
+                        <!-- Pending attachment preview -->
+                        <div v-if="messageMediaPreviewUrl" class="mb-3 flex items-center gap-3">
+                            <div class="relative">
+                                <img v-if="messageMediaType === 'image'" :src="messageMediaPreviewUrl" alt="preview"
+                                    class="h-20 w-20 rounded-lg border border-slate-600 object-cover"/>
+                                <video v-else :src="messageMediaPreviewUrl" muted
+                                    class="h-20 w-20 rounded-lg border border-slate-600 object-cover bg-black"></video>
+                                <button @click="clearMessageMedia" title="Remove attachment"
+                                    class="absolute -top-2 -right-2 bg-slate-700 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold shadow active:scale-90">✕</button>
+                            </div>
+                            <span class="text-xs text-slate-400">
+                                {{ messageMediaType === 'video' ? 'Video' : 'Photo' }} ready to send
+                            </span>
+                        </div>
+
+                        <div class="flex gap-3 items-end">
+                            <!-- Attach photo/video -->
+                            <label title="Attach photo or video"
+                                class="shrink-0 self-end cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-xl w-12 h-12 flex items-center justify-center transition-colors active:scale-95"
+                                :class="messagesSending ? 'opacity-40 pointer-events-none' : ''">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                                </svg>
+                                <input type="file" accept="image/*,video/*" class="hidden"
+                                    :disabled="messagesSending" @change="onMessageMediaPick"/>
+                            </label>
+                            <textarea v-model="messageBody"
+                                @keydown.ctrl.enter.prevent="sendMessage"
+                                :disabled="messagesSending"
+                                placeholder="Type a message… (Ctrl+Enter to send)"
+                                rows="2"
+                                class="flex-1 bg-slate-800 border border-slate-600 text-white rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-blue-500 disabled:opacity-50 placeholder-slate-500">
+                            </textarea>
+                            <button @click="sendMessage"
+                                :disabled="messagesSending || (!messageBody.trim() && !messageMediaFile)"
+                                class="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold px-6 py-3 rounded-xl text-sm transition-colors active:scale-95 shrink-0 self-end">
+                                <span v-if="messageMediaUploading">Uploading…</span>
+                                <span v-else-if="messagesSending">Sending…</span>
+                                <span v-else>Send</span>
+                            </button>
+                        </div>
                     </div>
                 </template>
 

@@ -7,11 +7,14 @@
 
 import { computed, nextTick } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
 import * as store from '../libs/store.js';
-import { fetchInbox, fetchThread, sendDm, markThreadRead, fetchUnreadCount, deleteDm } from '../libs/db-messages.js';
+import { fetchInbox, fetchThread, sendDm, markThreadRead, fetchUnreadCount, deleteDm,
+         uploadMessageMedia } from '../libs/db-messages.js';
 import { logError } from '../libs/db-shared.js';
 import { ROLE_DISPLAY_NAMES } from '../libs/config.js';
 
 let _pollInterval = null;
+
+const MSG_MEDIA_MAX_BYTES = 25 * 1024 * 1024;   // 25 MB cap per attachment
 
 // scrollThreadToBottom — pin the thread scroll area to the newest message (iMessage-style).
 // Waits for Vue to render the new rows, then jumps to the bottom. No-op if not mounted.
@@ -78,6 +81,7 @@ export async function openThread(otherRole) {
     store.activeThread.value    = otherRole;
     store.messagesView.value    = 'thread';
     store.messageBody.value     = '';
+    clearMessageMedia();
     store.messagesLoading.value = true;
     try {
         store.threadMessages.value = await fetchThread(role, otherRole);
@@ -97,19 +101,61 @@ export function backToInbox() {
     store.messagesView.value = 'inbox';
     store.activeThread.value = null;
     store.messageBody.value  = '';
+    clearMessageMedia();
 }
 
-// sendMessage — validates, sends DM, appends locally on success.
+// onMessageMediaPick — validate a chosen file (image/video, size cap) and stage it
+// with a local preview. Rejects wrong type / oversize with a toast. Input: input event.
+export function onMessageMediaPick(event) {
+    const file = event.target?.files?.[0];
+    if (event.target) event.target.value = '';   // allow re-picking the same file later
+    if (!file) return;
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    if (!isImage && !isVideo) {
+        store.showToast('Only photos and videos can be attached.');
+        return;
+    }
+    if (file.size > MSG_MEDIA_MAX_BYTES) {
+        store.showToast('File is too large (max 25 MB).');
+        return;
+    }
+    clearMessageMedia();
+    store.messageMediaFile.value       = file;
+    store.messageMediaType.value       = isVideo ? 'video' : 'image';
+    store.messageMediaPreviewUrl.value = URL.createObjectURL(file);
+}
+
+// clearMessageMedia — drop the staged attachment and revoke its preview URL.
+export function clearMessageMedia() {
+    if (store.messageMediaPreviewUrl.value) URL.revokeObjectURL(store.messageMediaPreviewUrl.value);
+    store.messageMediaFile.value       = null;
+    store.messageMediaPreviewUrl.value = null;
+    store.messageMediaType.value       = null;
+}
+
+// sendMessage — validates, uploads any attachment, sends DM, appends locally on success.
 export async function sendMessage() {
     const body  = store.messageBody.value.trim();
+    const file  = store.messageMediaFile.value;
     const role  = store.sessionRole.value;
     const other = store.activeThread.value;
-    if (!body || !role || !other) return;
+    if ((!body && !file) || !role || !other) return;
     store.messagesSending.value = true;
     try {
-        const { data, error } = await sendDm(role, other, body);
+        let mediaPath = null, mediaType = null;
+        if (file) {
+            store.messageMediaUploading.value = true;
+            const up = await uploadMessageMedia(file);
+            store.messageMediaUploading.value = false;
+            if (up.error) throw up.error;
+            mediaPath = up.path;
+            mediaType = store.messageMediaType.value;
+        }
+        const { data, error } = await sendDm(role, other, body, mediaPath, mediaType);
         if (error) throw error;
-        store.messageBody.value    = '';
+        store.messageBody.value = '';
+        clearMessageMedia();
         if (data) {
             store.threadMessages.value = [...store.threadMessages.value, data];
             scrollThreadToBottom();
@@ -118,6 +164,7 @@ export async function sendMessage() {
         store.showToast('Failed to send message: ' + err.message);
         logError('sendMessage', err);
     } finally {
+        store.messageMediaUploading.value = false;
         store.messagesSending.value = false;
     }
 }
