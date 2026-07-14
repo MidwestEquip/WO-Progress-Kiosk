@@ -1,0 +1,79 @@
+<!-- ============================================================
+     modal-open-orders-waiting.html — Waiting On editor
+     Manage the list of subparts an open order is waiting on (part # + WO #).
+     The subpart WO's live status is derived (woStatusByNumber), never stored.
+     ============================================================ -->
+<div v-if="waitingOnModalOpen"
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+     @click.self="closeWaitingModal()">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+
+        <!-- Header -->
+        <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+            <div>
+                <div class="text-sm font-bold text-slate-900">Waiting On — subparts blocking this ship</div>
+                <div class="text-xs text-slate-500 mt-0.5">
+                    <span class="font-semibold text-slate-700">{{ (waitingOnRow && waitingOnRow.part_number) || '—' }}</span>
+                    <span v-if="waitingOnRow && waitingOnRow.sales_order"> · SO {{ waitingOnRow.sales_order }}</span>
+                </div>
+            </div>
+            <button @click="closeWaitingModal()"
+                    class="text-slate-400 hover:text-slate-700 text-xl leading-none px-2">×</button>
+        </div>
+
+        <!-- Entries -->
+        <div class="px-5 py-4 overflow-y-auto">
+            <div v-if="!waitingOnForm.entries.length" class="text-xs text-slate-400 italic py-4 text-center">
+                Not waiting on anything yet. Add a subpart below.
+            </div>
+
+            <!-- Column labels -->
+            <div v-if="waitingOnForm.entries.length" class="grid gap-2 items-center px-1 pb-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wide"
+                 style="grid-template-columns: 1fr 1fr 96px 64px 28px;">
+                <div>Subpart Part #</div>
+                <div>WO #</div>
+                <div>WO Status</div>
+                <div></div>
+                <div></div>
+            </div>
+
+            <div v-for="(entry, idx) in waitingOnForm.entries" :key="entry._k"
+                 class="grid gap-2 items-center px-1 py-1"
+                 style="grid-template-columns: 1fr 1fr 96px 64px 28px;">
+                <input v-model="entry.part_number" maxlength="64" placeholder="e.g. 900-8"
+                       class="border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400 uppercase" />
+                <input v-model="entry.wo_number" maxlength="64" placeholder="WO #"
+                       class="border border-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-400 uppercase" />
+                <span :class="subpartStatusClass(entry)"
+                      class="inline-block text-center px-1.5 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap">
+                    {{ subpartStatusLabel(entry) }}
+                </span>
+                <span v-if="subpartWoNumber(entry)" class="text-[10px] text-slate-400 italic text-center">linked</span>
+                <span v-else-if="entry.requested" class="text-[10px] font-bold text-purple-700 text-center">Requested</span>
+                <button v-else @click="reqWoForSubpart(entry)" title="Request a WO for this subpart"
+                        class="text-purple-600 hover:text-white hover:bg-purple-500 border border-purple-300 rounded px-1 py-0.5 text-[10px] font-bold leading-none transition-colors">
+                    Req WO
+                </button>
+                <button @click="removeWaitingEntry(idx)" title="Remove this subpart"
+                        class="text-slate-400 hover:text-red-600 text-lg leading-none">×</button>
+            </div>
+
+            <button @click="addWaitingEntry()"
+                    class="mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                + Add subpart
+            </button>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-5 py-3 border-t border-slate-200 flex items-center justify-end gap-2">
+            <button @click="closeWaitingModal()"
+                    class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded">
+                Cancel
+            </button>
+            <button @click="saveWaitingOn()" :disabled="waitingOnSaving"
+                    class="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded disabled:opacity-50">
+                {{ waitingOnSaving ? 'Saving…' : 'Save' }}
+            </button>
+        </div>
+    </div>
+</div>

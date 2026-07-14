@@ -32,9 +32,10 @@
                         <p class="text-sm font-medium">No WOs awaiting approval</p>
                     </div>
                     <div v-else class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        <button v-for="req in managerWoApprovalList" :key="req.id"
+                        <div v-for="req in managerWoApprovalList" :key="req.id"
                                 @click="openManagerWoDetail(req)"
-                                class="bg-white rounded-2xl border-2 border-gray-200 hover:border-amber-400 hover:shadow-md p-5 text-left transition-all active:scale-95 flex flex-col gap-2">
+                                role="button"
+                                class="bg-white rounded-2xl border-2 border-gray-200 hover:border-amber-400 hover:shadow-md p-5 text-left transition-all active:scale-95 flex flex-col gap-2 cursor-pointer">
                             <!-- Part + badge -->
                             <div class="flex items-start justify-between gap-2">
                                 <div class="font-extrabold text-gray-900 text-lg leading-tight">{{ req.part_number }}</div>
@@ -58,11 +59,17 @@
                                 Files attached
                             </div>
                             <!-- Footer -->
-                            <div class="flex items-center justify-between mt-auto pt-2 border-t border-gray-100 text-xs text-gray-400">
-                                <span>{{ req.submitted_by }}</span>
-                                <span>{{ req.request_date }}</span>
+                            <div class="flex items-center gap-2 mt-auto pt-2 border-t border-gray-100 text-xs text-gray-400">
+                                <span class="shrink-0">{{ req.submitted_by }}</span>
+                                <!-- Status notes (inline, auto-save on blur; carries forward to next WO request for this part) -->
+                                <textarea v-if="managerWoApprovalInlineState[req.id]" @click.stop
+                                          v-model="managerWoApprovalInlineState[req.id].status_notes"
+                                          @blur="saveManagerWoApprovalStatusNote(req.id)"
+                                          placeholder="Status notes…" maxlength="300" rows="2"
+                                          class="flex-1 min-w-0 px-2 py-1 border border-gray-200 rounded text-xs text-gray-700 focus:outline-none focus:border-amber-400 bg-gray-50 resize-none break-words"></textarea>
+                                <span class="shrink-0">{{ req.request_date }}</span>
                             </div>
-                        </button>
+                        </div>
                     </div>
                 </div>
             </div>

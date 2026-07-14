@@ -15,6 +15,8 @@
                                 class="text-sm font-bold text-slate-400 font-mono">Job #{{ activeOrder.job_number }}</span>
                         </div>
                         <span class="text-base font-bold text-slate-300 border border-slate-600 px-2 py-0.5 rounded shrink-0">{{ activeOrder?.part_number }}</span>
+                        <span v-if="activeOrder?.sales_order"
+                            class="text-base font-bold text-emerald-400 border border-emerald-600/50 px-2 py-0.5 rounded shrink-0">SO# {{ activeOrder.sales_order }}</span>
                         <span class="text-slate-400 text-sm truncate">{{ activeOrder?.description }}</span>
                     </div>
                     <span v-if="actionPanelReadOnly"

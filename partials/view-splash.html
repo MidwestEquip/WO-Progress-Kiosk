@@ -3,7 +3,7 @@
                 class="h-full w-full flex flex-col items-center justify-center p-8 bg-slate-900 absolute inset-0">
                 <div class="w-full max-w-sm flex flex-col gap-6">
                     <div class="text-center mb-2">
-                        <h2 class="text-4xl font-extrabold text-white mb-2">Midwest Mfg.</h2>
+                        <h2 class="text-4xl font-extrabold text-white mb-2">PlantIQ</h2>
                         <p class="text-slate-400">Sign in to continue</p>
                     </div>
                     <div class="flex flex-col gap-4">
@@ -53,7 +53,7 @@
                 <div v-if="splashLevel === 0" class="w-full max-w-7xl px-6 flex flex-col items-center gap-6 origin-center"
                     :class="{ 'scale-90': sessionRole !== 'manager' }">
                     <div class="text-center">
-                        <h2 class="text-5xl font-extrabold text-white mb-3">Midwest Mfg.</h2>
+                        <h2 class="text-5xl font-extrabold text-white mb-3">PlantIQ</h2>
                         <p class="text-xl text-slate-400">Select a category to begin</p>
                     </div>
 
@@ -242,7 +242,7 @@
                 <div v-else-if="splashLevel === 1 && splashCategory === 'purchasing'"
                     class="w-full max-w-7xl px-4 flex flex-col items-center gap-8">
                     <div class="grid gap-6 w-full"
-                        :class="sessionRole === 'manager' ? 'grid-cols-4 max-w-5xl' : 'grid-cols-3 max-w-4xl'">
+                        :class="sessionRole === 'manager' ? 'grid-cols-4 max-w-5xl' : sessionRole === 'office' ? 'grid-cols-3 max-w-4xl' : 'grid-cols-2 max-w-2xl'">
                         <!-- PO Requests — navigates to split-panel request view -->
                         <button @click="enterPoRequestView()"
                             class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-amber-400 active:scale-95 transition-transform">
@@ -252,8 +252,8 @@
                             <span class="text-2xl font-bold uppercase">PO Requests</span>
                             <span class="text-xs text-amber-600 uppercase tracking-widest font-semibold">Submit a request</span>
                         </button>
-                        <!-- Ordering -->
-                        <button @click="enterPurchasingView('parts')"
+                        <!-- Ordering — manager + office only -->
+                        <button v-if="sessionRole === 'manager' || sessionRole === 'office'" @click="enterPurchasingView('parts')"
                             class="bg-white hover:bg-amber-50 text-gray-800 rounded-2xl shadow-md p-10 flex flex-col items-center gap-3 border-2 border-amber-300 active:scale-95 transition-transform">
                             <svg class="w-8 h-8 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
@@ -397,11 +397,11 @@
                                 <span class="text-xs text-amber-600 uppercase tracking-wide font-semibold">Receive Purchased Parts</span>
                                 <span class="text-xl font-bold uppercase">PO Receive</span>
                             </button>
-                            <!-- Open Orders — Shipping (disabled for now) -->
-                            <button disabled
-                                class="bg-gray-200 text-gray-400 rounded-2xl shadow-md p-6 flex flex-col items-center justify-center gap-2 border-2 border-gray-300 cursor-not-allowed">
-                                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1"/></svg>
-                                <span class="text-xs uppercase tracking-wide font-semibold">Coming Soon</span>
+                            <!-- Open Orders — Shipping — goes straight to Open Orders -->
+                            <button @click="enterOpenOrdersView"
+                                class="bg-white hover:bg-blue-50 text-gray-800 rounded-2xl shadow-md p-6 flex flex-col items-center justify-center gap-2 border-2 border-blue-300 active:scale-95 transition-transform">
+                                <svg class="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1"/></svg>
+                                <span class="text-xs text-blue-600 uppercase tracking-wide font-semibold">Ship Completed Orders</span>
                                 <span class="text-xl font-bold uppercase text-center leading-tight">Open Orders<br>Shipping</span>
                             </button>
                         </div>

@@ -10,6 +10,7 @@ import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
 import { missingSubpartRoutingFields } from '../libs/utils.js';
+import { PART_NOTE_KIND } from '../libs/config.js';
 
 // enterWoApprovalView — navigate to the WO approval view and load the queue.
 export function enterWoApprovalView() {
@@ -34,13 +35,50 @@ export async function loadManagerPendingWoRequests() {
             db.fetchPartsWithFiles()
         ]);
         if (error) throw error;
-        store.managerWoApprovalList.value = data || [];
+        const rows = data || [];
+        store.managerWoApprovalList.value = rows;
         store.partsWithFiles.value        = partsSet;
+        // Populate inline status-notes state per card (always mirrors the DB value; the
+        // note is also editable in the detail modal, so a reload must reflect the latest).
+        const inline = {};
+        rows.forEach(r => { inline[r.id] = { status_notes: r.status_notes ?? '' }; });
+        store.managerWoApprovalInlineState.value = inline;
     } catch (err) {
         store.showToast('Failed to load WO approval queue: ' + err.message, 'error');
         logError('loadManagerPendingWoRequests', err);
     } finally {
         store.managerWoApprovalLoading.value = false;
+    }
+}
+
+// saveManagerWoApprovalStatusNote — persist an approval card's inline status note on blur.
+// Saves to wo_requests.status_notes, updates the list row (and the open detail record if
+// it matches) in place, and remembers it for carry-forward to the next WO request for this
+// part (part_notes WO_STATUS kind) — identical behavior to the WO Request cards.
+export async function saveManagerWoApprovalStatusNote(id) {
+    const s = store.managerWoApprovalInlineState.value[id];
+    if (!s) return;
+    const note = (s.status_notes || '').trim().slice(0, 300) || null;
+    try {
+        const { error } = await db.updateWoRequest(id, { status_notes: note });
+        if (error) throw error;
+        const idx = store.managerWoApprovalList.value.findIndex(r => r.id === id);
+        const row = idx !== -1 ? store.managerWoApprovalList.value[idx] : null;
+        if (idx !== -1) {
+            store.managerWoApprovalList.value[idx] = { ...row, status_notes: note };
+        }
+        if (store.managerWoSelectedRequest.value?.id === id) {
+            store.managerWoSelectedRequest.value = { ...store.managerWoSelectedRequest.value, status_notes: note };
+        }
+        // Remember for carry-forward to the next WO request for this part (non-blocking).
+        const part = row?.part_number;
+        if (part) {
+            db.upsertPartNote(part, PART_NOTE_KIND.WO_STATUS, note, row?.submitted_by || null)
+                .then(({ error: e }) => { if (e) logError('saveManagerWoApprovalStatusNote:remember', e); });
+        }
+    } catch (err) {
+        store.showToast('Failed to save note: ' + err.message, 'error');
+        logError('saveManagerWoApprovalStatusNote', err, { id });
     }
 }
 

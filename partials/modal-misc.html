@@ -272,9 +272,12 @@
                             class="w-full p-3 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
                         <div class="text-slate-500 text-xs mt-1">Leave blank if no update to Alere is needed</div>
                     </div>
+                    <!-- Sales Orders using this part (teleported from modal-receive-sales-orders.html) -->
+                    <div id="receive-so-body"></div>
                     <div class="flex gap-3 pt-2">
                         <button @click="receiveModalOpen = false" class="flex-1 p-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold">CANCEL</button>
-                        <button @click="submitReceive" class="flex-1 p-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-extrabold text-white text-lg">Mark as Received &#10003;</button>
+                        <button @click="submitReceive" :disabled="receiveMatchedSos.length && !receiveSoAck"
+                            class="flex-1 p-4 bg-blue-600 hover:bg-blue-500 rounded-xl font-extrabold text-white text-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600">Mark as Received &#10003;</button>
                     </div>
                 </div>
             </div>

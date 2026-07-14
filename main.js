@@ -28,6 +28,7 @@ import { loadForecastedItems } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems } from './pages/create-wo-view.js';
 import { loadOpenOrders, loadReminderEmail, reconcileOpenOrderRealtime } from './pages/open-orders-view.js';
 import { loadCompletedOrders } from './pages/completed-orders-view.js';
+import { loadWaitingOnWoStatuses } from './pages/open-orders-shipping.js';
 import { loadPurchasingOrders, loadOrderEvents, syncDetailFromRealtime } from './pages/purchasing-view.js';
 import { reconcilePurchasingRealtime } from './pages/purchasing-receive.js';
 import { loadOrderQuotes } from './pages/purchasing-quotes-view.js';
@@ -229,7 +230,7 @@ try {
                 if (v === 'wo_request')      loadWoRequests();
                 if (v === 'wo_forecasting')  loadForecastedItems();
                 if (v === 'create_wo')       loadCreateWoItems();
-                if (v === 'open_orders')     { loadOpenOrders(); loadReminderEmail(); }
+                if (v === 'open_orders')     { loadOpenOrders().then(loadWaitingOnWoStatuses); loadReminderEmail(); }
                 if (v === 'completed_orders') loadCompletedOrders();
                 if (v === 'purchasing')       { checkForecastRevisits(); loadPurchasingOrders(); }
                 if (v === 'po_request')       { checkForecastRevisits(); loadPurchasingOrders(); }

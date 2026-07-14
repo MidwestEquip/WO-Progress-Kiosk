@@ -39,6 +39,12 @@ async function _triageOpenOrder(order, newStatus) {
     }
 }
 
+// verifyInStock — shipping has confirmed the part is physically present, but has
+// not pulled/staged it yet. New → In Stock (the verification step before Picked).
+export function verifyInStock(order) {
+    return _triageOpenOrder(order, 'In Stock');
+}
+
 // startPicking — shipping has the part in stock and has picked it.
 // New → Picked (moves to the brand section; next step is boxing → ship).
 export function startPicking(order) {
@@ -199,4 +205,216 @@ export async function markShipped(order) {
         return;
     }
     store.openOrders.value = store.openOrders.value.filter(o => o.id !== order.id);
+}
+
+// ── Waiting On (subparts blocking a ship) ─────────────────────
+// A row can be waiting on several missing subparts, each { part_number,
+// wo_number }. The subpart WO's live status is derived (woStatusByNumber), never
+// stored. Entries carry a client-only _k for stable v-for keys.
+const WAITING_MAX_ENTRIES = 20;   // cap entries per row
+const WAITING_FIELD_MAXLEN = 64;  // cap each field's stored length
+let _waitingKeyCounter = 0;
+
+// openWaitingModal — open the Waiting On editor for one open_orders row,
+// pre-filling its existing entries (guards NULL waiting_on on old rows).
+export function openWaitingModal(order) {
+    if (!order?.id) return;
+    store.openOrderWoMenuRow.value = null;
+    store.waitingOnRow.value = order;
+    const existing = Array.isArray(order.waiting_on) ? order.waiting_on : [];
+    store.waitingOnForm.value = {
+        entries: existing.map(e => ({
+            _k: ++_waitingKeyCounter,
+            part_number: (e?.part_number || '').toString(),
+            wo_number:   (e?.wo_number   || '').toString(),
+            requested:   !!e?.requested,
+        })),
+    };
+    store.waitingOnErrors.value = {};
+    store.waitingOnModalOpen.value = true;
+    loadWaitingOnWoStatuses(); // refresh live status for the saved entries
+}
+
+// closeWaitingModal — dismiss + reset the Waiting On editor.
+export function closeWaitingModal() {
+    store.waitingOnModalOpen.value = false;
+    store.waitingOnRow.value = null;
+    store.waitingOnForm.value = { entries: [] };
+    store.waitingOnErrors.value = {};
+}
+
+// addWaitingEntry — append a blank subpart row (capped).
+export function addWaitingEntry() {
+    const entries = store.waitingOnForm.value.entries;
+    if (entries.length >= WAITING_MAX_ENTRIES) {
+        store.showToast(`Max ${WAITING_MAX_ENTRIES} waiting-on entries per row.`);
+        return;
+    }
+    entries.push({ _k: ++_waitingKeyCounter, part_number: '', wo_number: '', requested: false });
+}
+
+// removeWaitingEntry — drop one subpart row by index.
+export function removeWaitingEntry(idx) {
+    store.waitingOnForm.value.entries.splice(idx, 1);
+}
+
+// saveWaitingOn — sanitize + persist the entries to open_orders.waiting_on.
+// Whitelists keys, trims/uppercases part# and wo#, caps field length + count,
+// drops fully-blank rows. Writes null when the list is empty (clears the column).
+export async function saveWaitingOn() {
+    const row = store.waitingOnRow.value;
+    if (!row?.id) return;
+    const clean = [];
+    for (const e of store.waitingOnForm.value.entries) {
+        const part = (e.part_number || '').trim().toUpperCase().slice(0, WAITING_FIELD_MAXLEN);
+        const wo   = (e.wo_number   || '').trim().toUpperCase().slice(0, WAITING_FIELD_MAXLEN);
+        if (!part && !wo) continue;
+        // Whitelist: only these keys are ever written. requested is a boolean we
+        // set on the Req-WO action; preserve it (omit when false to keep rows lean).
+        const entry = { part_number: part, wo_number: wo };
+        if (e.requested) entry.requested = true;
+        if (e.in_stock) entry.in_stock = true;   // set by the Receiving modal; preserve it
+        clean.push(entry);
+        if (clean.length >= WAITING_MAX_ENTRIES) break;
+    }
+    store.waitingOnSaving.value = true;
+    try {
+        const waiting_on = clean.length ? clean : null;
+        const { error } = await db.updateOpenOrder(row.id, { waiting_on });
+        if (error) throw error;
+        store.openOrders.value = store.openOrders.value.map(o =>
+            o.id === row.id ? { ...o, waiting_on } : o);
+        closeWaitingModal();
+        loadWaitingOnWoStatuses(); // pick up statuses for any newly-entered WO#s
+    } catch (err) {
+        store.showToast('Failed to save Waiting On: ' + err.message);
+        logError('saveWaitingOn', err);
+    } finally {
+        store.waitingOnSaving.value = false;
+    }
+}
+
+// reqWoForSubpart — pre-fill the WO Request form for a waiting-on subpart and
+// jump to the request view. Mirrors requestWoFromOpenOrder (page files never
+// import each other, so the store sets are inlined). Creates no record itself.
+// parentRow defaults to the modal's row; the board column passes its own row.
+export function reqWoForSubpart(entry, parentRow) {
+    const parent = parentRow || store.waitingOnRow.value;
+    const part = (entry?.part_number || '').trim().toUpperCase();
+    if (!part) { store.showToast('Enter the subpart part # first.'); return; }
+
+    // Mark this subpart as WO-requested on the row and persist, so on return the
+    // button is replaced by "WO Requested" (until the created WO auto-links).
+    if (parent?.id) {
+        const list = Array.isArray(parent.waiting_on) ? parent.waiting_on : [];
+        const updated = list.map(e =>
+            e === entry || (e.part_number === entry.part_number && (e.wo_number || '') === (entry.wo_number || ''))
+                ? { ...e, requested: true } : e);
+        store.openOrders.value = store.openOrders.value.map(o =>
+            o.id === parent.id ? { ...o, waiting_on: updated } : o);
+        db.updateOpenOrder(parent.id, { waiting_on: updated }); // non-blocking
+    }
+
+    store.woRequestForm.value = {
+        part_number:        part,
+        description:        '',
+        sales_order_number: parent?.sales_order || '',
+        qty_on_order:       parent?.to_ship ?? '',
+        qty_in_stock: '', qty_used_per_unit: '',
+        submitted_by: '', is_assembly: false,
+    };
+    store.woRequestFormErrors.value = { part_number: false, qty_in_stock: false, qty_used_per_unit: false, submitted_by: false };
+    store.woRequestSoHint.value     = null;
+    store.woRequestActiveWos.value  = { part: '', items: [] };
+    closeWaitingModal();
+    store.splashLevel.value    = 1;
+    store.splashCategory.value = 'production';
+    store.currentView.value    = 'wo_request';
+}
+
+// loadWaitingOnWoStatuses — collect every waiting-on subpart's WO# and PART#
+// across the board (two bounded, deduped queries) and stash the rows for the
+// woStatusByNumber (manual WO#) and woInfoByPart (auto-linked by part) maps.
+// Non-fatal: on failure the maps stay empty and the column shows '—'.
+export async function loadWaitingOnWoStatuses() {
+    const nums = [], parts = [];
+    for (const o of store.openOrders.value) {
+        const list = Array.isArray(o.waiting_on) ? o.waiting_on : [];
+        for (const e of list) {
+            const wo   = (e?.wo_number   || '').trim();
+            const part = (e?.part_number || '').trim();
+            if (wo)   nums.push(wo);
+            if (part) parts.push(part);
+        }
+    }
+    try {
+        if (nums.length) {
+            const { data, error } = await db.fetchWorkOrderStatuses(nums);
+            if (error) throw error;
+            store.waitingOnWoRows.value = data || [];
+        } else {
+            store.waitingOnWoRows.value = [];
+        }
+    } catch (err) {
+        logError('loadWaitingOnWoStatuses:byNumber', err);
+    }
+    try {
+        if (parts.length) {
+            // Includes WOs still awaiting their official Alere WO# (job_number only),
+            // so a freshly-created subpart WO links + shows status right away.
+            const { data, error } = await db.fetchWaitingOnWosForParts(parts);
+            if (error) throw error;
+            store.waitingOnWoByPartRows.value = data || [];
+        } else {
+            store.waitingOnWoByPartRows.value = [];
+        }
+    } catch (err) {
+        logError('loadWaitingOnWoStatuses:byPart', err);
+    }
+}
+
+// ── Subpart WO display helpers (pure reads of the two maps) ────
+// Return primitives only (no new objects/arrays) so they're safe to call in the
+// template. A subpart resolves its WO from a manually-typed wo_number first, else
+// auto-links via its part number (woInfoByPart).
+
+// subpartWoNumber — the WO# for a waiting-on entry ('' if none yet).
+export function subpartWoNumber(entry) {
+    const manual = (entry?.wo_number || '').trim().toUpperCase();
+    if (manual) return manual;
+    const part = (entry?.part_number || '').trim().toUpperCase();
+    return store.woInfoByPart.value[part]?.wo_number || '';
+}
+
+// subpartWoIsPending — true when the entry's WO is auto-linked via job_number, i.e.
+// it's been created but is still awaiting its official Alere WO# (so the number shown
+// is an internal "Job #", not a "WO #"). A manually-typed WO# is treated as official.
+export function subpartWoIsPending(entry) {
+    const manual = (entry?.wo_number || '').trim().toUpperCase();
+    if (manual) return false;
+    const part = (entry?.part_number || '').trim().toUpperCase();
+    return !!store.woInfoByPart.value[part]?.pending;
+}
+
+// subpartWoStatus — the raw work_orders status for a waiting-on entry ('' if none).
+export function subpartWoStatus(entry) {
+    const manual = (entry?.wo_number || '').trim().toUpperCase();
+    if (manual) return store.woStatusByNumber.value[manual] || '';
+    const part = (entry?.part_number || '').trim().toUpperCase();
+    return store.woInfoByPart.value[part]?.status || '';
+}
+
+// subpartStatusLabel — friendly label: any active WO reads "In Progress",
+// a completed one "Complete", unknown "—".
+export function subpartStatusLabel(entry) {
+    const s = subpartWoStatus(entry);
+    if (!s) return '—';
+    return s === 'completed' ? 'Complete' : 'In Progress';
+}
+
+// subpartStatusClass — badge classes matching subpartStatusLabel.
+export function subpartStatusClass(entry) {
+    const s = subpartWoStatus(entry);
+    if (!s) return 'bg-slate-100 text-slate-500';
+    return s === 'completed' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
 }

@@ -443,8 +443,10 @@ export async function updateOpenOrder(id, updates) {
 
 export async function insertOpenOrders(rows) {
     if (!rows?.length) return { data: [], error: null };
+    // Client-side ids make the withRetry insert idempotent — a lost-ack retry re-sends the same id and ON CONFLICT DO NOTHING drops the dup (open_orders.id is UUID PK).
+    const withIds = rows.map(r => r.id ? r : { ...r, id: crypto.randomUUID() });
     return withRetry(() =>
-        supabase.from('open_orders').insert(rows).select()
+        supabase.from('open_orders').upsert(withIds, { onConflict: 'id', ignoreDuplicates: true }).select()
     );
 }
 

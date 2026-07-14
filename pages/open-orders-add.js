@@ -224,11 +224,14 @@ async function notifyProductionForShortfalls(sourceRows) {
         try {
             const { data: existing } = await db.fetchPartNote(r.part_number);
             const prior = (existing?.wo_production_note || '').trim();
-            const today = new Date().toISOString().slice(0, 10);
             const so    = (r.sales_order || '').trim();
-            const line  = `[${today}] Auto (Open Orders): WO #${r.wo_po_number} short by ${r._shortfall}`
-                        + (so ? ` for SO# ${so}` : '')
-                        + ` — please make ${r._shortfall} more and dedicate to this order.`;
+            // Date-independent signature so re-runs on the same or a later day
+            // do not stack duplicate lines onto the single per-part note slot.
+            const sig   = `Auto (Open Orders): WO #${r.wo_po_number} short by ${r._shortfall}`
+                        + (so ? ` for SO# ${so}` : '');
+            if (prior.includes(sig)) continue;   // already notified for this WO/SO/shortfall
+            const today = new Date().toISOString().slice(0, 10);
+            const line  = `[${today}] ${sig} — please make ${r._shortfall} more and dedicate to this order.`;
             const text  = prior ? `${prior}\n${line}` : line;
             const { error } = await db.upsertPartNote(r.part_number, PART_NOTE_KIND.WO_PRODUCTION, text, 'Auto-Import');
             if (error) throw error;

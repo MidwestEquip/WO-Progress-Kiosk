@@ -218,6 +218,8 @@ export async function selectDept(dept) {
 // Navigate to the Purchasing ordering view. tab controls which tab is active on entry.
 // Preserves purchasing sub-menu as the Back destination.
 export function enterPurchasingView(tab = 'parts') {
+    // Ordering is restricted to manager + office roles.
+    if (store.sessionRole.value !== 'manager' && store.sessionRole.value !== 'office') return;
     store.splashLevel.value    = 1;
     store.splashCategory.value = 'purchasing';
     store.purchasingTab.value  = tab;

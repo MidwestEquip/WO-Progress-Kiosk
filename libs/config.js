@@ -103,20 +103,24 @@ export const OPEN_ORDER_STATUS_NEW = 'New';
 // open_orders_completed with status 'Shipped' (see open-orders-view.js).
 export const OPEN_ORDER_STATUS_LABEL_PRINTED = 'Label Printed';
 export const OPEN_ORDER_STATUS_LABELLED      = 'Labelled';
+// 'In Stock' = shipping has verified the part is physically present (a
+// confirmation step that comes BEFORE 'Picked' = pulled/staged for boxing).
 export const OPEN_ORDER_STATUSES = [
-    'New', 'Picked', 'New/Picking', 'In Progress', 'WO Requested', 'PO Requested',
+    'New', 'In Stock', 'Picked', 'New/Picking', 'In Progress', 'WO Requested', 'PO Requested',
     'WO Created', 'PO Created', 'WO/PO Complete', 'Boxed', 'Label Printed', 'Labelled',
     'Shipped', 'On Hold'
 ];
 
 // Open Orders row-grid column templates (shared header + rows). NEW omits
-// DIMS/Wt, Quotes, Boxes, WO/PO #, Est. Leadtime, and Status/Last Upd, and adds
-// a triage-buttons column between Notes and Customer. Both must stay in sync
-// with the cell v-ifs in view-open-orders.html.
+// DIMS/Wt, Quotes, Boxes, Est. Leadtime, and Waiting On, and adds a triage-
+// buttons column between Notes and Customer; it DOES show WO/PO # (auto-attached
+// WO#) and Status/Last Upd. FULL adds a Waiting On column between Status and Date
+// Entered. Both must stay in sync with the cell v-ifs in view-open-orders.html
+// (NEW = 15 tracks, FULL = 19 tracks).
 export const OPEN_ORDER_GRID_COLS_FULL =
-    '46px 22px 88px minmax(180px,1.4fr) 108px 78px 112px 138px 76px minmax(210px,2fr) minmax(140px,1.1fr) 74px 74px 78px 98px 128px 82px 28px';
+    '46px 22px 88px minmax(180px,1.4fr) 108px 78px 112px 138px 76px minmax(210px,2fr) minmax(140px,1.1fr) 74px 74px 78px 98px 128px 160px 82px 28px';
 export const OPEN_ORDER_GRID_COLS_NEW =
-    '46px 22px 88px minmax(180px,1.4fr) 108px 78px minmax(210px,2fr) 120px minmax(140px,1.1fr) 74px 98px 82px 28px';
+    '46px 22px 88px minmax(180px,1.4fr) 108px 78px minmax(210px,2fr) 168px minmax(140px,1.1fr) 74px 74px 98px 128px 82px 28px';
 
 export const CHUTE_PART_STATUSES = [
     'Ordered', 'In Stock', 'Ready', 'Complete', 'N/A'
@@ -194,7 +198,7 @@ export const PARTIAL_NAMES = [
     'modal-tc-unit', 'modal-tc-stock',
     'modal-tv-unit', 'modal-tv-stock',
     'modal-wo-request', 'modal-wo-request-subparts', 'modal-wo-request-data',
-    'modal-misc', 'modal-open-orders-add', 'modal-open-orders-qty-confirm',
+    'modal-misc', 'modal-receive-sales-orders', 'modal-open-orders-add', 'modal-open-orders-qty-confirm', 'modal-open-orders-waiting',
     'modal-action-panel-print',
     'modal-eng-inquiry',
     'modal-eng-images',

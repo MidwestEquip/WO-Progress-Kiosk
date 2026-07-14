@@ -22,6 +22,7 @@ import { inventoryMode } from './store-inventory.js';
 export * from './store-manager.js';
 export * from './store-assy.js';
 export * from './store-inventory.js';
+export * from './store-open-orders.js';
 export * from './store-engineering.js';
 export * from './store-purchasing.js';
 export * from './store-messages.js';
@@ -221,9 +222,9 @@ export const tcFinCum = computed(() => {
 
 export const appTitle = computed(() => {
     if (currentView.value === 'splash') {
-        if (splashLevel.value === 0) return 'Midwest Mfg.';
+        if (splashLevel.value === 0) return 'PlantIQ';
         const catLabels = { production: 'Production', inventory: 'Inventory', purchasing: 'Purchasing' };
-        if (splashLevel.value === 1) return catLabels[splashCategory.value] || 'Midwest Mfg.';
+        if (splashLevel.value === 1) return catLabels[splashCategory.value] || 'PlantIQ';
         const subLabels = { 'active-wos': 'Active WOs', shipping: 'Shipping' };
         return `${catLabels[splashCategory.value]} — ${subLabels[splashSubCategory.value] || ''}`;
     }
@@ -283,6 +284,8 @@ export const filteredOrders = computed(() => {
     if (!q) return orders.value;
     return orders.value.filter(o =>
         (o.wo_number   || '').toLowerCase().includes(q) ||
+        // job_number so a pending WO (official WO# not yet entered) is findable by its Job #.
+        (o.job_number != null ? String(o.job_number).toLowerCase().includes(q) : false) ||
         (o.part_number || '').toLowerCase().includes(q) ||
         (o.description || '').toLowerCase().includes(q) ||
         (o.sales_order || '').toLowerCase().includes(q) ||

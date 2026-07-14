@@ -177,6 +177,7 @@
                                             <div v-else
                                                 class="font-bold border border-amber-500/40 px-1 text-amber-400/80 text-2xl tracking-tight italic">WO # Pending</div>
                                             <div v-if="order.job_number" class="text-xs text-slate-400 font-mono mt-0.5 px-1">Job #{{ order.job_number }}</div>
+                                            <div v-if="order.created_at" class="text-xs text-slate-500 mt-0.5 px-1">Created {{ formatDateLocal(order.created_at) }}</div>
                                         </div>
                                         <div v-if="order.priority > 0"
                                             class="text-xs px-2 py-1 rounded font-bold"
@@ -185,7 +186,7 @@
                                         </div>
                                     </div>
                                     <div class="font-bold text-lg mt-2">Part #{{ order.part_number }}</div>
-                                    <div v-if="order.department === 'Trac Vac Assy' && order.sales_order"
+                                    <div v-if="(order.department === 'Trac Vac Assy' || order.department === 'Fab' || order.department === 'Weld') && order.sales_order"
                                         class="text-emerald-400 text-xs font-semibold mt-0.5">SO# {{ order.sales_order }}</div>
                                     <div class="text-slate-400 text-sm line-clamp-2 h-10">{{ order.description }}</div>
                                     <div v-if="order.production_notes"

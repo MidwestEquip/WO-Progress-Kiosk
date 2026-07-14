@@ -11,21 +11,26 @@ import { OPEN_ORDER_STATUSES, CHUTE_PART_STATUSES,
          OPEN_ORDER_GRID_COLS_FULL, OPEN_ORDER_GRID_COLS_NEW } from './libs/config.js';
 import { enterOpenOrdersView } from './pages/splash-view.js';
 import { loadOpenOrders, setSectionSort, openOrderSortIcon,
-         setRowColor, effectiveRowColor, openOrderRowClass, openOrderColorDotClass,
+         setRowColor, effectiveRowColor, openOrderRowClass,
          saveReminderEmail,
-         openOrderStatusClass, chuteStatusClass, openOrderHasLine3, openOrderGroupClass,
+         openOrderHasLine3, openOrderGroupClass,
          bulkChangeStatus,
          startCellEdit, saveCellEdit, cancelCellEdit, deleteOpenOrder,
          requestToShipEdit, confirmToShipEdit, cancelToShipEdit,
          toggleOpenOrderExpand,
          canRequestFromOpenOrder, requestWoFromOpenOrder, requestPoFromOpenOrder,
          moveSalesOrderToFreight,
-         openWoDetailPanel, closeWoDetailPanel, goToActiveWo,
-         woDeptBadgeClass, woStatusBadgeClass } from './pages/open-orders-view.js';
+         openWoDetailPanel, closeWoDetailPanel, goToActiveWo } from './pages/open-orders-view.js';
+import { openOrderColorDotClass, openOrderStatusClass, chuteStatusClass,
+         woDeptBadgeClass, woStatusBadgeClass } from './libs/utils.js';
 import { cancelAddModal, parsePasteRows, saveOpenOrderRow,
          enrichPasteRowsWithWoAttach, pasteWoScenarioLabel,
          pasteWoScenarioClass } from './pages/open-orders-add.js';
-import { startPicking, startAssembly, setShippingTab, markShipped, printPickingTicket } from './pages/open-orders-shipping.js';
+import { verifyInStock, startPicking, startAssembly, setShippingTab, markShipped, printPickingTicket,
+         openWaitingModal, closeWaitingModal, addWaitingEntry, removeWaitingEntry,
+         saveWaitingOn, reqWoForSubpart, loadWaitingOnWoStatuses,
+         subpartWoNumber, subpartWoStatus, subpartStatusLabel, subpartStatusClass,
+         subpartWoIsPending } from './pages/open-orders-shipping.js';
 import { onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
          onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
          onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
@@ -42,7 +47,6 @@ export function buildShippingExpose() {
         openOrderSections:        store.openOrderSections,
         shippingTab:              store.shippingTab,
         boxedOrders:              store.boxedOrders,
-        soSplit:                  store.soSplit,
         openOrderColorPickerRow:  store.openOrderColorPickerRow,
         openOrderWoMenuRow:       store.openOrderWoMenuRow,
         openOrderEditingCell:     store.openOrderEditingCell,
@@ -96,7 +100,19 @@ export function buildShippingExpose() {
         requestToShipEdit, confirmToShipEdit, cancelToShipEdit,
         toggleOpenOrderExpand,
         canRequestFromOpenOrder, requestWoFromOpenOrder, requestPoFromOpenOrder,
-        startPicking, startAssembly, setShippingTab, markShipped, printPickingTicket,
+        verifyInStock, startPicking, startAssembly, setShippingTab, markShipped, printPickingTicket,
+
+        // Open Orders — Waiting On
+        waitingOnModalOpen:  store.waitingOnModalOpen,
+        waitingOnRow:        store.waitingOnRow,
+        waitingOnForm:       store.waitingOnForm,
+        waitingOnErrors:     store.waitingOnErrors,
+        waitingOnSaving:     store.waitingOnSaving,
+        woStatusByNumber:    store.woStatusByNumber,
+        openWaitingModal, closeWaitingModal, addWaitingEntry, removeWaitingEntry,
+        saveWaitingOn, reqWoForSubpart, loadWaitingOnWoStatuses,
+        subpartWoNumber, subpartWoStatus, subpartStatusLabel, subpartStatusClass,
+        subpartWoIsPending,
         moveSalesOrderToFreight,
 
         // WO detail drill-down panel

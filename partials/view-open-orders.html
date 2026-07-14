@@ -8,7 +8,7 @@
                 <div id="oo-topbar" class="shrink-0"></div>
 
                 <!-- ── Scrollable content ────────────────────── -->
-                <div class="flex-1 overflow-y-auto p-3 space-y-4"
+                <div class="flex-1 overflow-auto p-3 space-y-4"
                      @dragover="onScrollAreaDragOver($event)">
 
                     <!-- Loading -->
@@ -23,15 +23,17 @@
                     <!-- Sections (v-for over openOrderSections computed) -->
                     <template v-else v-for="section in openOrderSections" :key="section.type">
                         <!-- Whole section is a drop zone for cross-category moves (header + body). -->
-                        <div class="rounded-xl overflow-hidden shadow-sm border transition-all"
+                        <div class="rounded-xl shadow-sm border transition-all"
                              :class="openOrderDragOverSection === section.type ? 'border-slate-900 ring-2 ring-inset ring-slate-900/40' : 'border-slate-200'"
                              @dragover="onSectionDragOver($event, section.type)"
                              @dragleave="onSectionDragLeave($event, section.type)"
                              @drop="onSectionDrop($event, section.type)">
 
+                            <!-- Frozen zone: section banner + column headers stick together at top -->
+                            <div class="sticky top-0 z-20">
                             <!-- Section header + sort bar -->
                             <div :class="[section.hdr, openOrderDragOverSection === section.type ? 'ring-4 ring-inset ring-white/60' : '']"
-                                 class="px-3 py-2 flex items-center gap-3 flex-wrap transition-all">
+                                 class="px-3 py-2 flex items-center gap-3 flex-wrap transition-all rounded-t-xl">
                                 <h3 class="text-white font-extrabold text-lg tracking-widest drop-shadow">{{ section.label }}</h3>
                                 <span class="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                                     {{ section.orders.length }}
@@ -55,12 +57,9 @@
                                 </div>
                             </div>
 
-                            <!-- Horizontally scrollable grid container -->
-                            <div class="overflow-x-auto">
-
-                                <!-- Column header row -->
+                                <!-- Column header row (sticks just under the banner) -->
                                 <div class="grid items-center gap-x-2.5 px-2 py-1 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-400 uppercase tracking-wider w-full"
-                                     :class="section.type === 'new' ? 'min-w-[1314px]' : 'min-w-[1850px]'"
+                                     :class="section.type === 'new' ? 'min-w-[1564px]' : 'min-w-[2020px]'"
                                      :style="'grid-template-columns:' + (section.type === 'new' ? ooGridColsNew : ooGridColsFull)">
                                     <div>{{ section.type === 'new' ? 'Print' : 'Actions' }}</div>
                                     <div></div><!-- color -->
@@ -75,13 +74,15 @@
                                     <div v-if="section.type === 'new'">Actions</div>
                                     <div>Customer</div>
                                     <div>Sales Order</div>
-                                    <div v-if="section.type !== 'new'">WO / PO #</div>
+                                    <div>WO / PO #</div>
                                     <div v-if="section.type !== 'new'">Est. Leadtime</div>
                                     <div>Holding Bin</div>
-                                    <div v-if="section.type !== 'new'">Status / Last Upd</div>
+                                    <div>Status / Last Upd</div>
+                                    <div v-if="section.type !== 'new'">Waiting On</div>
                                     <div>Date Entered</div>
                                     <div></div>
                                 </div>
+                            </div><!-- end frozen zone -->
 
                                 <!-- Empty state -->
                                 <div v-if="section.orders.length === 0"
@@ -113,7 +114,7 @@
 
                                             <!-- Main grid row -->
                                             <div class="grid items-start gap-x-2.5 px-2 pt-1.5 pb-1 w-full"
-                                                 :class="section.type === 'new' ? 'min-w-[1314px]' : 'min-w-[1850px]'"
+                                                 :class="section.type === 'new' ? 'min-w-[1564px]' : 'min-w-[2020px]'"
                                                  :style="'grid-template-columns:' + (section.type === 'new' ? ooGridColsNew : ooGridColsFull)">
 
                                                 <!-- Col 1: Row actions — print ticket (New) / ship (Boxed) / move-to-Freight (brand) -->
@@ -483,20 +484,55 @@
                                                     </span>
                                                 </div>
 
-                                                <!-- Col 10b: Triage actions (New Orders only) — 2×2: Picked/Assy | ReqWO/ReqPO -->
-                                                <div v-if="section.type === 'new'" class="grid grid-cols-2 gap-1 pt-0.5" @click.stop @mousedown.stop>
+                                                <!-- Col 10b: Triage actions (New Orders section). Buttons render for every
+                                                     row parked in New Orders — both still-'New' rows AND already-triaged
+                                                     siblings held here because their SO isn't fully triaged yet. Held
+                                                     in-progress lines keep their buttons so their status can still be
+                                                     changed without leaving the inbox; the real status shows in the Status col. -->
+                                                <div v-if="section.type === 'new'" class="grid grid-cols-3 gap-1 pt-0.5" @click.stop @mousedown.stop>
+                                                    <!-- Row-by-row fill in grid-cols-3 makes vertical pairs:
+                                                         Picked/InStock · ReqWO/ReqPO · StartAssembling/WaitingOn -->
                                                     <button @click.stop="startPicking(order)" @mousedown.stop
-                                                            class="text-[9px] leading-tight font-bold text-slate-900 bg-white hover:bg-slate-50 border border-slate-400 rounded px-0.5 py-1 transition-colors"
-                                                            title="In stock — mark Picked">Picked</button>
+                                                            class="text-[9px] leading-tight font-bold rounded px-0.5 py-1 border transition-colors"
+                                                            :class="order.status === 'Picked' ? 'bg-emerald-500 text-white border-emerald-600 ring-2 ring-emerald-300' : 'text-slate-900 bg-white hover:bg-slate-50 border-slate-400'"
+                                                            title="Pulled/staged — mark Picked">Picked</button>
                                                     <button @click.stop="requestWoFromOpenOrder(order)" @mousedown.stop
-                                                            class="text-[9px] leading-tight font-bold text-slate-900 bg-white hover:bg-slate-50 border border-slate-400 rounded px-0.5 py-1 transition-colors"
+                                                            class="text-[9px] leading-tight font-bold rounded px-0.5 py-1 border transition-colors"
+                                                            :class="order.status === 'WO Requested' ? 'bg-emerald-500 text-white border-emerald-600 ring-2 ring-emerald-300' : 'text-slate-900 bg-white hover:bg-slate-50 border-slate-400'"
                                                             title="Not in stock — request a WO">Req WO</button>
                                                     <button @click.stop="startAssembly(order)" @mousedown.stop
-                                                            class="text-[9px] leading-tight font-bold text-slate-900 bg-white hover:bg-slate-50 border border-slate-400 rounded px-0.5 py-1 transition-colors"
-                                                            title="Must assemble — mark In Progress">Assy</button>
+                                                            class="text-[9px] leading-tight font-bold rounded px-0.5 py-1 border transition-colors text-slate-900 bg-white hover:bg-slate-50 border-slate-400"
+                                                            title="Must assemble — mark In Progress">Start Assembling</button>
+                                                    <button @click.stop="verifyInStock(order)" @mousedown.stop
+                                                            class="text-[9px] leading-tight font-bold rounded px-0.5 py-1 border transition-colors"
+                                                            :class="order.status === 'In Stock' ? 'bg-emerald-500 text-white border-emerald-600 ring-2 ring-emerald-300' : 'text-slate-900 bg-white hover:bg-slate-50 border-slate-400'"
+                                                            title="Confirmed physically in stock (before picking)">Verified in Stock</button>
                                                     <button @click.stop="requestPoFromOpenOrder(order)" @mousedown.stop
-                                                            class="text-[9px] leading-tight font-bold text-slate-900 bg-white hover:bg-slate-50 border border-slate-400 rounded px-0.5 py-1 transition-colors"
+                                                            class="text-[9px] leading-tight font-bold rounded px-0.5 py-1 border transition-colors"
+                                                            :class="order.status === 'PO Requested' ? 'bg-emerald-500 text-white border-emerald-600 ring-2 ring-emerald-300' : 'text-slate-900 bg-white hover:bg-slate-50 border-slate-400'"
                                                             title="Request a PO for this part">Req PO</button>
+                                                    <button @click.stop="openWaitingModal(order)" @mousedown.stop
+                                                            class="text-[9px] leading-tight font-bold rounded px-0.5 py-1 border transition-colors"
+                                                            :class="Array.isArray(order.waiting_on) && order.waiting_on.length ? 'bg-emerald-500 text-white border-emerald-600 ring-2 ring-emerald-300' : 'text-slate-900 bg-white hover:bg-slate-50 border-slate-400'"
+                                                            title="Track subparts this order is waiting on">Waiting On<span v-if="Array.isArray(order.waiting_on) && order.waiting_on.length"> ({{ order.waiting_on.length }})</span></button>
+
+                                                    <div v-if="Array.isArray(order.waiting_on) && order.waiting_on.length"
+                                                         class="col-span-3 mt-1 -ml-24 w-max max-w-[460px] flex items-start gap-1.5">
+                                                        <span class="text-[13px] font-bold text-amber-700 uppercase tracking-wide leading-tight pt-1 whitespace-nowrap">Waiting On:</span>
+                                                        <div class="flex flex-col gap-1">
+                                                        <div v-for="(w, wi) in order.waiting_on" :key="wi" class="flex items-center gap-1.5 leading-tight">
+                                                            <span class="text-[14px] font-semibold text-slate-900 whitespace-nowrap">{{ w.part_number || '—' }}</span>
+                                                            <template v-if="subpartWoNumber(w)">
+                                                                <span :class="subpartStatusClass(w)" class="inline-block px-1.5 py-0.5 rounded text-[12px] font-semibold whitespace-nowrap">{{ subpartStatusLabel(w) }}</span>
+                                                                <span @click.stop="goToActiveWo({ wo_po_number: subpartWoNumber(w) })" @mousedown.stop title="Go to this WO"
+                                                                      class="text-[13px] font-bold text-indigo-600 hover:underline cursor-pointer whitespace-nowrap">{{ subpartWoIsPending(w) ? 'Job' : 'WO' }} #{{ subpartWoNumber(w) }}</span>
+                                                            </template>
+                                                            <span v-else-if="w.requested" class="text-[13px] font-bold text-slate-900 whitespace-nowrap">WO Requested</span>
+                                                            <button v-else @click.stop="reqWoForSubpart(w, order)" @mousedown.stop title="Request a WO for this subpart"
+                                                                    class="text-slate-900 hover:bg-slate-200 border border-slate-400 rounded px-1.5 py-0.5 text-[13px] font-bold leading-none transition-colors whitespace-nowrap">Req. WO</button><span v-if="w.in_stock" class="text-[12px] font-bold text-emerald-700 whitespace-nowrap">In Stock &#10003;</span>
+                                                        </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
 
                                                 <!-- Col 11: Customer -->
@@ -531,18 +567,10 @@
                                                           :class="order.sales_order ? 'text-slate-900' : 'text-slate-300 italic'">
                                                         {{ order.sales_order || '—' }}
                                                     </span>
-                                                    <!-- Split-SO badge: some lines still in New Orders, some moved out -->
-                                                    <div v-if="order.sales_order && soSplit[order.sales_order.trim()]" class="mt-0.5">
-                                                        <div class="text-[8px] font-semibold text-orange-500 uppercase tracking-wide leading-none">New / Moved</div>
-                                                        <span class="inline-block mt-0.5 text-[9px] font-bold text-orange-700 bg-orange-100 border border-orange-300 rounded px-1"
-                                                              title="This sales order is split: lines still in New Orders / lines moved out to a brand section">
-                                                            {{ soSplit[order.sales_order.trim()].newCount }}/{{ soSplit[order.sales_order.trim()].movedCount }} split
-                                                        </span>
-                                                    </div>
                                                 </div>
 
-                                                <!-- Col 13: WO / PO # — click a value for Edit / Go to WO menu (hidden for New Orders) -->
-                                                <div v-if="section.type !== 'new'" class="min-w-0 text-xs relative" @mousedown.stop>
+                                                <!-- Col 13: WO / PO # — click a value for Edit / Go to WO menu (shown in New Orders too: displays the auto-attached WO#) -->
+                                                <div class="min-w-0 text-xs relative" @mousedown.stop>
                                                     <input v-if="openOrderEditingCell.id===order.id && openOrderEditingCell.field==='wo_po_number'"
                                                            v-model="openOrderEditingValue"
                                                            :ref="el=>{if(el)el.focus()}"
@@ -604,8 +632,8 @@
                                                     </span>
                                                 </div>
 
-                                                <!-- Col 16: Status + Last Updated (or Chute+Bracket for chute parts) — hidden for New Orders -->
-                                                <div v-if="section.type !== 'new'" class="min-w-0 text-xs" @click.stop @mousedown.stop>
+                                                <!-- Col 16: Status + Last Updated (or Chute+Bracket for chute parts) — shown in New Orders too (held/triaged siblings show their real status) -->
+                                                <div class="min-w-0 text-xs" @click.stop @mousedown.stop>
                                                     <!-- Chute part: dual Chute Status + Bracket Status as badge dropdowns -->
                                                     <template v-if="isChutePart(order.part_number)">
                                                         <div class="flex flex-col gap-1">
@@ -678,8 +706,9 @@
                                                                 {{ order.last_status_update.slice(0,10) }}
                                                             </div>
                                                         </div>
-                                                        <!-- Request WO / PO shortcuts (pre-fill + jump to request form) -->
-                                                        <div v-if="canRequestFromOpenOrder(order)" class="flex items-center gap-1 mt-1" @click.stop @mousedown.stop>
+                                                        <!-- Request WO / PO shortcuts (pre-fill + jump to request form).
+                                                             Hidden in New Orders — the triage column already offers Req WO / Req PO. -->
+                                                        <div v-if="canRequestFromOpenOrder(order) && section.type !== 'new'" class="flex items-center gap-1 mt-1" @click.stop @mousedown.stop>
                                                             <button @click="requestWoFromOpenOrder(order)" title="Request a WO for this part (pre-filled)"
                                                                     class="text-purple-600 hover:text-white hover:bg-purple-500 border border-purple-300 rounded px-1 py-0.5 text-[10px] font-bold leading-none transition-colors">
                                                                 Req WO
@@ -690,6 +719,28 @@
                                                             </button>
                                                         </div>
                                                     </template>
+                                                </div>
+
+                                                <div v-if="section.type !== 'new'" class="min-w-0 text-xs" @click.stop @mousedown.stop>
+                                                    <template v-if="Array.isArray(order.waiting_on) && order.waiting_on.length">
+                                                        <div v-for="(w, wi) in order.waiting_on" :key="wi" class="flex items-center gap-1 mb-0.5">
+                                                            <span class="font-semibold text-slate-900 truncate">{{ w.part_number || '—' }}</span>
+                                                            <template v-if="subpartWoNumber(w)">
+                                                                <span @click.stop="goToActiveWo({ wo_po_number: subpartWoNumber(w) })" @mousedown.stop
+                                                                      title="Go to this WO"
+                                                                      class="text-indigo-600 hover:underline cursor-pointer whitespace-nowrap">{{ subpartWoIsPending(w) ? 'Job' : 'WO' }} #{{ subpartWoNumber(w) }}</span>
+                                                                <span :class="subpartStatusClass(w)"
+                                                                      class="inline-block px-1 py-0.5 rounded text-[9px] font-semibold whitespace-nowrap">{{ subpartStatusLabel(w) }}</span>
+                                                            </template>
+                                                            <span v-else-if="w.requested" class="text-[9px] font-bold text-purple-700 whitespace-nowrap">WO Requested</span>
+                                                            <button v-else @click.stop="reqWoForSubpart(w, order)" @mousedown.stop title="Request a WO for this subpart"
+                                                                    class="text-purple-600 hover:text-white hover:bg-purple-500 border border-purple-300 rounded px-1 text-[9px] font-bold leading-none transition-colors">Req. WO</button><span v-if="w.in_stock" class="text-[9px] font-bold text-emerald-700 whitespace-nowrap">In Stock &#10003;</span>
+                                                        </div>
+                                                        <button @click.stop="openWaitingModal(order)"
+                                                                class="text-[9px] font-semibold text-amber-700 hover:text-amber-900">Edit…</button>
+                                                    </template>
+                                                    <button v-else @click.stop="openWaitingModal(order)"
+                                                            class="text-[9px] font-semibold text-slate-400 hover:text-amber-700 italic">+ waiting on</button>
                                                 </div>
 
                                                 <!-- Col 17: Date Entered -->
@@ -737,8 +788,6 @@
                                     </template><!-- end row + drop zone template -->
 
                                 </div><!-- end rows container -->
-
-                            </div><!-- end horizontal scroll container -->
 
                         </div><!-- end section card -->
                     </template><!-- end sections v-for -->

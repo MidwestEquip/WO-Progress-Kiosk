@@ -105,6 +105,10 @@ export const managerWoDetailForm      = ref({});
 export const managerWoSendBackOpen    = ref(false);
 export const managerWoSendBackNote    = ref('');
 export const managerWoApprovalCount   = computed(() => managerWoApprovalList.value.length);
+// Inline editable status notes per approval card (keyed by request id). Mirrors the
+// DB status_notes value; saved on blur and carried forward to future WO requests for
+// the part (same part_notes mechanism as the WO Request cards).
+export const managerWoApprovalInlineState = ref({});
 // Subpart plans for the open approval request, rehydrated from req.subpart_plans.
 // Keyed by normalized part number; each value mirrors the planner SUBPART_FORM shape.
 export const managerWoSubpartForms    = ref({});

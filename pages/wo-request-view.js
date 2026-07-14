@@ -104,10 +104,10 @@ export async function loadWoRequests() {
 export function resetWoRequestForm() {
     store.woRequestForm.value = {
         part_number: '', description: '', sales_order_number: '',
-        qty_on_order: '', qty_in_stock: '', qty_used_per_unit: '',
+        qty_on_order: '', qty_in_stock: '',
         submitted_by: '', is_assembly: false
     };
-    store.woRequestFormErrors.value = { part_number: false, qty_in_stock: false, qty_used_per_unit: false, submitted_by: false };
+    store.woRequestFormErrors.value = { part_number: false, qty_in_stock: false, submitted_by: false };
     store.woRequestSoHint.value     = null;
     store.woRequestActiveWos.value  = { part: '', items: [] };
 }
@@ -115,13 +115,12 @@ export function resetWoRequestForm() {
 // submitWoRequestForm — validate, insert new request, reload list.
 export async function submitWoRequestForm() {
     const form   = store.woRequestForm.value;
-    const errors = { part_number: false, qty_in_stock: false, qty_used_per_unit: false, submitted_by: false };
+    const errors = { part_number: false, qty_in_stock: false, submitted_by: false };
     if (!form.part_number.trim())                                      errors.part_number      = true;
     if (form.qty_in_stock === ''     || form.qty_in_stock     == null) errors.qty_in_stock     = true;
-    if (form.qty_used_per_unit === '' || form.qty_used_per_unit == null) errors.qty_used_per_unit = true;
     if (!form.submitted_by.trim())                                     errors.submitted_by     = true;
     store.woRequestFormErrors.value = errors;
-    if (errors.part_number || errors.qty_in_stock || errors.qty_used_per_unit || errors.submitted_by) return;
+    if (errors.part_number || errors.qty_in_stock || errors.submitted_by) return;
 
     store.loading.value = true;
     try {

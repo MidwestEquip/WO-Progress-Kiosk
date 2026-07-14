@@ -19,13 +19,19 @@ export function detectOpenOrderSection(partNumber) {
 
 // ── openOrderMatchesFilter ────────────────────────────────────
 // True when an open order row matches a search query. Checks part #,
-// description, customer, SO#, WO/PO#, bins, and notes (case-insensitive).
-// q must already be trimmed + lowercased (caller normalizes once per pass).
+// description, customer, SO#, WO/PO#, bins, notes, AND any subpart part # in the
+// row's waiting_on list — so filtering by a part number also surfaces sales
+// orders blocked on that part as a subpart (used by the Receiving "jump to
+// Open Orders" link). q must already be trimmed + lowercased (caller normalizes
+// once per pass).
 export function openOrderMatchesFilter(order, q) {
     if (!q) return true;
-    return [order.part_number, order.description, order.customer, order.sales_order,
-            order.wo_po_number, order.store_bin, order.update_store_bin, order.wo_va_notes]
-        .some(v => (v || '').toLowerCase().includes(q));
+    const fields = [order.part_number, order.description, order.customer, order.sales_order,
+                    order.wo_po_number, order.store_bin, order.update_store_bin, order.wo_va_notes];
+    if (Array.isArray(order.waiting_on)) {
+        for (const e of order.waiting_on) fields.push(e?.part_number);
+    }
+    return fields.some(v => (v || '').toLowerCase().includes(q));
 }
 
 // ── compareSalesOrder ─────────────────────────────────────────
@@ -66,8 +72,11 @@ export function openOrderGroupClass(order, prev, next) {
     const samePrev = !!prev && (prev.sales_order || '').trim() === so;
     const sameNext = !!next && (next.sales_order || '').trim() === so;
     if (!samePrev && !sameNext) return '';
-    if (!samePrev && sameNext)  return '!border-t-2 !border-x-2 !border-slate-700 rounded-t-lg';
-    if (samePrev && sameNext)   return '!border-x-2 !border-slate-700';
+    // First/middle rows of a group: keep the dark outer box, but soften the
+    // internal horizontal divider (row's border-b) to slate-50 so consecutive
+    // same-SO lines read as one block.
+    if (!samePrev && sameNext)  return '!border-t-2 !border-x-2 !border-slate-700 !border-b-slate-50 rounded-t-lg';
+    if (samePrev && sameNext)   return '!border-x-2 !border-slate-700 !border-b-slate-50';
     return '!border-b-2 !border-x-2 !border-slate-700 rounded-b-lg';
 }
 
@@ -199,6 +208,10 @@ export function businessDaysSince(isoTimestamp) {
 export function openOrderEscalationLevel(order) {
     const status = order?.status || '';
     if (status !== 'New' && status !== 'New/Picking') return 0;
+    // A row with a WO already attached (e.g. auto-attached at import time, which
+    // keeps status 'New') is being handled — don't let the untriaged ladder flag
+    // it red / "notify manager". The still-untouched, WO-less New rows escalate.
+    if ((order?.wo_po_number || '').trim()) return 0;
     const anchor = status === 'New'
         ? (order?.date_entered || order?.last_status_update || order?.created_at)
         : (order?.last_status_update || order?.date_entered || order?.created_at);
@@ -274,11 +287,11 @@ export function getStaleInfo(order) {
 // qty has been completed.
 //
 // Output: { scenario, status, wo_po_number, shortfall, reason }
-//   no_wo         (c) → no active WO, or nothing to cover → New/Picking, no WO#.
-//   covered       (d) → toShip ≤ headroom → attach WO#, In Progress.
-//   short_new     (e) → short AND WO not started → attach WO#, In Progress,
+//   no_wo         (c) → no active WO, or nothing to cover → New, no WO#.
+//   covered       (d) → toShip ≤ headroom → attach WO#, stays New (WO# shown).
+//   short_new     (e) → short AND WO not started → attach WO#, stays New,
 //                       shortfall = how many more to make (caller notifies prod).
-//   short_started (f) → short AND WO already started → no attach, New/Picking
+//   short_started (f) → short AND WO already started → no attach, New
 //                       (a fresh WO is needed).
 export function decideOpenOrderWoAttach(toShip, activeWos, committedByWo = {}) {
     const q = Number(toShip) || 0;
@@ -301,8 +314,8 @@ export function decideOpenOrderWoAttach(toShip, activeWos, committedByWo = {}) {
                          .sort((a, b) => b.headroom - a.headroom);
     if (covering.length) {
         const woNum = covering[0].wo.wo_number;
-        return { scenario: 'covered', status: 'In Progress', wo_po_number: woNum, shortfall: 0,
-                 reason: `Covered by WO #${woNum} — set In Progress` };
+        return { scenario: 'covered', status: 'New', wo_po_number: woNum, shortfall: 0,
+                 reason: `Covered by WO #${woNum} — WO# attached, stays in New Orders` };
     }
 
     // None covers. Prefer a not-started WO so production can just make more;
@@ -313,11 +326,84 @@ export function decideOpenOrderWoAttach(toShip, activeWos, committedByWo = {}) {
         const c = notStarted[0];
         const shortfall = q - Math.max(0, c.headroom);
         const woNum = c.wo.wo_number;
-        return { scenario: 'short_new', status: 'In Progress', wo_po_number: woNum, shortfall,
-                 reason: `WO #${woNum} short by ${shortfall} — set In Progress, production notified` };
+        return { scenario: 'short_new', status: 'New', wo_po_number: woNum, shortfall,
+                 reason: `WO #${woNum} short by ${shortfall} — WO# attached (stays in New), production notified` };
     }
 
     const started = cand.sort((a, b) => b.headroom - a.headroom)[0];
     return { scenario: 'short_started', status: 'New', wo_po_number: null, shortfall: 0,
              reason: `WO #${started.wo.wo_number} already started & short — needs a new WO` };
+}
+
+// ── Badge / class helpers ─────────────────────────────────────
+// Pure input→Tailwind-class-string maps for the Open Orders board. Moved here
+// from pages/open-orders-view.js (they are stateless and belong with the other
+// pure helpers). Re-exported by utils.js.
+
+// openOrderColorDotClass — bg class for the color picker trigger dot.
+export function openOrderColorDotClass(color) {
+    const map = {
+        orange: 'bg-orange-400',
+        yellow: 'bg-yellow-400',
+        pink:   'bg-pink-400',
+        blue:   'bg-blue-400',
+    };
+    return map[color] || 'bg-slate-200';
+}
+
+// chuteStatusClass — badge bg+text classes for chute/bracket status values.
+export function chuteStatusClass(status) {
+    const map = {
+        'Ordered':  'bg-purple-100 text-purple-800',
+        'In Stock': 'bg-blue-100   text-blue-800',
+        'Ready':    'bg-green-100  text-green-800',
+        'Complete': 'bg-teal-100   text-teal-800',
+        'N/A':      'bg-slate-100  text-slate-500',
+    };
+    return map[status] || 'bg-slate-100 text-slate-600';
+}
+
+// openOrderStatusClass — badge bg+text classes for a status value.
+export function openOrderStatusClass(status) {
+    const map = {
+        'New':          'bg-sky-100    text-sky-800',
+        'In Stock':     'bg-emerald-100 text-emerald-800',
+        'Picked':       'bg-cyan-100   text-cyan-800',
+        'New/Picking':  'bg-blue-100   text-blue-800',
+        'In Progress':  'bg-amber-100  text-amber-800',
+        'WO Requested': 'bg-purple-100 text-purple-800',
+        'PO Requested': 'bg-violet-100 text-violet-800',
+        'WO Created':   'bg-indigo-100 text-indigo-800',
+        'PO Created':   'bg-indigo-100 text-indigo-800',
+        'WO/PO Complete': 'bg-lime-100 text-lime-800',
+        'Boxed':        'bg-green-100  text-green-800',
+        'Label Printed':'bg-fuchsia-100 text-fuchsia-800',
+        'Labelled':     'bg-pink-100   text-pink-800',
+        'Shipped':      'bg-teal-100   text-teal-800',
+        'On Hold':      'bg-red-100    text-red-800',
+        'Deleted':      'bg-rose-100   text-rose-800',
+    };
+    return map[status] || 'bg-slate-100 text-slate-700';
+}
+
+// woDeptBadgeClass — Tailwind bg+text classes for a work_orders department badge.
+export function woDeptBadgeClass(dept) {
+    const map = {
+        'Fab':      'bg-amber-100 text-amber-800',
+        'Weld':     'bg-red-100   text-red-800',
+        'TV Assy':  'bg-blue-100  text-blue-800',
+        'TC Assy':  'bg-teal-100  text-teal-800',
+    };
+    return map[dept] || 'bg-slate-100 text-slate-700';
+}
+
+// woStatusBadgeClass — Tailwind bg+text classes for a work_orders status value.
+export function woStatusBadgeClass(status) {
+    const map = {
+        started:   'bg-green-100  text-green-800',
+        paused:    'bg-yellow-100 text-yellow-800',
+        on_hold:   'bg-red-100    text-red-800',
+        completed: 'bg-slate-100  text-slate-500',
+    };
+    return map[status] || 'bg-slate-100 text-slate-600';
 }

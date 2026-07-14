@@ -47,7 +47,7 @@ export const woRequestActiveWoItems = computed(() => {
 export const woRequestDetailActiveWos = ref([]);
 export const woRequestForm        = ref({
     part_number: '', description: '', sales_order_number: '',
-    qty_on_order: '', qty_in_stock: '', qty_used_per_unit: '',
+    qty_on_order: '', qty_in_stock: '',
     submitted_by: '', is_assembly: false
 });
 export const woRequestFormErrors = ref({ part_number: false, submitted_by: false });
@@ -385,15 +385,37 @@ function _sortSectionRows(rows, sortKey) {
     });
 }
 
-// Brand sections: rows for one order_type, excluding 'New' (New Orders section)
-// and 'Boxed' (Boxed tab) which render in their own sections.
+// soWithNewSibling — Set of non-blank sales_orders that still have >=1 line in
+// the 'New' inbox status. Built in ONE O(n) pass; every section computed reads
+// it O(1). This enforces "no SO splitting": a whole sales order stays parked in
+// New Orders until ALL of its lines are triaged (status != 'New'), then they all
+// drop into their brand sections together. Blank SO rows are never grouped.
+export const soWithNewSibling = computed(() => {
+    const s = new Set();
+    for (const o of openOrders.value) {
+        if ((o.status || '') !== OPEN_ORDER_STATUS_NEW) continue;
+        const so = (o.sales_order || '').trim();
+        if (so) s.add(so);
+    }
+    return s;
+});
+
+// Brand sections: rows for one order_type. Excludes 'New' (New Orders section),
+// 'Boxed'/'Label Printed' (Boxed tab), AND any row whose SO still has a New
+// sibling (held in New Orders until the whole SO is triaged — no split).
 function _openSectionSorted(type) {
     return computed(() => {
         const q = openOrdersFilter.value.trim().toLowerCase();
-        const rows = openOrders.value.filter(o =>
-            o.order_type === type && o.status !== OPEN_ORDER_STATUS_NEW && o.status !== 'Boxed'
-            && o.status !== OPEN_ORDER_STATUS_LABEL_PRINTED
-            && openOrderMatchesFilter(o, q));
+        const rows = openOrders.value.filter(o => {
+            if (o.order_type !== type) return false;
+            const status = o.status || '';
+            if (status === OPEN_ORDER_STATUS_NEW || status === 'Boxed'
+                || status === OPEN_ORDER_STATUS_LABEL_PRINTED) return false;
+            if (!openOrderMatchesFilter(o, q)) return false;
+            const so = (o.sales_order || '').trim();
+            if (so && soWithNewSibling.value.has(so)) return false; // held in New until SO complete
+            return true;
+        });
         return _sortSectionRows(rows, type);
     });
 }
@@ -402,12 +424,20 @@ export const freightOrders   = _openSectionSorted('freight');
 export const tracVacOrders   = _openSectionSorted('trac_vac');
 export const truCutOrders    = _openSectionSorted('tru_cut');
 
-// New Orders: every untriaged row (status === 'New') across all brands. Sorted
-// by sales order like the brand sections so same-SO rows group together.
+// New Orders: every 'New' (untriaged) row PLUS any triaged (brand-bound) row
+// whose SO still has a New sibling, so the whole sales order rides together
+// until fully triaged. Boxed/Label-Printed rows stay in the Boxed tab. Sorted by
+// sales order so same-SO rows (New + held) group together.
 export const newOrders = computed(() => {
     const q = openOrdersFilter.value.trim().toLowerCase();
-    const rows = openOrders.value.filter(o =>
-        (o.status || '') === OPEN_ORDER_STATUS_NEW && openOrderMatchesFilter(o, q));
+    const rows = openOrders.value.filter(o => {
+        if (!openOrderMatchesFilter(o, q)) return false;
+        const status = o.status || '';
+        if (status === OPEN_ORDER_STATUS_NEW) return true;
+        if (status === 'Boxed' || status === OPEN_ORDER_STATUS_LABEL_PRINTED) return false;
+        const so = (o.sales_order || '').trim();
+        return !!so && soWithNewSibling.value.has(so); // held sibling of an unfinished SO
+    });
     return _sortSectionRows(rows, 'new');
 });
 
@@ -438,25 +468,6 @@ export const openOrderSections = computed(() => {
     ];
 });
 
-// soSplit — { [sales_order]: { newCount, movedCount } } for sales orders that
-// are SPLIT: some line rows still in New Orders, some already moved out. Only
-// split SOs get an entry (presence = show the badge). Blank SOs ignored.
-// newCount = rows still 'New'; movedCount = active rows moved past New.
-export const soSplit = computed(() => {
-    const tally = {};
-    for (const o of openOrders.value) {
-        const so = (o.sales_order || '').trim();
-        if (!so) continue;
-        if (!tally[so]) tally[so] = { newCount: 0, movedCount: 0 };
-        if ((o.status || '') === OPEN_ORDER_STATUS_NEW) tally[so].newCount++;
-        else tally[so].movedCount++;
-    }
-    const split = {};
-    for (const so in tally) {
-        if (tally[so].newCount > 0 && tally[so].movedCount > 0) split[so] = tally[so];
-    }
-    return split;
-});
 
 // ── TEMPORARY: Subassy Setup (where-used explorer) ────────────
 // Read-only BOM explorer state. Safe to delete this whole block when

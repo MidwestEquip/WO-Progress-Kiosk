@@ -59,7 +59,100 @@ export function openReceiveModal(order) {
     store.receiverQty.value          = null;
     store.receiverBinLocation.value  = '';
     store.receiverNameError.value    = false;
+    // Reset the "sales orders using this part" panel, then load it non-blocking so
+    // the modal opens instantly (the list is informational + a soft ack, never a hard gate).
+    store.receiveMatchedSos.value    = [];
+    store.receiveSoAck.value         = false;
     store.receiveModalOpen.value     = true;
+    loadReceiveMatchedSos(order);
+}
+
+// loadReceiveMatchedSos — fetch open_orders rows the received part feeds (direct
+// part match or a waiting_on subpart match) into store.receiveMatchedSos. Non-fatal:
+// a failure just leaves the panel empty (toast + log), the receive still works.
+export async function loadReceiveMatchedSos(order) {
+    store.receiveMatchedLoading.value = true;
+    try {
+        const { data, error } = await db.findOpenOrdersForPart(order?.part_number);
+        if (error) throw error;
+        // Guard against a stale response after the user closed / switched the modal.
+        if (store.receiveTarget.value?.id !== order?.id) return;
+        store.receiveMatchedSos.value = data || [];
+    } catch (err) {
+        store.showToast('Could not load sales orders for this part: ' + err.message);
+        logError('loadReceiveMatchedSos', err, { part: order?.part_number });
+    } finally {
+        store.receiveMatchedLoading.value = false;
+    }
+}
+
+// _receivePart — the normalized part # currently being received (the WO's part).
+function _receivePart() {
+    return (store.receiveTarget.value?.part_number || '').trim().toUpperCase();
+}
+
+// receiveMatchIsSubpart — true when a matched SO row ships a DIFFERENT part and only
+// lists the received part in its waiting_on list. In that case "In Stock" must target
+// the waiting_on entry (the subpart is now on the shelf), NOT the whole SO row's status.
+export function receiveMatchIsSubpart(so) {
+    const part = _receivePart();
+    const rowPart = (so?.part_number || '').trim().toUpperCase();
+    if (!part || rowPart === part) return false;
+    return Array.isArray(so?.waiting_on)
+        && so.waiting_on.some(e => (e?.part_number || '').trim().toUpperCase() === part);
+}
+
+// receiveMatchInStock — whether this match already reads "in stock" for the received
+// part: direct match → the SO row status is 'In Stock'; subpart match → the waiting_on
+// entry for the received part carries an in_stock flag. Drives the panel's button/label.
+export function receiveMatchInStock(so) {
+    const part = _receivePart();
+    if (receiveMatchIsSubpart(so)) {
+        return (so.waiting_on || []).some(e =>
+            (e?.part_number || '').trim().toUpperCase() === part && e?.in_stock);
+    }
+    return so?.status === 'In Stock';
+}
+
+// markMatchedSoInStock — mark the received part as on the shelf for one matched SO.
+// Direct match → set the SO row status to 'In Stock'. Subpart match → flag the row's
+// waiting_on entry for the received part in_stock (leaving the SO's own status alone).
+// Updates the panel row and the live Open Orders board in place.
+export async function markMatchedSoInStock(so) {
+    if (!so?.id) return;
+    const part = _receivePart();
+    try {
+        const now = new Date().toISOString();
+        let patch;
+        if (receiveMatchIsSubpart(so)) {
+            const waiting_on = (so.waiting_on || []).map(e =>
+                (e?.part_number || '').trim().toUpperCase() === part ? { ...e, in_stock: true } : e);
+            patch = { waiting_on };
+        } else {
+            patch = { status: 'In Stock', last_status_update: now };
+        }
+        const { error } = await db.updateOpenOrder(so.id, patch);
+        if (error) throw error;
+        store.receiveMatchedSos.value = store.receiveMatchedSos.value.map(o =>
+            o.id === so.id ? { ...o, ...patch } : o);
+        store.openOrders.value = store.openOrders.value.map(o =>
+            o.id === so.id ? { ...o, ...patch } : o);
+        store.showToast('Marked In Stock ✓', 'success');
+    } catch (err) {
+        store.showToast('Failed to mark In Stock: ' + err.message);
+        logError('markMatchedSoInStock', err, { id: so.id });
+    }
+}
+
+// goToOpenOrdersForReceive — jump from the Receiving modal to the Open Orders board,
+// pre-filtered to this WO's part. The extended openOrderMatchesFilter also matches
+// rows waiting on the part as a subpart, so both scenarios surface. main.js's
+// currentView watch fires loadOpenOrders() for the fresh board.
+export function goToOpenOrdersForReceive(order) {
+    store.openOrdersFilter.value = (order?.part_number || '').trim();
+    store.shippingTab.value      = 'orders';
+    store.receiveModalOpen.value = false;
+    store.currentView.value      = 'open_orders';
 }
 
 // _syncOpenOrdersForWoReceive — flip matching Open Orders rows to

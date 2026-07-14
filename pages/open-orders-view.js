@@ -124,72 +124,11 @@ export function openOrderRowClass(color, selected = false) {
     return (map[color] || 'bg-white shadow-[inset_6px_0_0_0_#f1f5f9]') + ' transition-colors';
 }
 
-// openOrderColorDotClass — bg class for the color picker trigger dot.
-export function openOrderColorDotClass(color) {
-    const map = {
-        orange: 'bg-orange-400',
-        yellow: 'bg-yellow-400',
-        pink:   'bg-pink-400',
-        blue:   'bg-blue-400',
-    };
-    return map[color] || 'bg-slate-200';
-}
-
-// chuteStatusClass — badge bg+text classes for chute/bracket status values.
-export function chuteStatusClass(status) {
-    const map = {
-        'Ordered':  'bg-purple-100 text-purple-800',
-        'In Stock': 'bg-blue-100   text-blue-800',
-        'Ready':    'bg-green-100  text-green-800',
-        'Complete': 'bg-teal-100   text-teal-800',
-        'N/A':      'bg-slate-100  text-slate-500',
-    };
-    return map[status] || 'bg-slate-100 text-slate-600';
-}
-
-// openOrderStatusClass — badge bg+text classes for a status value.
-export function openOrderStatusClass(status) {
-    const map = {
-        'New':          'bg-sky-100    text-sky-800',
-        'Picked':       'bg-cyan-100   text-cyan-800',
-        'New/Picking':  'bg-blue-100   text-blue-800',
-        'In Progress':  'bg-amber-100  text-amber-800',
-        'WO Requested': 'bg-purple-100 text-purple-800',
-        'PO Requested': 'bg-violet-100 text-violet-800',
-        'WO Created':   'bg-indigo-100 text-indigo-800',
-        'PO Created':   'bg-indigo-100 text-indigo-800',
-        'WO/PO Complete': 'bg-lime-100 text-lime-800',
-        'Boxed':        'bg-green-100  text-green-800',
-        'Label Printed':'bg-fuchsia-100 text-fuchsia-800',
-        'Labelled':     'bg-pink-100   text-pink-800',
-        'Shipped':      'bg-teal-100   text-teal-800',
-        'On Hold':      'bg-red-100    text-red-800',
-        'Deleted':      'bg-rose-100   text-rose-800',
-    };
-    return map[status] || 'bg-slate-100 text-slate-700';
-}
-
-// woDeptBadgeClass — Tailwind bg+text classes for a work_orders department badge.
-export function woDeptBadgeClass(dept) {
-    const map = {
-        'Fab':      'bg-amber-100 text-amber-800',
-        'Weld':     'bg-red-100   text-red-800',
-        'TV Assy':  'bg-blue-100  text-blue-800',
-        'TC Assy':  'bg-teal-100  text-teal-800',
-    };
-    return map[dept] || 'bg-slate-100 text-slate-700';
-}
-
-// woStatusBadgeClass — Tailwind bg+text classes for a work_orders status value.
-export function woStatusBadgeClass(status) {
-    const map = {
-        started:   'bg-green-100  text-green-800',
-        paused:    'bg-yellow-100 text-yellow-800',
-        on_hold:   'bg-red-100    text-red-800',
-        completed: 'bg-slate-100  text-slate-500',
-    };
-    return map[status] || 'bg-slate-100 text-slate-600';
-}
+// Pure badge/class helpers (openOrderColorDotClass, chuteStatusClass,
+// openOrderStatusClass, woDeptBadgeClass, woStatusBadgeClass) moved to
+// libs/utils-open-orders.js — they are stateless input→class-string maps and
+// belong with the other pure helpers. expose-shipping.js imports them from
+// utils.js now.
 
 // toggleOpenOrderExpand — toggle the expanded state of a stacked column (quotes or boxes) for one row.
 // col: 'quotes' | 'boxes'
@@ -310,7 +249,12 @@ export async function saveCellEdit(id, field) {
     // location (store_bin) and clears the pending update, so the row shows the
     // new bin next time. A blank "Upd" is just a normal clear (handled below).
     if (field === 'update_store_bin' && value) {
-        const binUpdates = { store_bin: value, update_store_bin: null };
+        // Ask before promoting — confirm makes it the canonical bin & clears the
+        // pending field; decline keeps it as a pending "Updated Bin" suggestion.
+        const promote = window.confirm(`Update the bin location for this part to:\n\n${value}?`);
+        const binUpdates = promote
+            ? { store_bin: value, update_store_bin: null }
+            : { update_store_bin: value };
         const { error } = await db.updateOpenOrder(id, binUpdates);
         if (error) { store.showToast('Failed to save: ' + error.message); await loadOpenOrders(); return; }
         const bIdx = store.openOrders.value.findIndex(o => o.id === id);
@@ -471,7 +415,14 @@ export async function goToActiveWo(order) {
     try {
         const { data, error } = await db.fetchWorkOrdersByWoNumber(woNum);
         if (error) throw error;
-        const wos = data || [];
+        let wos = data || [];
+        // Pending WO (created, awaiting official Alere WO#): the shown number is the
+        // internal job_number, so fall back to a job_number lookup (active rows only).
+        if (!wos.length) {
+            const jr = await db.fetchAllWorkOrdersByJobNumber(woNum);
+            if (jr.error) throw jr.error;
+            wos = (jr.data || []).filter(w => w.status !== 'completed');
+        }
         if (!wos.length) { store.showToast(`No active WO found for #${woNum} — it may be completed or not started.`); return; }
         const dept = wos[0].department;
         if (!dept) { store.showToast('That WO has no department set.'); return; }

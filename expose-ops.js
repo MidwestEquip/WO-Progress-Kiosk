@@ -51,6 +51,7 @@ import { checkPoActiveOrders, isPoPartDuplicated } from './pages/purchasing-requ
 import { completeOrder, submitReceiving } from './pages/purchasing-receive.js';
 import { enterApprovalTab, approveOrder, cancelRevise, submitRevise } from './pages/purchasing-approval.js';
 import { enterWoApprovalView, exitWoApprovalView, loadManagerPendingWoRequests,
+         saveManagerWoApprovalStatusNote,
          openManagerWoDetail, closeManagerWoDetail, saveManagerWoDetail,
          removeManagerSubpart, managerFinalApproveWo,
          openManagerWoSendBack, cancelManagerWoSendBack,
@@ -398,6 +399,7 @@ export function buildOpsExpose() {
         managerWoSendBackOpen:    store.managerWoSendBackOpen,
         managerWoSendBackNote:    store.managerWoSendBackNote,
         managerWoApprovalCount:   store.managerWoApprovalCount,
+        managerWoApprovalInlineState: store.managerWoApprovalInlineState,
         managerWoSubpartForms:    store.managerWoSubpartForms,
         managerWoSubpartDescs:    store.managerWoSubpartDescs,
         managerWoSubpartFilesOpen:    store.managerWoSubpartFilesOpen,
@@ -405,6 +407,7 @@ export function buildOpsExpose() {
         managerWoSubpartFiles:        store.managerWoSubpartFiles,
         managerWoSubpartFilesLoading: store.managerWoSubpartFilesLoading,
         enterWoApprovalView, exitWoApprovalView, loadManagerPendingWoRequests,
+        saveManagerWoApprovalStatusNote,
         openManagerWoDetail, closeManagerWoDetail, saveManagerWoDetail,
         removeManagerSubpart, managerFinalApproveWo,
         openManagerWoSendBack, cancelManagerWoSendBack, submitManagerWoSendBack,

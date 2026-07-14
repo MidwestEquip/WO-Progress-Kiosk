@@ -44,7 +44,8 @@ import { fetchAllWorkOrdersByWoNumber, fetchAllWorkOrdersByJobNumber } from './l
 import { searchOfficeReceive, openReceiveModal, submitReceive,
          openCloseoutModal, submitCloseout, loadReceivingEligible,
          openAlereConfirm, cancelAlereConfirm, submitAlereUpdated,
-         goToCloseout,
+         goToCloseout, markMatchedSoInStock, goToOpenOrdersForReceive,
+         receiveMatchIsSubpart, receiveMatchInStock,
          saveCloseoutNoteInline, loadClosedOutOrders, openClosedOutHistory } from './pages/wo-status-view.js';
 import { searchCS, searchPastOrders, selectPastWo, clearPastOrders } from './pages/cs-view.js';
 
@@ -234,6 +235,9 @@ export function buildCoreExpose() {
         receiverQty:            store.receiverQty,
         receiverBinLocation:    store.receiverBinLocation,
         receiverNameError:      store.receiverNameError,
+        receiveMatchedSos:      store.receiveMatchedSos,
+        receiveMatchedLoading:  store.receiveMatchedLoading,
+        receiveSoAck:           store.receiveSoAck,
         closeoutModalOpen:      store.closeoutModalOpen,
         closeoutTarget:         store.closeoutTarget,
         closeoutName:           store.closeoutName,
@@ -304,6 +308,8 @@ export function buildCoreExpose() {
         searchOfficeReceive, openReceiveModal, submitReceive,
         openCloseoutModal, submitCloseout, loadReceivingEligible,
         goToCloseout, markAlereUpdated,
+        markMatchedSoInStock, goToOpenOrdersForReceive,
+        receiveMatchIsSubpart, receiveMatchInStock,
         openAlereConfirm, cancelAlereConfirm, submitAlereUpdated,
         saveCloseoutNoteInline, loadClosedOutOrders, openClosedOutHistory,
         closedOutOrders:         store.closedOutOrders,
