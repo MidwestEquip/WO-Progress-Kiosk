@@ -111,6 +111,33 @@ export const OPEN_ORDER_STATUSES = [
     'Shipped', 'On Hold'
 ];
 
+// Open Orders paste import — column mapping.
+// OPEN_ORDER_PASTE_FIELD_ORDER is the fixed positional order used when a pasted
+// block has NO recognizable header row (the legacy behavior). Its indexes are
+// the canonical column layout of the shipping spreadsheet.
+export const OPEN_ORDER_PASTE_FIELD_ORDER = [
+    'part_number', 'to_ship', 'qty_pulled', 'description', 'store_bin',
+    'update_store_bin', 'customer', 'sales_order', 'date_entered', 'status', 'wo_va_notes',
+];
+// OPEN_ORDER_PASTE_HEADER_SYNONYMS maps each field to the header spellings that
+// identify it. Spellings MUST be pre-normalized (lowercase, letters+digits only —
+// spaces and symbols stripped) to match normalizeHeaderToken() in
+// utils-open-orders.js. detectPasteColumns() consumes this to auto-map a pasted
+// header row so reordered / subset columns import correctly.
+export const OPEN_ORDER_PASTE_HEADER_SYNONYMS = {
+    part_number:      ['part', 'partnumber', 'partno'],
+    to_ship:          ['toship', 'ship', 'shipqty', 'qtytoship'],
+    qty_pulled:       ['qtypulled', 'pulled', 'pld'],
+    description:      ['description', 'desc'],
+    store_bin:        ['storebin', 'store', 'bin', 'location'],
+    update_store_bin: ['updatestorebin', 'updatebin', 'updbin', 'newbin'],
+    customer:         ['customer', 'cust'],
+    sales_order:      ['salesorder', 'so', 'sonumber'],
+    date_entered:     ['dateentered', 'date', 'entered'],
+    status:           ['status'],
+    wo_va_notes:      ['notes', 'note', 'comments'],
+};
+
 // Open Orders row-grid column templates (shared header + rows). NEW omits
 // DIMS/Wt, Quotes, Boxes, Est. Leadtime, and Waiting On, and adds a triage-
 // buttons column between Notes and Customer; it DOES show WO/PO # (auto-attached
@@ -198,7 +225,7 @@ export const PARTIAL_NAMES = [
     'modal-tc-unit', 'modal-tc-stock',
     'modal-tv-unit', 'modal-tv-stock',
     'modal-wo-request', 'modal-wo-request-subparts', 'modal-wo-request-data',
-    'modal-misc', 'modal-receive-sales-orders', 'modal-open-orders-add', 'modal-open-orders-qty-confirm', 'modal-open-orders-waiting',
+    'modal-misc', 'modal-receive-sales-orders', 'modal-open-orders-add', 'modal-open-orders-qty-confirm', 'modal-open-orders-waiting', 'modal-open-orders-backorder',
     'modal-action-panel-print',
     'modal-eng-inquiry',
     'modal-eng-images',
@@ -237,9 +264,9 @@ export const ENG_ASSIGNEES = ['CSR', 'Engineering', 'Customer'];
 // (Orders on top). `key` is stored in record_category; `badge`/`badgeClass`
 // label the card; `label` heads the board section. Default is 'inquiry'.
 export const ENG_RECORD_CATEGORIES = [
-    { key: 'order',          label: 'Orders',                 badge: 'Order',           badgeClass: 'bg-emerald-100 text-emerald-700' },
-    { key: 'issue_warranty', label: 'Issues / Warranty',      badge: 'Issue/Warranty',  badgeClass: 'bg-amber-100 text-amber-700' },
-    { key: 'inquiry',        label: 'Engineering Inquiries',  badge: 'Inquiry',         badgeClass: 'bg-sky-100 text-sky-700' },
+    { key: 'order',          label: 'Orders',                 badge: 'Order',           badgeClass: 'bg-gray-100 text-gray-600' },
+    { key: 'issue_warranty', label: 'Issues / Warranty',      badge: 'Issue/Warranty',  badgeClass: 'bg-gray-100 text-gray-600' },
+    { key: 'inquiry',        label: 'Engineering Inquiries',  badge: 'Inquiry',         badgeClass: 'bg-gray-100 text-gray-600' },
 ];
 
 export const ENG_FOLLOWUP_STATUSES = [

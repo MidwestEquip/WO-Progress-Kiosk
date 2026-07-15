@@ -90,8 +90,9 @@ function _ptQty(v) {
 // info-header band, then the yellow line-item grid. No Ship To block by design.
 export function printPickingTicket(order) {
     const so = (order?.sales_order || '').trim();
+    // Backordered lines are held, not picked — exclude them from the ticket.
     const items = so
-        ? store.openOrders.value.filter(o => (o.sales_order || '').trim() === so)
+        ? store.openOrders.value.filter(o => (o.sales_order || '').trim() === so && !o.backordered)
         : [order].filter(Boolean);
     if (!items.length) { store.showToast('Nothing to print for this row'); return; }
 
@@ -206,6 +207,9 @@ export async function markShipped(order) {
     }
     store.openOrders.value = store.openOrders.value.filter(o => o.id !== order.id);
 }
+
+// Backorder actions (openBackorderModal / submitBackorder / unBackorderRow) live
+// in pages/open-orders-backorder.js — split for the 500-line cap.
 
 // ── Waiting On (subparts blocking a ship) ─────────────────────
 // A row can be waiting on several missing subparts, each { part_number,

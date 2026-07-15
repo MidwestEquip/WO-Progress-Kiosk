@@ -143,8 +143,9 @@
 
                         <!-- Instructions -->
                         <p class="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200 leading-relaxed">
-                            Paste tab-separated rows from Excel. Expected columns:<br>
+                            Paste tab-separated rows from Excel. Standard column order:<br>
                             <span class="font-mono text-slate-700">Part # · To Ship · Qty Pulled · Description · Store/Bin · Update Store/Bin · Customer · Sales Order # · Date Entered · Status · Notes</span><br>
+                            <span class="font-semibold">Include your header row</span> and the columns can be in any order — they'll be matched by name.
                             Section is auto-assigned by part # prefix (TC → Tru Cut, else → Trac Vac).
                         </p>
 
@@ -168,6 +169,27 @@
                                     Clear &amp; re-paste
                                 </button>
                             </div>
+
+                            <!-- Column-mapping banner: how the paste's columns were read -->
+                            <p v-if="openOrderPasteColumnInfo && openOrderPasteColumnInfo.mode === 'header'"
+                               class="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mb-2">
+                                ✓ Header row detected — mapped {{ openOrderPasteColumnInfo.recognized.length }} column(s) by name.
+                                Confirm the values landed in the right columns below.
+                                <span v-if="openOrderPasteColumnInfo.unrecognized.length" class="block mt-0.5 text-emerald-700">
+                                    Ignored unrecognized column(s): {{ openOrderPasteColumnInfo.unrecognized.join(', ') }}.
+                                </span>
+                            </p>
+                            <p v-else-if="openOrderPasteColumnInfo"
+                               :class="openOrderPasteColumnInfo.shipNonNumeric > 0 ? 'text-red-800 bg-red-50 border-red-200' : 'text-amber-800 bg-amber-50 border-amber-200'"
+                               class="text-xs border rounded-lg px-3 py-2 mb-2">
+                                <span v-if="openOrderPasteColumnInfo.shipNonNumeric > 0" class="font-bold">
+                                    ⚠ {{ openOrderPasteColumnInfo.shipNonNumeric }} “To Ship” value(s) aren't numbers — your columns may be in a different order.
+                                    Add your header row and re-paste, or verify each column below before saving.
+                                </span>
+                                <span v-else>
+                                    ⚠ No header row detected — columns were read in the standard order. If your paste uses a different order, include the header row and re-paste.
+                                </span>
+                            </p>
 
                             <!-- Duplicate / adjusted-value warnings -->
                             <p v-if="openOrderPasteDupCount > 0"

@@ -18,17 +18,17 @@
         </div>
         <div class="flex items-center gap-2 flex-wrap justify-end">
             <button @click="openEngInquiryForm('order')"
-                class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all flex items-center gap-1.5 shrink-0">
+                class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all flex items-center gap-1.5 shrink-0">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                 New Order
             </button>
             <button @click="openEngInquiryForm('issue_warranty')"
-                class="bg-amber-500 hover:bg-amber-400 text-white px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all flex items-center gap-1.5 shrink-0">
+                class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all flex items-center gap-1.5 shrink-0">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                 New Issue/Warranty
             </button>
             <button @click="openEngInquiryForm('inquiry')"
-                class="bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all flex items-center gap-1.5 shrink-0">
+                class="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-4 py-2 rounded-xl font-bold text-sm uppercase tracking-wide active:scale-95 transition-all flex items-center gap-1.5 shrink-0">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                 New Inquiry
             </button>
@@ -149,8 +149,7 @@
                                 class="appearance-none rounded-full px-2.5 py-0.5 text-xs font-bold shrink-0 cursor-pointer focus:outline-none" :class="grp.badgeClass">
                                 <option v-for="c in engRecordCategories" :key="c.key" :value="c.key">{{ c.badge }}</option>
                             </select>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 cursor-default"
-                                :class="inq.inquiry_type === 'hitch' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 cursor-default bg-gray-100 text-gray-600">
                                 {{ inq.inquiry_type === 'hitch' ? 'Hitch' : 'Chute' }}
                             </span>
                             <span class="text-[10px] font-semibold text-gray-400 shrink-0">Priority:</span>
@@ -166,8 +165,7 @@
                             </select>
                             <span class="text-[10px] font-semibold text-gray-400 shrink-0">Status:</span>
                             <select v-model="inq.status" @change="onEngStatusChange(inq)"
-                                class="appearance-none rounded-full px-2.5 py-0.5 text-xs font-semibold cursor-pointer focus:outline-none"
-                                :class="{ 'bg-green-100 text-green-700': inq.status === 'Done', 'bg-yellow-100 text-yellow-700': inq.status === 'In Progress', 'bg-red-100 text-red-700': inq.status === 'Not Started', 'bg-gray-200 text-gray-600': inq.status === 'Canceled' || inq.status === 'On Hold', 'bg-blue-100 text-blue-700': inq.status === 'Ready to Design', 'bg-orange-100 text-orange-700': inq.status === 'Needs Measurements', 'bg-emerald-100 text-emerald-700': inq.status === 'Design Complete / Ready to Order', 'bg-gray-100 text-gray-500': !inq.status }">
+                                class="appearance-none rounded-full px-2.5 py-0.5 text-xs font-semibold cursor-pointer focus:outline-none bg-gray-100 text-gray-600">
                                 <option v-for="s in engStatuses" :key="s" :value="s">{{ s }}</option>
                             </select>
                             <button @click="openEngImagesModal(inq)"
@@ -300,7 +298,7 @@
                             <span class="text-[10px] font-semibold text-gray-400 shrink-0">CSR Rep:</span>
                             <input v-model="inq.csr_rep" type="text" maxlength="60" placeholder="Name" @blur="saveEngInquiryInline(inq)"
                                 class="flex-1 min-w-0 bg-transparent border-0 border-b border-gray-200 text-xs text-gray-700 font-semibold focus:outline-none focus:border-rose-300 placeholder-gray-300">
-                            <button @click="openEngNoteModal(inq, 'csr_notes', 'csr', 'Add CSR Note')" class="shrink-0 bg-rose-100 hover:bg-rose-200 text-rose-700 px-2 py-0.5 rounded text-xs font-bold active:scale-95">+ Add</button>
+                            <button @click="openEngNoteModal(inq, 'csr_notes', 'csr', 'Add CSR Note')" class="shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-0.5 rounded text-xs font-bold active:scale-95">+ Add</button>
                         </div>
                         <pre class="flex-1 min-h-0 overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap px-1.5 py-1 bg-gray-50 border border-gray-200 rounded leading-relaxed">{{ inq.csr_notes || '' }}</pre>
                     </div>
@@ -309,7 +307,7 @@
                     <div class="flex flex-col flex-1 px-2 pt-2 pb-2 border-r border-gray-100 min-w-0">
                         <div class="shrink-0 flex items-center justify-between mb-0.5">
                             <label class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Engineering Notes</label>
-                            <button @click="openEngNoteModal(inq, 'engineering_notes', 'eng', 'Add Engineering Note')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded text-xs font-bold active:scale-95">+ Add</button>
+                            <button @click="openEngNoteModal(inq, 'engineering_notes', 'eng', 'Add Engineering Note')" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-0.5 rounded text-xs font-bold active:scale-95">+ Add</button>
                         </div>
                         <pre class="flex-1 min-h-0 overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap px-1.5 py-1 bg-gray-50 border border-gray-200 rounded leading-relaxed">{{ inq.engineering_notes || '' }}</pre>
                     </div>
@@ -337,11 +335,10 @@
                         <pre class="flex-1 min-h-0 overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap px-2 py-1 leading-relaxed bg-transparent">{{ inq.current_action_step || '' }}</pre>
                         <div class="shrink-0 flex items-center gap-1 px-2 pb-1.5">
                             <button v-if="inq.action_step_unread" @click="markActionStepRead(inq)"
-                                class="bg-pink-200 hover:bg-pink-300 text-pink-700 px-2 py-0.5 rounded text-xs font-bold active:scale-95">✓ Read</button>
+                                class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-0.5 rounded text-xs font-bold active:scale-95">✓ Read</button>
                             <div class="flex-1"></div>
                             <button @click="openEngNoteModal(inq, 'current_action_step', 'action', 'Add Action Step')"
-                                class="px-2 py-0.5 rounded text-xs font-bold active:scale-95"
-                                :class="inq.action_step_unread ? 'bg-pink-100 hover:bg-pink-200 text-pink-700' : inq.assigned_to === 'Engineering' ? 'bg-blue-100 hover:bg-blue-200 text-blue-700' : inq.assigned_to === 'CSR' ? 'bg-green-100 hover:bg-green-200 text-green-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'">+ Add</button>
+                                class="px-2 py-0.5 rounded text-xs font-bold active:scale-95 bg-gray-100 hover:bg-gray-200 text-gray-600">+ Add</button>
                         </div>
                     </div>
 

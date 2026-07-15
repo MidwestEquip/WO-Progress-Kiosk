@@ -100,9 +100,11 @@ export async function setRowColor(id, color) {
 }
 
 // effectiveRowColor — stale highlight takes priority over manual row_color.
+// A backordered line gets a distinct 'backorder' stripe (below stale escalation,
+// which must still signal an overdue backorder; above the manual owner colors).
 // Returns the color string to pass to openOrderRowClass.
 export function effectiveRowColor(order) {
-    return getStaleHighlightColor(order) || order.row_color || null;
+    return getStaleHighlightColor(order) || (order?.backordered ? 'backorder' : null) || order.row_color || null;
 }
 
 // openOrderRowClass — Tailwind classes for row bg + left color stripe.
@@ -120,6 +122,8 @@ export function openOrderRowClass(color, selected = false) {
         red:    'bg-red-200   shadow-[inset_6px_0_0_0_#b91c1c]',
         pink:   'bg-pink-50   shadow-[inset_6px_0_0_0_#f472b6]',
         blue:   'bg-blue-50   shadow-[inset_6px_0_0_0_#60a5fa]',
+        // backorder — violet, distinct from the four owner colors and the stale tints.
+        backorder: 'bg-violet-50 shadow-[inset_6px_0_0_0_#7c3aed]',
     };
     return (map[color] || 'bg-white shadow-[inset_6px_0_0_0_#f1f5f9]') + ' transition-colors';
 }

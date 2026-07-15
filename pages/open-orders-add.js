@@ -11,8 +11,10 @@ import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { detectOpenOrderSection, isChutePart,
          normalizePasteDate, matchOpenOrderStatus,
-         parseClipboardTable, decideOpenOrderWoAttach } from '../libs/utils.js';
-import { OPEN_ORDER_STATUSES, OPEN_ORDER_STATUS_NEW, PART_NOTE_KIND } from '../libs/config.js';
+         parseClipboardTable, detectPasteColumns,
+         decideOpenOrderWoAttach } from '../libs/utils.js';
+import { OPEN_ORDER_STATUSES, OPEN_ORDER_STATUS_NEW, PART_NOTE_KIND,
+         OPEN_ORDER_PASTE_FIELD_ORDER, OPEN_ORDER_PASTE_HEADER_SYNONYMS } from '../libs/config.js';
 import { logError } from '../libs/db-shared.js';
 
 // cancelAddModal — close the Add Row(s) modal and reset all draft state.
@@ -21,6 +23,7 @@ export function cancelAddModal() {
     store.openOrderAddMode.value = 'manual';
     store.openOrderAddPasteText.value = '';
     store.openOrderAddPasteRows.value = [];
+    store.openOrderPasteColumnInfo.value = null;
     store.openOrderAddForm.value = {
         part_number: '', to_ship: '', qty_pulled: '', description: '',
         store_bin: '', update_store_bin: '', customer: '', sales_order: '',
@@ -31,14 +34,19 @@ export function cancelAddModal() {
 }
 
 // parsePasteRows — parse tab-delimited text (pasted from Excel) into preview rows.
-// Expected column order (11 cols):
-//   [0] Part #  [1] To Ship  [2] Qty Pulled  [3] Description
-//   [4] Store/Bin  [5] Update Store/Bin  [6] Customer
-//   [7] Sales Order #  [8] Date Entered  [9] Status  [10] Notes
+// Column mapping is header-aware:
+//   • If the first non-blank pasted row is recognized as a header (≥3 known
+//     column names, per detectPasteColumns), each column is mapped to its field
+//     by header name — so reordered or subset pastes import correctly. The
+//     header row itself is consumed, not imported.
+//   • Otherwise columns fall back to the fixed positional order
+//     (OPEN_ORDER_PASTE_FIELD_ORDER) — the legacy behavior. In this mode a
+//     sanity guard counts To-Ship cells that are not numeric; a high count
+//     usually means the columns are in a different order and is surfaced in the
+//     preview banner (store.openOrderPasteColumnInfo).
 // Section is auto-detected from part # prefix (TC → tru_cut, else → trac_vac).
-// Blank lines and obvious header rows are skipped. A row with an empty Part #
-// cell is kept (description-only / misc lines) — the part # can be added later
-// by clicking the cell on the board.
+// Blank lines are skipped. A row with an empty Part # cell is kept
+// (description-only / misc lines) — the part # can be added later on the board.
 // Hardening (underscore fields are preview-only, never inserted):
 //   _dupe        — SO#+part already exists on the board or earlier in this paste;
 //                  warned in the preview but added by default — uncheck the
@@ -52,41 +60,71 @@ export function parsePasteRows() {
     const existingKeys = new Set(
         store.openOrders.value.map(o => dupKey((o.part_number || '').trim().toUpperCase(), o.sales_order))
     );
-    const rows = [];
+
     // parseClipboardTable respects spreadsheet quoting so cells with embedded
     // newlines (multi-line notes) stay in one row instead of shattering.
-    for (const c of parseClipboardTable(text)) {
+    const table = parseClipboardTable(text);
+    const firstIdx = table.findIndex(c => c.some(cell => cell && cell.trim()));
+
+    // Detect a header row and build a field → column-index map. In positional
+    // mode the map is just the fixed field order.
+    let headerRowIdx = -1;
+    const colIndex = {};   // field → source column index
+    let mode = 'positional';
+    const det = firstIdx >= 0
+        ? detectPasteColumns(table[firstIdx], OPEN_ORDER_PASTE_HEADER_SYNONYMS)
+        : { isHeader: false, fieldByIndex: [], recognized: [], unrecognized: [] };
+    if (det.isHeader) {
+        mode = 'header';
+        headerRowIdx = firstIdx;
+        det.fieldByIndex.forEach((field, i) => { if (field && !(field in colIndex)) colIndex[field] = i; });
+    } else {
+        OPEN_ORDER_PASTE_FIELD_ORDER.forEach((field, i) => { colIndex[field] = i; });
+    }
+    const cell = (cells, field) => {
+        const i = colIndex[field];
+        return (i == null ? '' : (cells[i] || '')).trim();
+    };
+
+    const rows = [];
+    let shipNonNumeric = 0;
+    for (let r = 0; r < table.length; r++) {
+        if (r === headerRowIdx) continue;              // skip the consumed header row
+        const c = table[r];
         if (c.every(cell => !cell || !cell.trim())) continue;  // skip blank rows
-        const partRaw = (c[0] || '').trim();
+        const partRaw = cell(c, 'part_number');
+        // Legacy safety: a stray "Part #" header slipping through positional mode.
         if (partRaw.toLowerCase() === 'part #' || partRaw.toLowerCase() === 'part number') continue;
         const part = partRaw.toUpperCase() || null;
 
-        const rawDate   = (c[8] || '').trim();
+        const rawShip   = cell(c, 'to_ship');
+        if (rawShip && isNaN(Number(rawShip))) shipNonNumeric++;
+        const rawDate   = cell(c, 'date_entered');
         const normDate  = normalizePasteDate(rawDate);
-        const rawStatus = (c[9] || '').trim();
+        const rawStatus = cell(c, 'status');
         const matched   = matchOpenOrderStatus(rawStatus, OPEN_ORDER_STATUSES);
 
         // Dedup only applies to rows with a part # — no-part lines on the same
         // SO would otherwise falsely flag each other as duplicates.
         let isDupe = false;
         if (part) {
-            const key = dupKey(part, c[7]);
+            const key = dupKey(part, cell(c, 'sales_order'));
             isDupe    = existingKeys.has(key);
             existingKeys.add(key); // also catches the same line pasted twice
         }
 
         rows.push({
             part_number:      part,
-            to_ship:          (c[1] || '').trim() || null,
-            qty_pulled:       (c[2] || '').trim() || null,
-            description:      (c[3] || '').trim() || null,
-            store_bin:        (c[4] || '').trim() || null,
-            update_store_bin: (c[5] || '').trim() || null,
-            customer:         (c[6] || '').trim() || null,
-            sales_order:      (c[7] || '').trim() || null,
+            to_ship:          rawShip || null,
+            qty_pulled:       cell(c, 'qty_pulled') || null,
+            description:      cell(c, 'description') || null,
+            store_bin:        cell(c, 'store_bin') || null,
+            update_store_bin: cell(c, 'update_store_bin') || null,
+            customer:         cell(c, 'customer') || null,
+            sales_order:      cell(c, 'sales_order') || null,
             date_entered:     normDate || today,
             status:           matched  || OPEN_ORDER_STATUS_NEW,
-            wo_va_notes:      (c[10] || '').trim() || null,
+            wo_va_notes:      cell(c, 'wo_va_notes') || null,
             order_type:       detectOpenOrderSection(part),
             _dupe:            isDupe,
             _add_anyway:      isDupe,  // dupes default to included — uncheck to skip
@@ -95,6 +133,14 @@ export function parsePasteRows() {
         });
     }
     store.openOrderAddPasteRows.value = rows;
+    store.openOrderPasteColumnInfo.value = {
+        mode,
+        recognized:     det.recognized,
+        unrecognized:   det.unrecognized,
+        // Guard only meaningful in positional mode (header mode already knows
+        // which column is To Ship).
+        shipNonNumeric: mode === 'positional' ? shipNonNumeric : 0,
+    };
 }
 
 // ── Auto-attach active WOs to pasted rows ─────────────────────

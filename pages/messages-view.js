@@ -14,8 +14,6 @@ import { ROLE_DISPLAY_NAMES } from '../libs/config.js';
 
 let _pollInterval = null;
 
-const MSG_MEDIA_MAX_BYTES = 25 * 1024 * 1024;   // 25 MB cap per attachment
-
 // scrollThreadToBottom — pin the thread scroll area to the newest message (iMessage-style).
 // Waits for Vue to render the new rows, then jumps to the bottom. No-op if not mounted.
 async function scrollThreadToBottom() {
@@ -114,10 +112,6 @@ export function onMessageMediaPick(event) {
     const isVideo = file.type.startsWith('video/');
     if (!isImage && !isVideo) {
         store.showToast('Only photos and videos can be attached.');
-        return;
-    }
-    if (file.size > MSG_MEDIA_MAX_BYTES) {
-        store.showToast('File is too large (max 25 MB).');
         return;
     }
     clearMessageMedia();

@@ -719,6 +719,7 @@
                                                             </button>
                                                         </div>
                                                     </template>
+                                                    <span v-if="order.backordered" class="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-800 whitespace-nowrap">&#9873; BACKORDERED</span>
                                                 </div>
 
                                                 <div v-if="section.type !== 'new'" class="min-w-0 text-xs" @click.stop @mousedown.stop>

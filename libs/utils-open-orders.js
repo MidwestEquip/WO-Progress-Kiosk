@@ -67,10 +67,14 @@ export function compareSalesOrder(a, b) {
 // the row's existing left color stripe (border-l-4) and light bottom divider
 // (border-slate-100), which otherwise resolve by Tailwind source order.
 export function openOrderGroupClass(order, prev, next) {
+    // A backordered line is intentionally separated from its sales order, so it
+    // never joins the SO group box — and a backordered neighbor is treated as a
+    // different SO so the box closes cleanly before/after it.
+    if (order?.backordered) return '';
     const so = (order?.sales_order || '').trim();
     if (!so) return '';
-    const samePrev = !!prev && (prev.sales_order || '').trim() === so;
-    const sameNext = !!next && (next.sales_order || '').trim() === so;
+    const samePrev = !!prev && !prev.backordered && (prev.sales_order || '').trim() === so;
+    const sameNext = !!next && !next.backordered && (next.sales_order || '').trim() === so;
     if (!samePrev && !sameNext) return '';
     // First/middle rows of a group: keep the dark outer box, but soften the
     // internal horizontal divider (row's border-b) to slate-50 so consecutive
@@ -158,6 +162,73 @@ export function matchOpenOrderStatus(raw, statuses) {
     const key = raw.trim().toLowerCase();
     if (!key) return null;
     return statuses.find(s => s.toLowerCase() === key) || null;
+}
+
+// ── normalizeHeaderToken ──────────────────────────────────────
+// Reduce a pasted header cell to a comparison key: lowercase, letters+digits
+// only (spaces and symbols dropped). So "Part #", "PART#", and "part number"
+// all collapse toward matchable tokens ("part" / "partnumber"). Non-strings and
+// blank cells return ''.
+export function normalizeHeaderToken(raw) {
+    if (typeof raw !== 'string') return '';
+    return raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// ── detectPasteColumns ────────────────────────────────────────
+// Decide whether the first pasted row is a header, and if so, map each column
+// index to a canonical field. Pure — the synonym table is passed in (same
+// no-imports pattern as matchOpenOrderStatus).
+//
+// Inputs:
+//   headerCells — the first row's cells (string[]).
+//   synonyms    — { field: [normalizedSpelling, …] } (OPEN_ORDER_PASTE_HEADER_SYNONYMS).
+//                 Spellings are already normalized; each cell is normalized here
+//                 and looked up against them.
+//
+// A row is treated as a header when at least 3 of its cells match a known field.
+// Real data rows almost never have 3 cells equal to field-name tokens like
+// "description" / "customer" / "status", so this avoids eating a data row.
+// Each field is claimed by the FIRST column that maps to it (later duplicate
+// header names are left unmapped).
+//
+// Output: { isHeader, fieldByIndex, recognized, unrecognized }
+//   fieldByIndex — array parallel to headerCells; each entry is the field name
+//                  or null. Empty array when not a header.
+//   recognized   — field names that got a column (in column order).
+//   unrecognized — original header cell texts that matched no field (non-blank).
+export function detectPasteColumns(headerCells, synonyms) {
+    const cells = Array.isArray(headerCells) ? headerCells : [];
+    const map = synonyms && typeof synonyms === 'object' ? synonyms : {};
+    // Build a flat lookup: normalizedSpelling → field.
+    const lookup = {};
+    for (const field of Object.keys(map)) {
+        for (const spelling of (map[field] || [])) {
+            if (!(spelling in lookup)) lookup[spelling] = field;
+        }
+    }
+    const fieldByIndex = [];
+    const recognized = [];
+    const unrecognized = [];
+    const claimed = new Set();
+    for (let i = 0; i < cells.length; i++) {
+        const token = normalizeHeaderToken(cells[i]);
+        const field = token ? lookup[token] : undefined;
+        if (field && !claimed.has(field)) {
+            fieldByIndex[i] = field;
+            claimed.add(field);
+            recognized.push(field);
+        } else {
+            fieldByIndex[i] = null;
+            if ((cells[i] || '').trim()) unrecognized.push(cells[i].trim());
+        }
+    }
+    const isHeader = recognized.length >= 3;
+    return {
+        isHeader,
+        fieldByIndex: isHeader ? fieldByIndex : [],
+        recognized:   isHeader ? recognized   : [],
+        unrecognized: isHeader ? unrecognized : [],
+    };
 }
 
 // isChutePart — returns true if the part number is a chute part.

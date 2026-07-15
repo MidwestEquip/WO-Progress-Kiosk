@@ -324,6 +324,10 @@ export const openOrderAddModalOpen = ref(false);
 export const openOrderAddMode      = ref('manual');
 export const openOrderAddPasteText = ref('');
 export const openOrderAddPasteRows = ref([]);
+// How the last paste's columns were read, for the preview banner. Shape:
+//   { mode: 'header'|'positional', recognized: string[], unrecognized: string[],
+//     shipNonNumeric: number }  (null before any paste is parsed).
+export const openOrderPasteColumnInfo = ref(null);
 export const openOrderAddForm      = ref({
     part_number: '', to_ship: '', qty_pulled: '', description: '',
     store_bin: '', update_store_bin: '', customer: '', sales_order: '',
@@ -346,6 +350,13 @@ export const openOrderEditingValue = ref('');
 // Confirm gate before editing To Ship / order qty. { id, value } while open, id=null when closed.
 export const openOrderQtyConfirm   = ref({ id: null, value: null });
 export const openOrderSelectedIds  = ref([]);
+// The single selected row (null unless exactly one is selected) — drives the
+// per-row Backorder / Un-backorder control in the floating selection action bar.
+export const openOrderSingleSelectedRow = computed(() => {
+    const ids = openOrderSelectedIds.value;
+    if (ids.length !== 1) return null;
+    return openOrders.value.find(o => o.id === ids[0]) || null;
+});
 export const openOrderBulkStatus   = ref('');
 export const openOrderDragOverSection = ref('');
 export const openOrderDropZoneTarget  = ref('');
@@ -370,50 +381,50 @@ export const openOrdersSort = ref({
 function _sortSectionRows(rows, sortKey) {
     const { field, dir } = openOrdersSort.value[sortKey];
     return [...rows].sort((a, b) => {
+        let p;
         if (field === 'sales_order') {
-            return dir === 'asc'
-                ? compareSalesOrder(a.sales_order, b.sales_order)
-                : compareSalesOrder(b.sales_order, a.sales_order);
+            p = dir === 'asc' ? compareSalesOrder(a.sales_order, b.sales_order)
+                              : compareSalesOrder(b.sales_order, a.sales_order);
+        } else {
+            let av = a[field] ?? '', bv = b[field] ?? '';
+            if (typeof av === 'string') av = av.toLowerCase();
+            if (typeof bv === 'string') bv = bv.toLowerCase();
+            p = av < bv ? (dir === 'asc' ? -1 : 1) : av > bv ? (dir === 'asc' ? 1 : -1) : 0;
         }
-        let av = a[field] ?? '';
-        let bv = b[field] ?? '';
-        if (typeof av === 'string') av = av.toLowerCase();
-        if (typeof bv === 'string') bv = bv.toLowerCase();
-        if (av < bv) return dir === 'asc' ? -1 : 1;
-        if (av > bv) return dir === 'asc' ? 1 : -1;
-        return 0;
+        // Direction-independent tiebreak: a backordered line sinks to the bottom
+        // of its SO run (same primary key) so it reads as separated from siblings.
+        return p !== 0 ? p : (a.backordered ? 1 : 0) - (b.backordered ? 1 : 0);
     });
 }
 
-// soWithNewSibling — Set of non-blank sales_orders that still have >=1 line in
-// the 'New' inbox status. Built in ONE O(n) pass; every section computed reads
-// it O(1). This enforces "no SO splitting": a whole sales order stays parked in
-// New Orders until ALL of its lines are triaged (status != 'New'), then they all
-// drop into their brand sections together. Blank SO rows are never grouped.
+// soWithNewSibling — Set of non-blank sales_orders that still have a 'New'-inbox
+// line. Enforces "no SO splitting": a sales order stays parked in New Orders until
+// ALL its lines are triaged. A backordered line is exempt — deliberately separated,
+// it never holds its siblings in New.
 export const soWithNewSibling = computed(() => {
     const s = new Set();
     for (const o of openOrders.value) {
-        if ((o.status || '') !== OPEN_ORDER_STATUS_NEW) continue;
+        if (o.backordered || (o.status || '') !== OPEN_ORDER_STATUS_NEW) continue;
         const so = (o.sales_order || '').trim();
         if (so) s.add(so);
     }
     return s;
 });
 
-// Brand sections: rows for one order_type. Excludes 'New' (New Orders section),
-// 'Boxed'/'Label Printed' (Boxed tab), AND any row whose SO still has a New
-// sibling (held in New Orders until the whole SO is triaged — no split).
+// Brand sections: rows for one order_type. Excludes 'New'/SO-held (New Orders) and
+// Boxed/Label-Printed (Boxed tab). Backordered lines show here (flagged) even if 'New'.
 function _openSectionSorted(type) {
     return computed(() => {
         const q = openOrdersFilter.value.trim().toLowerCase();
         const rows = openOrders.value.filter(o => {
             if (o.order_type !== type) return false;
             const status = o.status || '';
-            if (status === OPEN_ORDER_STATUS_NEW || status === 'Boxed'
-                || status === OPEN_ORDER_STATUS_LABEL_PRINTED) return false;
+            if (status === 'Boxed' || status === OPEN_ORDER_STATUS_LABEL_PRINTED) return false;
             if (!openOrderMatchesFilter(o, q)) return false;
+            if (o.backordered) return true;
+            if (status === OPEN_ORDER_STATUS_NEW) return false;
             const so = (o.sales_order || '').trim();
-            if (so && soWithNewSibling.value.has(so)) return false; // held in New until SO complete
+            if (so && soWithNewSibling.value.has(so)) return false;
             return true;
         });
         return _sortSectionRows(rows, type);
@@ -424,19 +435,19 @@ export const freightOrders   = _openSectionSorted('freight');
 export const tracVacOrders   = _openSectionSorted('trac_vac');
 export const truCutOrders    = _openSectionSorted('tru_cut');
 
-// New Orders: every 'New' (untriaged) row PLUS any triaged (brand-bound) row
-// whose SO still has a New sibling, so the whole sales order rides together
-// until fully triaged. Boxed/Label-Printed rows stay in the Boxed tab. Sorted by
-// sales order so same-SO rows (New + held) group together.
+// New Orders: 'New' rows + triaged rows whose SO still has a New sibling (whole SO
+// rides together until fully triaged). Backordered lines live on the brand board,
+// not the inbox. Boxed/Label-Printed stay in the Boxed tab.
 export const newOrders = computed(() => {
     const q = openOrdersFilter.value.trim().toLowerCase();
     const rows = openOrders.value.filter(o => {
         if (!openOrderMatchesFilter(o, q)) return false;
+        if (o.backordered) return false;
         const status = o.status || '';
         if (status === OPEN_ORDER_STATUS_NEW) return true;
         if (status === 'Boxed' || status === OPEN_ORDER_STATUS_LABEL_PRINTED) return false;
         const so = (o.sales_order || '').trim();
-        return !!so && soWithNewSibling.value.has(so); // held sibling of an unfinished SO
+        return !!so && soWithNewSibling.value.has(so);
     });
     return _sortSectionRows(rows, 'new');
 });

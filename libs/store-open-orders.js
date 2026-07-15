@@ -18,6 +18,18 @@ export const waitingOnForm      = ref({ entries: [] });
 export const waitingOnErrors    = ref({});
 export const waitingOnSaving    = ref(false);
 
+// ── Backorder modal ───────────────────────────────────────────
+// Splits one line off its sales order: ship the rest now, hold the backordered
+// part. backorderForm.qty is how many to backorder (defaults to the full line);
+// a partial qty splits the row (ship-now stays, a new flagged remainder row is
+// created). backordered itself is stored on open_orders (a boolean); the qty is
+// not stored — it is the backordered row's own to_ship.
+export const backorderModalOpen = ref(false);
+export const backorderRow       = ref(null);   // the open_orders row being backordered
+export const backorderForm      = ref({ qty: '' });
+export const backorderErrors    = ref({});
+export const backorderSaving    = ref(false);
+
 // ── Receiving modal: sales orders using this part ─────────────
 // Populated when the office opens the WO Receiving modal — open_orders rows the
 // received part feeds (direct part match or a waiting_on subpart match). receiveSoAck

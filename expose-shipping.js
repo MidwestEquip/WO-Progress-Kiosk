@@ -31,6 +31,7 @@ import { verifyInStock, startPicking, startAssembly, setShippingTab, markShipped
          saveWaitingOn, reqWoForSubpart, loadWaitingOnWoStatuses,
          subpartWoNumber, subpartWoStatus, subpartStatusLabel, subpartStatusClass,
          subpartWoIsPending } from './pages/open-orders-shipping.js';
+import { openBackorderModal, closeBackorderModal, submitBackorder, unBackorderRow } from './pages/open-orders-backorder.js';
 import { onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
          onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
          onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
@@ -53,6 +54,7 @@ export function buildShippingExpose() {
         openOrderEditingValue:    store.openOrderEditingValue,
         openOrderQtyConfirm:      store.openOrderQtyConfirm,
         openOrderSelectedIds:     store.openOrderSelectedIds,
+        openOrderSingleSelectedRow: store.openOrderSingleSelectedRow,
         openOrderBulkStatus:      store.openOrderBulkStatus,
         openOrderDragOverSection: store.openOrderDragOverSection,
         openOrderDropZoneTarget:  store.openOrderDropZoneTarget,
@@ -66,6 +68,7 @@ export function buildShippingExpose() {
         openOrderPasteAddCount:   store.openOrderPasteAddCount,
         openOrderPasteDupCount:   store.openOrderPasteDupCount,
         openOrderPasteWarnCount:  store.openOrderPasteWarnCount,
+        openOrderPasteColumnInfo: store.openOrderPasteColumnInfo,
         openOrderStatuses:        OPEN_ORDER_STATUSES,
         chutePartStatuses:        CHUTE_PART_STATUSES,
         openOrderSortFields:      OPEN_ORDER_SORT_FIELDS,
@@ -101,6 +104,14 @@ export function buildShippingExpose() {
         toggleOpenOrderExpand,
         canRequestFromOpenOrder, requestWoFromOpenOrder, requestPoFromOpenOrder,
         verifyInStock, startPicking, startAssembly, setShippingTab, markShipped, printPickingTicket,
+
+        // Open Orders — Backorder
+        backorderModalOpen: store.backorderModalOpen,
+        backorderRow:       store.backorderRow,
+        backorderForm:      store.backorderForm,
+        backorderErrors:    store.backorderErrors,
+        backorderSaving:    store.backorderSaving,
+        openBackorderModal, closeBackorderModal, submitBackorder, unBackorderRow,
 
         // Open Orders — Waiting On
         waitingOnModalOpen:  store.waitingOnModalOpen,

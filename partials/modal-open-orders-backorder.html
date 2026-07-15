@@ -1,0 +1,61 @@
+<!-- ============================================================
+     modal-open-orders-backorder.html — backorder one open-order line.
+     Opened by openBackorderModal(row) from the selection action bar.
+     Whole line (qty = To Ship) flags the row in place; a smaller qty
+     splits the line — the rest ships now, the remainder is held.
+     ============================================================ -->
+<div v-if="backorderModalOpen"
+     class="fixed z-[60] inset-0 flex items-center justify-center bg-black/50 p-4"
+     @click.self="closeBackorderModal()">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="px-6 pt-6 pb-4 flex items-start gap-4">
+            <div class="shrink-0 w-11 h-11 rounded-full bg-violet-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <h3 class="text-lg font-bold text-slate-800">Backorder this part?</h3>
+                <p class="text-sm text-slate-600 mt-1" v-if="backorderRow">
+                    <span class="font-semibold text-slate-900">{{ backorderRow.part_number }}</span>
+                    <span v-if="backorderRow.sales_order"> · SO# {{ backorderRow.sales_order }}</span>
+                    <span v-if="backorderRow.to_ship != null"> · To Ship {{ backorderRow.to_ship }}</span>
+                </p>
+            </div>
+        </div>
+
+        <div class="px-6 pb-2" v-if="backorderRow">
+            <label class="block text-xs font-semibold text-slate-500 mb-1">Qty to backorder</label>
+            <input v-model="backorderForm.qty" type="number" min="1"
+                   :max="backorderRow.to_ship ?? undefined"
+                   class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
+                   :class="backorderErrors.qty ? 'border-red-400' : 'border-slate-300'" />
+            <p v-if="backorderErrors.qty" class="text-xs text-red-500 mt-1">
+                Enter a quantity between 1 and {{ backorderRow.to_ship }}.
+            </p>
+            <p class="text-xs text-slate-500 mt-2">
+                <template v-if="backorderRow.to_ship != null && Number(backorderForm.qty) > 0 && Number(backorderForm.qty) < Number(backorderRow.to_ship)">
+                    Ships now: <span class="font-semibold text-slate-700">{{ Number(backorderRow.to_ship) - Number(backorderForm.qty) }}</span>
+                    · a new held row of <span class="font-semibold text-violet-700">{{ Number(backorderForm.qty) }}</span> is created.
+                </template>
+                <template v-else>
+                    The whole line is held (separated from its sales order). It keeps its current status.
+                </template>
+            </p>
+        </div>
+
+        <div class="flex justify-end gap-3 px-6 pb-5 pt-3">
+            <button @click="closeBackorderModal()"
+                :disabled="backorderSaving"
+                class="px-5 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-semibold active:scale-95 disabled:opacity-50">
+                Cancel
+            </button>
+            <button @click="submitBackorder()"
+                :disabled="backorderSaving"
+                class="px-6 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold active:scale-95 disabled:opacity-50">
+                {{ backorderSaving ? 'Saving…' : 'Backorder' }}
+            </button>
+        </div>
+    </div>
+</div>

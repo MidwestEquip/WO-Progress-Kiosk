@@ -25,6 +25,20 @@
                         class="bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1 rounded-lg transition-colors font-bold">
                     Apply
                 </button>
+                <!-- Backorder — single-row only (splits one line off its sales order) -->
+                <template v-if="openOrderSingleSelectedRow">
+                    <span class="text-slate-300">·</span>
+                    <button v-if="!openOrderSingleSelectedRow.backordered"
+                            @click="openBackorderModal(openOrderSingleSelectedRow)"
+                            class="bg-violet-600 text-white hover:bg-violet-500 px-3 py-1 rounded-lg transition-colors font-bold">
+                        Backorder…
+                    </button>
+                    <button v-else
+                            @click="unBackorderRow(openOrderSingleSelectedRow)"
+                            class="bg-white text-violet-700 border border-violet-300 hover:bg-violet-50 px-3 py-1 rounded-lg transition-colors font-bold">
+                        Un-backorder
+                    </button>
+                </template>
                 <span class="text-slate-300">·</span>
                 <button @click="clearRowSelection()"
                     class="text-slate-400 hover:text-slate-600 transition-colors">
