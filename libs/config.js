@@ -106,7 +106,7 @@ export const OPEN_ORDER_STATUS_LABELLED      = 'Labelled';
 // 'In Stock' = shipping has verified the part is physically present (a
 // confirmation step that comes BEFORE 'Picked' = pulled/staged for boxing).
 export const OPEN_ORDER_STATUSES = [
-    'New', 'In Stock', 'Picked', 'New/Picking', 'In Progress', 'WO Requested', 'PO Requested',
+    'New', 'In Stock', 'Picked', 'In Progress', 'WO Requested', 'PO Requested',
     'WO Created', 'PO Created', 'WO/PO Complete', 'Boxed', 'Label Printed', 'Labelled',
     'Shipped', 'On Hold'
 ];
@@ -143,11 +143,15 @@ export const OPEN_ORDER_PASTE_HEADER_SYNONYMS = {
 // buttons column between Notes and Customer; it DOES show WO/PO # (auto-attached
 // WO#) and Status/Last Upd. FULL adds a Waiting On column between Status and Date
 // Entered. Both must stay in sync with the cell v-ifs in view-open-orders.html
-// (NEW = 15 tracks, FULL = 19 tracks).
+// (NEW = 14 tracks, FULL = 17 tracks). Two standalone columns were merged into
+// stacked cells to compress width: Waiting On stacks under the Sales Order value
+// (FULL only; Sales Order track widened to minmax(120px,0.9fr) to hold it), and
+// Holding Bin stacks under the Bin/Upd cell (both grids) — so neither has its own
+// track anymore.
 export const OPEN_ORDER_GRID_COLS_FULL =
-    '46px 22px 88px minmax(180px,1.4fr) 108px 78px 112px 138px 76px minmax(210px,2fr) minmax(140px,1.1fr) 74px 74px 78px 98px 128px 160px 82px 28px';
+    '46px 22px 88px minmax(180px,1.4fr) 108px 78px 112px 138px 76px minmax(210px,2fr) minmax(140px,1.1fr) minmax(120px,0.9fr) 74px 78px 128px 82px 28px';
 export const OPEN_ORDER_GRID_COLS_NEW =
-    '46px 22px 88px minmax(180px,1.4fr) 108px 78px minmax(210px,2fr) 168px minmax(140px,1.1fr) 74px 74px 98px 128px 82px 28px';
+    '46px 22px 88px minmax(180px,1.4fr) 108px 78px minmax(210px,2fr) 168px minmax(140px,1.1fr) 74px 74px 128px 82px 28px';
 
 export const CHUTE_PART_STATUSES = [
     'Ordered', 'In Stock', 'Ready', 'Complete', 'N/A'
@@ -421,6 +425,12 @@ export const WO_REQUEST_STATUS_MANAGER_REVIEW = 'manager_review';
 // ----- item_master manual count source tag (written by Inventory Adjustment) -----
 export const SOURCE_OF_COUNT_MANUAL = 'manual';
 
+// ----- PO Request form: selectable ship-to locations (default = first) -----
+export const PO_REQUEST_LOCATIONS = [
+    'Thorntown, IN',
+    'Wolcott, IN',
+];
+
 // ----- Steel ordering: ship-to location buckets (display order) -----
 export const STEEL_LOCATIONS = [
     'Thorntown, IN',
@@ -429,3 +439,13 @@ export const STEEL_LOCATIONS = [
     'Maysville, KY',
     'Dakota City, NE',
 ];
+
+// ----- Purchasing ordering: banner color per ship-to location ('Other' = fallback) -----
+export const STEEL_LOCATION_COLORS = {
+    'Thorntown, IN':   'bg-sky-700',
+    'Brooten, MN':     'bg-violet-700',
+    'Wolcott, IN':     'bg-emerald-700',
+    'Maysville, KY':   'bg-amber-700',
+    'Dakota City, NE': 'bg-rose-700',
+    'Other':           'bg-slate-700',
+};

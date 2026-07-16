@@ -9,6 +9,7 @@ import * as store  from '../libs/store.js';
 import * as db     from '../libs/db.js';
 import { kioskSignIn, kioskSignOut } from '../libs/db.js';
 import { getPin } from '../libs/pins.js';
+import { APP_LOCATION } from '../libs/config.js';
 import { logError } from '../libs/db-shared.js';
 import { refreshUnreadCount, resumeAudio } from './messages-view.js';
 
@@ -248,6 +249,7 @@ export function enterPoRequestView() {
     store.splashCategory.value           = 'purchasing';
     store.purchasingRequestForm.value    = {
         request_type: '', requested_by: '', needed_by: '', qty_needed: '',
+        ship_to: APP_LOCATION,
         requester_notes: '', part_number: '', description: '', sales_order: '',
         estimated_qty_in_stock: '', request_location: '', bin_location: '',
         current_production_run: '',

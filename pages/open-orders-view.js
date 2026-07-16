@@ -9,7 +9,7 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { getStaleHighlightColor, openOrderGroupClass } from '../libs/utils.js';
-import { OPEN_ORDER_STATUS_LABELLED } from '../libs/config.js';
+import { OPEN_ORDER_STATUS_LABELLED, APP_LOCATION } from '../libs/config.js';
 import { logError } from '../libs/db-shared.js';
 
 // Re-exported so the shipping expose binds it from this domain file (like the
@@ -290,11 +290,27 @@ export async function saveCellEdit(id, field) {
 // 'Deleted' (recoverable via the Restore button there). No hard deletes.
 // id: row uuid, partNumber: shown in the confirm dialog.
 export async function deleteOpenOrder(id, partNumber) {
+    if (store.sessionRole.value !== 'manager') {
+        store.showToast('Manager sign-in required to delete rows.');
+        return;
+    }
     if (!window.confirm(`Delete this row?\n\n${partNumber || 'Unknown part'}\n\n(It can be restored from Completed Orders.)`)) return;
     const order = store.openOrders.value.find(o => o.id === id);
     if (!order) return;
     const { error } = await db.shipOpenOrder({ ...order }, 'Deleted');
     if (error) { store.showToast('Failed to delete: ' + error.message); return; }
+    store.openOrders.value = store.openOrders.value.filter(o => o.id !== id);
+}
+
+// cancelOpenOrder — confirm then move the row to Completed Orders with status
+// 'Cancelled' (customer cancelled the line; recoverable via Restore there).
+// Unlike delete, available to all roles. id: row uuid, partNumber: for the dialog.
+export async function cancelOpenOrder(id, partNumber) {
+    if (!window.confirm(`Cancel this row?\n\n${partNumber || 'Unknown part'}\n\n(It moves to Completed Orders as Cancelled and can be restored.)`)) return;
+    const order = store.openOrders.value.find(o => o.id === id);
+    if (!order) return;
+    const { error } = await db.shipOpenOrder({ ...order }, 'Cancelled');
+    if (error) { store.showToast('Failed to cancel: ' + error.message); return; }
     store.openOrders.value = store.openOrders.value.filter(o => o.id !== id);
 }
 
@@ -334,7 +350,7 @@ export async function moveSalesOrderToFreight(order) {
 // canRequestFromOpenOrder — true when the row is in a state where requesting
 // a WO or PO makes sense (nothing requested/created yet). Input: order row.
 export function canRequestFromOpenOrder(order) {
-    const status = order?.status || 'New/Picking';
+    const status = order?.status || 'New';
     return status === 'New' || status === 'New/Picking' || status === 'On Hold';
 }
 
@@ -365,6 +381,7 @@ export function requestWoFromOpenOrder(order) {
 export function requestPoFromOpenOrder(order) {
     store.purchasingRequestForm.value = {
         request_type: 'part', requested_by: '', needed_by: '',
+        ship_to:      APP_LOCATION,
         qty_needed:   order.to_ship ?? '',
         requester_notes: '',
         part_number:  (order.part_number || '').trim().toUpperCase(),

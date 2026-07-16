@@ -33,6 +33,7 @@ const BLANK_FORM = () => ({
     needed_by:                 '',
     qty_needed:                '',
     requester_notes:           '',
+    ship_to:                   APP_LOCATION,
     part_number:               '',
     description:               '',
     sales_order:               '',
@@ -143,6 +144,7 @@ export async function submitPurchasingRequest() {
 
     if (!form.request_type)         errors.request_type      = true;
     if (!form.requested_by?.trim()) errors.requested_by      = true;
+    if (!form.ship_to?.trim())      errors.ship_to           = true;
 
     if (form.request_type === 'part') {
         if (!form.part_number?.trim())    errors.part_number    = true;
@@ -169,7 +171,7 @@ export async function submitPurchasingRequest() {
             needed_by:       form.needed_by   || null,
             qty_needed:      parseFloat(form.qty_needed) || null,
             requester_notes: form.requester_notes?.trim() || null,
-            ship_to:         APP_LOCATION,
+            ship_to:         form.ship_to.trim(),
         };
 
         if (form.request_type === 'part') {

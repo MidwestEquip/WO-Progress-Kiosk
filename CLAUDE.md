@@ -130,6 +130,11 @@ These rules protect you as the number of work orders grows into the thousands.
      GRANT SELECT, INSERT, UPDATE, DELETE ON public.your_table_name TO anon, authenticated;
    Without this, supabase-js queries will silently return empty results.
    RLS policies still control row-level access — this grant just opens the door.
+
+8. schema.sql is the canonical schema snapshot (added July 2026).
+   After the user applies any migration, regenerate it:
+     powershell -File C:\WO-Backups\scripts\gen-schema.ps1
+   Never hand-edit schema.sql; migration .sql files remain the change log.
 ---
 
 ## Scale Safety: Frontend

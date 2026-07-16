@@ -102,7 +102,12 @@ export function parsePasteRows() {
         const rawDate   = cell(c, 'date_entered');
         const normDate  = normalizePasteDate(rawDate);
         const rawStatus = cell(c, 'status');
-        const matched   = matchOpenOrderStatus(rawStatus, OPEN_ORDER_STATUSES);
+        // 'New/Picking' was retired as a status — fold it (and blank) into the
+        // New inbox silently (no unknown-status warning). Any other recognized
+        // status (WO Requested, Boxed, …) is preserved as pasted.
+        const matched   = rawStatus.trim().toLowerCase() === 'new/picking'
+            ? OPEN_ORDER_STATUS_NEW
+            : matchOpenOrderStatus(rawStatus, OPEN_ORDER_STATUSES);
 
         // Dedup only applies to rows with a part # — no-part lines on the same
         // SO would otherwise falsely flag each other as duplicates.

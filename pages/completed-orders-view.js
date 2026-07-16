@@ -30,7 +30,7 @@ export async function loadCompletedOrders() {
 }
 
 // restoreCompletedOrder — move a row from completed_orders back to open_orders.
-// Resets status to 'New/Picking' and clears shipped_at.
+// Resets status to 'New' and clears shipped_at.
 export async function restoreCompletedOrder(id) {
     if (!window.confirm('Restore this row to Open Orders?')) return;
     const row = store.completedOrders.value.find(o => o.id === id);
@@ -39,7 +39,7 @@ export async function restoreCompletedOrder(id) {
     const { id: cId, original_id, shipped_at, created_at, updated_at, ...fields } = row;
     const { error: insertErr } = await db.insertOpenOrders([{
         ...fields,
-        status:            'New/Picking',
+        status:            'New',
         last_status_update: new Date().toISOString(),
     }]);
     if (insertErr) { store.showToast('Failed to restore: ' + insertErr.message); return; }

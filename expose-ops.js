@@ -6,6 +6,7 @@
 // ============================================================
 
 import * as store from './libs/store.js';
+import { PO_REQUEST_LOCATIONS, STEEL_LOCATION_COLORS } from './libs/config.js';
 import { enterPoReceiveView, enterWoRequestView, enterCreateWoView,
          enterWoForecastingView,
          saveHeaderLinks, saveSplashLinks } from './pages/splash-view.js';
@@ -292,6 +293,8 @@ export function buildOpsExpose() {
         steelOrderErrors:           store.steelOrderErrors,
         steelOrderForm:             store.steelOrderForm,
         purchasingTabCounts:        store.purchasingTabCounts,
+        shipToLocations:             PO_REQUEST_LOCATIONS,
+        shipToLocationColors:        STEEL_LOCATION_COLORS,
         purchasingRequestModalOpen:  store.purchasingRequestModalOpen,
         purchasingRequestSaving:     store.purchasingRequestSaving,
         purchasingRequestForm:       store.purchasingRequestForm,
