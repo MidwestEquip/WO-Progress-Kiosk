@@ -21,7 +21,7 @@
                     </div>
 
                     <!-- Sections (v-for over openOrderSections computed) -->
-                    <template v-else v-for="section in openOrderSections" :key="section.type">
+                    <template v-else v-for="section in openOrderSections" :key="section.label">
                         <!-- Whole section is a drop zone for cross-category moves (header + body). -->
                         <div class="rounded-xl shadow-sm border transition-all"
                              :class="openOrderDragOverSection === section.type ? 'border-slate-900 ring-2 ring-inset ring-slate-900/40' : 'border-slate-200'"

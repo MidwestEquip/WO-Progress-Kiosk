@@ -275,8 +275,23 @@ export async function saveCellEdit(id, field) {
 
     const updates = { [field]: value };
     if (field === 'status') updates.last_status_update = new Date().toISOString();
-    if (field === 'chute_status' || field === 'bracket_adapter_status')
+    if (field === 'chute_status' || field === 'bracket_adapter_status') {
         updates.chute_bracket_last_updated = new Date().toISOString();
+        // Both halves Boxed → the whole row is boxed: promote the main status so
+        // the line auto-moves to the Boxed, Ready to Ship tab in the same write.
+        const row   = store.openOrders.value.find(o => o.id === id);
+        const other = field === 'chute_status' ? row?.bracket_adapter_status : row?.chute_status;
+        if (value === 'Boxed' && other === 'Boxed') {
+            updates.status = 'Boxed';
+            updates.last_status_update = new Date().toISOString();
+        } else if (value && value !== 'Boxed' && row?.status === 'Boxed') {
+            // Un-boxing: a half moved off Boxed while the row sat in the Boxed
+            // tab — demote the main status to the picked value so the row
+            // returns to the board ('New' → New Orders inbox).
+            updates.status = value;
+            updates.last_status_update = new Date().toISOString();
+        }
+    }
 
     const { error } = await db.updateOpenOrder(id, updates);
     if (error) { store.showToast('Failed to save: ' + error.message); await loadOpenOrders(); return; }

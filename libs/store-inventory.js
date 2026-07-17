@@ -7,7 +7,7 @@
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
 import { openOrderMatchesFilter, compareSalesOrder } from './utils.js';
-import { OPEN_ORDER_STATUS_NEW, OPEN_ORDER_STATUS_LABEL_PRINTED } from './config.js';
+import { OPEN_ORDER_STATUS_NEW, OPEN_ORDER_STATUS_LABEL_PRINTED, OPEN_ORDER_OLD_CUTOFF } from './config.js';
 
 // ── Customer Service ──────────────────────────────────────────
 export const csSearchTerm  = ref('');
@@ -438,17 +438,27 @@ export const truCutOrders    = _openSectionSorted('tru_cut');
 // New Orders: 'New' rows + triaged rows whose SO still has a New sibling (whole SO
 // rides together until fully triaged). Backordered lines live on the brand board,
 // not the inbox. Boxed/Label-Printed stay in the Boxed tab.
+// Split by date_entered: rows before OPEN_ORDER_OLD_CUTOFF sink to a separate
+// "OLD, NEW ORDERS" section; blank dates stay on top so they get noticed.
+function _isNewInboxRow(o, q) {
+    if (!openOrderMatchesFilter(o, q)) return false;
+    if (o.backordered) return false;
+    const status = o.status || '';
+    if (status === OPEN_ORDER_STATUS_NEW) return true;
+    if (status === 'Boxed' || status === OPEN_ORDER_STATUS_LABEL_PRINTED) return false;
+    const so = (o.sales_order || '').trim();
+    return !!so && soWithNewSibling.value.has(so);
+}
 export const newOrders = computed(() => {
     const q = openOrdersFilter.value.trim().toLowerCase();
-    const rows = openOrders.value.filter(o => {
-        if (!openOrderMatchesFilter(o, q)) return false;
-        if (o.backordered) return false;
-        const status = o.status || '';
-        if (status === OPEN_ORDER_STATUS_NEW) return true;
-        if (status === 'Boxed' || status === OPEN_ORDER_STATUS_LABEL_PRINTED) return false;
-        const so = (o.sales_order || '').trim();
-        return !!so && soWithNewSibling.value.has(so);
-    });
+    const rows = openOrders.value.filter(o =>
+        _isNewInboxRow(o, q) && !(o.date_entered && o.date_entered < OPEN_ORDER_OLD_CUTOFF));
+    return _sortSectionRows(rows, 'new');
+});
+export const oldNewOrders = computed(() => {
+    const q = openOrdersFilter.value.trim().toLowerCase();
+    const rows = openOrders.value.filter(o =>
+        _isNewInboxRow(o, q) && !!o.date_entered && o.date_entered < OPEN_ORDER_OLD_CUTOFF);
     return _sortSectionRows(rows, 'new');
 });
 
@@ -472,6 +482,11 @@ export const openOrderSections = computed(() => {
     }
     return [
         { type: 'new',       label: 'NEW ORDERS',       orders: newOrders.value,       hdr: 'bg-sky-700'    },
+        // Same type ('new') so the inbox layout/sort/drag rules apply unchanged;
+        // section only appears while old-dated inbox rows remain.
+        ...(oldNewOrders.value.length
+            ? [{ type: 'new', label: 'OLD, NEW ORDERS', orders: oldNewOrders.value, hdr: 'bg-sky-900' }]
+            : []),
         { type: 'emergency', label: 'EMERGENCY ORDERS', orders: emergencyOrders.value, hdr: 'bg-green-700'  },
         { type: 'freight',   label: 'FREIGHT ORDERS',   orders: freightOrders.value,   hdr: 'bg-amber-700'  },
         { type: 'trac_vac',  label: 'TRAC VAC ORDERS',  orders: tracVacOrders.value,   hdr: 'bg-slate-900'  },
