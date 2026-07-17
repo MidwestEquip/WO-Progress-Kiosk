@@ -7,7 +7,7 @@
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
 import { openOrderMatchesFilter, compareSalesOrder } from './utils.js';
-import { OPEN_ORDER_STATUS_NEW, OPEN_ORDER_STATUS_LABEL_PRINTED, OPEN_ORDER_OLD_CUTOFF } from './config.js';
+import { OPEN_ORDER_STATUS_NEW, OPEN_ORDER_STATUS_LABEL_PRINTED, OPEN_ORDER_OLD_CUTOFF_SO } from './config.js';
 
 // ── Customer Service ──────────────────────────────────────────
 export const csSearchTerm  = ref('');
@@ -438,8 +438,12 @@ export const truCutOrders    = _openSectionSorted('tru_cut');
 // New Orders: 'New' rows + triaged rows whose SO still has a New sibling (whole SO
 // rides together until fully triaged). Backordered lines live on the brand board,
 // not the inbox. Boxed/Label-Printed stay in the Boxed tab.
-// Split by date_entered: rows before OPEN_ORDER_OLD_CUTOFF sink to a separate
-// "OLD, NEW ORDERS" section; blank dates stay on top so they get noticed.
+// Split by SO#: rows sorting before OPEN_ORDER_OLD_CUTOFF_SO sink to a separate
+// "OLD, NEW ORDERS" section; blank SO# stays on top so it gets noticed
+// (compareSalesOrder sorts blanks last, so they never read as old).
+function _isOldInboxRow(o) {
+    return compareSalesOrder(o.sales_order, OPEN_ORDER_OLD_CUTOFF_SO) < 0;
+}
 function _isNewInboxRow(o, q) {
     if (!openOrderMatchesFilter(o, q)) return false;
     if (o.backordered) return false;
@@ -452,13 +456,13 @@ function _isNewInboxRow(o, q) {
 export const newOrders = computed(() => {
     const q = openOrdersFilter.value.trim().toLowerCase();
     const rows = openOrders.value.filter(o =>
-        _isNewInboxRow(o, q) && !(o.date_entered && o.date_entered < OPEN_ORDER_OLD_CUTOFF));
+        _isNewInboxRow(o, q) && !_isOldInboxRow(o));
     return _sortSectionRows(rows, 'new');
 });
 export const oldNewOrders = computed(() => {
     const q = openOrdersFilter.value.trim().toLowerCase();
     const rows = openOrders.value.filter(o =>
-        _isNewInboxRow(o, q) && !!o.date_entered && o.date_entered < OPEN_ORDER_OLD_CUTOFF);
+        _isNewInboxRow(o, q) && _isOldInboxRow(o));
     return _sortSectionRows(rows, 'new');
 });
 

@@ -103,10 +103,10 @@ export const OPEN_ORDER_STATUS_NEW = 'New';
 // open_orders_completed with status 'Shipped' (see open-orders-view.js).
 export const OPEN_ORDER_STATUS_LABEL_PRINTED = 'Label Printed';
 export const OPEN_ORDER_STATUS_LABELLED      = 'Labelled';
-// New Orders inbox split: rows entered before this date render in a separate
-// "OLD, NEW ORDERS" section below the fresh inbox (string compare vs the
-// date_entered DATE column's 'YYYY-MM-DD' form).
-export const OPEN_ORDER_OLD_CUTOFF = '2026-07-15';
+// New Orders inbox split: rows whose sales_order sorts before this SO# render
+// in a separate "OLD, NEW ORDERS" section below the fresh inbox (compared via
+// the numeric-aware compareSalesOrder; blank SO# stays in the fresh section).
+export const OPEN_ORDER_OLD_CUTOFF_SO = '133455';
 // 'In Stock' = shipping has verified the part is physically present (a
 // confirmation step that comes BEFORE 'Picked' = pulled/staged for boxing).
 export const OPEN_ORDER_STATUSES = [
