@@ -23,6 +23,7 @@ export * from './db-office.js';
 export * from './db-manager.js';
 export * from './db-inventory.js';
 export * from './db-open-orders.js';
+export * from './db-onhand.js';
 export * from './db-cs.js';
 export * from './db-storage.js';
 export * from './db-engineering.js';

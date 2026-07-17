@@ -19,8 +19,8 @@ export function enterInventoryAdjustView() {
     store.inventoryAdjustSearch.value   = '';
     store.inventoryAdjustResult.value   = null;
     store.inventoryAdjustSearched.value = false;
-    store.inventoryAdjustForm.value     = { qty: '', date: new Date().toISOString().slice(0, 10) };
-    store.inventoryAdjustErrors.value   = { qty: false };
+    store.inventoryAdjustForm.value     = { qty: '', date: new Date().toISOString().slice(0, 10), counted_by: '' };
+    store.inventoryAdjustErrors.value   = { qty: false, counted_by: false };
     store.currentView.value             = 'inventory';
 }
 
@@ -32,7 +32,7 @@ export async function searchItemMasterPart() {
     if (!part) return;
     store.inventoryAdjustLoading.value = true;
     store.inventoryAdjustResult.value  = null;
-    store.inventoryAdjustErrors.value  = { qty: false };
+    store.inventoryAdjustErrors.value  = { qty: false, counted_by: false };
     try {
         const { data, error } = await db.fetchItemMasterByPart(part);
         if (error) throw error;
@@ -40,6 +40,7 @@ export async function searchItemMasterPart() {
         store.inventoryAdjustForm.value = {
             qty:  data && data.manual_qty_check != null ? data.manual_qty_check : '',
             date: new Date().toISOString().slice(0, 10),
+            counted_by: store.inventoryAdjustForm.value.counted_by || '',
         };
     } catch (err) {
         store.showToast('Lookup failed: ' + err.message, 'error');
@@ -71,12 +72,15 @@ export async function submitManualCount() {
     const row  = store.inventoryAdjustResult.value;
     const form = store.inventoryAdjustForm.value;
     if (!row) return;
-    const qty = Number(form.qty);
-    if (form.qty === '' || !Number.isFinite(qty) || qty < 0) {
-        store.inventoryAdjustErrors.value = { qty: true };
-        return;
-    }
-    store.inventoryAdjustErrors.value = { qty: false };
+    const qty       = Number(form.qty);
+    const countedBy = (form.counted_by || '').trim();
+    const errors    = {
+        qty:        form.qty === '' || !Number.isFinite(qty) || qty < 0 || qty >= 100000,
+        counted_by: !countedBy,
+    };
+    store.inventoryAdjustErrors.value = errors;
+    if (errors.qty || errors.counted_by) return;
+
     const dateStr = form.date || new Date().toISOString().slice(0, 10);
     store.inventoryAdjustSaving.value = true;
     try {
@@ -89,7 +93,18 @@ export async function submitManualCount() {
             date_manual_count: saved.date_manual_count ?? dateStr,
             source_of_count:   saved.source_of_count   ?? 'manual',
         };
-        store.showToast('Count saved.', 'success');
+
+        // Native ledger: the count also anchors live on-hand (IC row via the
+        // import_inventory_count RPC — sets part_on_hand + counted_at). The
+        // item_master count above is already saved; failing here only means
+        // the live on-hand didn't update, so it gets its own distinct toast.
+        const { error: icErr } = await db.importInventoryCount(row.item, qty, countedBy);
+        if (icErr) {
+            store.showToast('Count saved, but live on-hand did not update: ' + icErr.message, 'error');
+            logError('submitManualCount:onhand', icErr, { part: row.item });
+        } else {
+            store.showToast('Count saved — live on-hand updated.', 'success');
+        }
     } catch (err) {
         store.showToast('Failed to save count: ' + err.message, 'error');
         logError('submitManualCount', err, { id: row.id });

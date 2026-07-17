@@ -159,6 +159,8 @@ export async function bulkChangeStatus(ids, newStatus) {
         );
         const failed = results.filter(r => r.error);
         if (failed.length) store.showToast(`Failed to ship ${failed.length} row(s)`);
+        const ledgerFails = results.filter(r => !r.error && r.ledgerError).length;
+        if (ledgerFails) store.showToast(`${ledgerFails} shipped row(s) did not record to the inventory ledger`);
         store.openOrders.value = store.openOrders.value.filter(o => !ids.includes(o.id));
     } else {
         const results = await Promise.all(
@@ -242,8 +244,9 @@ export async function saveCellEdit(id, field) {
     if (field === 'status' && (value === 'Shipped' || value === OPEN_ORDER_STATUS_LABELLED)) {
         const order = store.openOrders.value.find(o => o.id === id);
         if (order) {
-            const { error } = await db.shipOpenOrder({ ...order, status: 'Shipped', last_status_update: new Date().toISOString() });
+            const { error, ledgerError } = await db.shipOpenOrder({ ...order, status: 'Shipped', last_status_update: new Date().toISOString() });
             if (error) { store.showToast('Failed to ship: ' + error.message); return; }
+            if (ledgerError) store.showToast('Shipped, but inventory ledger did not record: ' + ledgerError.message);
             store.openOrders.value = store.openOrders.value.filter(o => o.id !== id);
         }
         return;
@@ -297,8 +300,9 @@ export async function deleteOpenOrder(id, partNumber) {
     if (!window.confirm(`Delete this row?\n\n${partNumber || 'Unknown part'}\n\n(It can be restored from Completed Orders.)`)) return;
     const order = store.openOrders.value.find(o => o.id === id);
     if (!order) return;
-    const { error } = await db.shipOpenOrder({ ...order }, 'Deleted');
+    const { error, ledgerError } = await db.shipOpenOrder({ ...order }, 'Deleted');
     if (error) { store.showToast('Failed to delete: ' + error.message); return; }
+    if (ledgerError) store.showToast('Deleted, but inventory ledger did not record: ' + ledgerError.message);
     store.openOrders.value = store.openOrders.value.filter(o => o.id !== id);
 }
 
@@ -309,8 +313,9 @@ export async function cancelOpenOrder(id, partNumber) {
     if (!window.confirm(`Cancel this row?\n\n${partNumber || 'Unknown part'}\n\n(It moves to Completed Orders as Cancelled and can be restored.)`)) return;
     const order = store.openOrders.value.find(o => o.id === id);
     if (!order) return;
-    const { error } = await db.shipOpenOrder({ ...order }, 'Cancelled');
+    const { error, ledgerError } = await db.shipOpenOrder({ ...order }, 'Cancelled');
     if (error) { store.showToast('Failed to cancel: ' + error.message); return; }
+    if (ledgerError) store.showToast('Cancelled, but inventory ledger did not record: ' + ledgerError.message);
     store.openOrders.value = store.openOrders.value.filter(o => o.id !== id);
 }
 

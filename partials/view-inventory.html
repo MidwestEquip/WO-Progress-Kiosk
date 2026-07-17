@@ -257,7 +257,7 @@
                                 </p>
 
                                 <!-- New count inputs -->
-                                <div class="grid grid-cols-2 gap-4 mb-5">
+                                <div class="grid grid-cols-3 gap-4 mb-5">
                                     <div>
                                         <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Real Qty in Stock *</label>
                                         <input v-model="inventoryAdjustForm.qty" type="number" min="0" step="any"
@@ -269,6 +269,13 @@
                                         <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Count Date</label>
                                         <input v-model="inventoryAdjustForm.date" type="date"
                                             class="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-green-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Counted By *</label>
+                                        <input v-model="inventoryAdjustForm.counted_by" type="text" placeholder="Name"
+                                            :class="inventoryAdjustErrors.counted_by ? 'border-red-500' : 'border-slate-600'"
+                                            class="w-full px-3 py-2 bg-slate-900 border rounded-lg text-white focus:outline-none focus:border-green-500">
+                                        <p v-if="inventoryAdjustErrors.counted_by" class="text-red-400 text-xs mt-1">Required</p>
                                     </div>
                                 </div>
 

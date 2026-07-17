@@ -449,3 +449,20 @@ export const STEEL_LOCATION_COLORS = {
     'Dakota City, NE': 'bg-rose-700',
     'Other':           'bg-slate-700',
 };
+
+// ----- Native inventory ledger (issues_receipts rows with source='native') -----
+// Human-readable source of truth for the ledger vocabulary. The DB enforces it:
+// the RLS insert policy + the part_on_hand triggers (native-ledger-patch1/2.sql)
+// mirror this table, and reconcile-part-on-hand.sql is the arbiter if they ever
+// disagree. Pure row builders in utils.js apply the same values inline (utils
+// cannot import config); keep all three in sync when anything changes.
+export const NATIVE_CUTOVER_DATE = '2026-07-16';  // mirror of DB native_cutover()
+export const TXN_SOURCE_NATIVE   = 'native';
+export const INVENTORY_TXN = {
+    MADE:      { doctype: 'MO', trantype: 'I' },  // WO closeout: finished part into stock (+)
+    CONSUMED:  { doctype: 'MO', trantype: 'O' },  // WO closeout: BOM child out of stock (-)
+    SOLD:      { doctype: 'SO', trantype: 'O' },  // open order added: sold-at-entry (no on-hand effect)
+    SHIPPED:   { doctype: 'SO', trantype: 'S' },  // open order shipped: out of stock (-)
+    PURCHASED: { doctype: 'PO', trantype: 'I' },  // PO full receive: into stock (+)
+    COUNT:     { doctype: 'IC', trantype: 'C' },  // physical count: sets on-hand (service-role only)
+};

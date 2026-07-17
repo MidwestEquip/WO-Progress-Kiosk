@@ -199,12 +199,13 @@ export function setShippingTab(tab) {
 export async function markShipped(order) {
     if (!order?.id) return;
     const now = new Date().toISOString();
-    const { error } = await db.shipOpenOrder({ ...order, status: 'Shipped', last_status_update: now });
+    const { error, ledgerError } = await db.shipOpenOrder({ ...order, status: 'Shipped', last_status_update: now });
     if (error) {
         store.showToast(`Failed to ship row: ${error.message}`);
         logError('markShipped', error);
         return;
     }
+    if (ledgerError) store.showToast(`Shipped, but inventory ledger did not record: ${ledgerError.message}`);
     store.openOrders.value = store.openOrders.value.filter(o => o.id !== order.id);
 }
 

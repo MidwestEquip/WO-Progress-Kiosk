@@ -84,6 +84,16 @@
                                     <div v-else class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm">—</div>
                                 </div>
                                 <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">In Stock (Software)</label>
+                                    <div v-if="woRequestOnHandLoading"
+                                        class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Loading…</div>
+                                    <div v-else class="w-full px-2 py-1.5 border rounded-lg font-bold text-sm"
+                                        :class="woRequestOnHandDisplay !== null ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-400'">
+                                        {{ woRequestOnHandDisplay ?? '—' }}
+                                    </div>
+                                    <p v-if="woRequestOnHandSubLabel" class="text-xs text-sky-700 mt-0.5">{{ woRequestOnHandSubLabel }}</p>
+                                </div>
+                                <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">In Stock (requester)</label>
                                     <div class="w-full px-2 py-1.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-700 font-bold text-sm">{{ selectedWoRequest.qty_in_stock ?? '—' }}</div>
                                     <p v-if="woRequestRealCount" class="text-xs text-emerald-600 font-semibold mt-0.5">Real Count: {{ woRequestRealCountLabel }}</p>
@@ -142,6 +152,16 @@
                                         {{ woRequestEstQtyInStock36mo }}<span class="font-normal text-xs ml-1">{{ woRequestEstQtyInStock36mo >= 0 ? 'in stock' : 'deficit' }}</span>
                                     </div>
                                     <div v-else class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm">—</div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">In Stock (Software)</label>
+                                    <div v-if="woRequestOnHandLoading"
+                                        class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Loading…</div>
+                                    <div v-else class="w-full px-2 py-1.5 border rounded-lg font-bold text-sm"
+                                        :class="woRequestOnHandDisplay !== null ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-400'">
+                                        {{ woRequestOnHandDisplay ?? '—' }}
+                                    </div>
+                                    <p v-if="woRequestOnHandSubLabel" class="text-xs text-sky-700 mt-0.5">{{ woRequestOnHandSubLabel }}</p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">In Stock (requester)</label>

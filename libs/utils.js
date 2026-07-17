@@ -1,5 +1,5 @@
-// ============================================================
-// libs/utils.js — Pure utility functions
+﻿// ============================================================
+// libs/utils.js â€” Pure utility functions
 //
 // RULES:
 //  - No side effects, no imports, no state
@@ -10,8 +10,9 @@
 // Open Orders (shipping) pure helpers live in a sibling sub-file to stay
 // under the 500-line cap. Re-exported here so `from './utils.js'` still works.
 export * from './utils-open-orders.js';
+export * from './utils-ledger.js';
 
-// subassyDepthBorder — Subassy Setup tree level aid. Returns a Tailwind
+// subassyDepthBorder â€” Subassy Setup tree level aid. Returns a Tailwind
 // left-border color class, cycling by depth so each level reads as a distinct
 // colored stripe. Input: depth (int >= 0). Output: class string.
 export function subassyDepthBorder(depth) {
@@ -77,7 +78,7 @@ export function sanitizeText(str) {
 
 // Convert a part number to a safe Supabase Storage folder name.
 // Uppercases, trims, and replaces any character that isn't alphanumeric or dash with underscore.
-// e.g. "TC 11490 / A" → "TC_11490___A"  |  "TC11490" → "TC11490"
+// e.g. "TC 11490 / A" â†’ "TC_11490___A"  |  "TC11490" â†’ "TC11490"
 export function sanitizePartKey(partNumber) {
     if (typeof partNumber !== 'string' || !partNumber.trim()) return '_unknown';
     return partNumber.trim().toUpperCase().replace(/[^A-Z0-9\-]/g, '_');
@@ -129,7 +130,7 @@ export function deepClone(obj) {
 }
 
 // Clamp a number between min and max
-// Map of stage prefix → dedicated DB column name (authoritative source of truth)
+// Map of stage prefix â†’ dedicated DB column name (authoritative source of truth)
 const STAGE_QTY_COL = {
     TVENG: 'tv_engine_qty_completed',
     TVCRT: 'tv_cart_qty_completed',
@@ -151,7 +152,7 @@ export function clamp(n, min, max) {
     return Math.min(Math.max(n, min), max);
 }
 
-// ── detectReelWeld ────────────────────────────────────────────
+// â”€â”€ detectReelWeld â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Returns true if a part number is a Weld reel part.
 // Normalises input (trim + uppercase) before checking.
 // reelList is passed as an argument so this function stays pure (no imports).
@@ -160,7 +161,7 @@ export function detectReelWeld(partNumber, reelList) {
     return reelList.includes(partNumber.trim().toUpperCase());
 }
 
-// addBusinessDays — add n Mon–Fri business days to a YYYY-MM-DD date string. Returns YYYY-MM-DD or null.
+// addBusinessDays â€” add n Monâ€“Fri business days to a YYYY-MM-DD date string. Returns YYYY-MM-DD or null.
 export function addBusinessDays(dateStr, n) {
     if (!dateStr || n <= 0) return dateStr || null;
     const d = new Date(dateStr + 'T12:00:00');
@@ -173,7 +174,7 @@ export function addBusinessDays(dateStr, n) {
     return d.toISOString().slice(0, 10);
 }
 
-// addCalendarDays — add n calendar days to a YYYY-MM-DD string. Returns YYYY-MM-DD or null.
+// addCalendarDays â€” add n calendar days to a YYYY-MM-DD string. Returns YYYY-MM-DD or null.
 // Uses noon local time to avoid DST boundary issues.
 export function addCalendarDays(dateStr, n) {
     if (!dateStr) return null;
@@ -183,7 +184,7 @@ export function addCalendarDays(dateStr, n) {
     return d.toISOString().slice(0, 10);
 }
 
-// ── detectTcMode ──────────────────────────────────────────────
+// â”€â”€ detectTcMode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Detects TC Assy job mode from a part number.
 // Normalises input (trim + uppercase) before checking.
 //
@@ -203,13 +204,13 @@ export function detectTcMode(partNumber) {
     return null;
 }
 
-// normalizePartNumber — trim whitespace and uppercase for case-insensitive part matching.
+// normalizePartNumber â€” trim whitespace and uppercase for case-insensitive part matching.
 export function normalizePartNumber(partNumber) {
     if (typeof partNumber !== 'string') return '';
     return partNumber.trim().toUpperCase();
 }
 
-// normalizePartNumberStrict — uppercase + strip ALL dashes and whitespace, for
+// normalizePartNumberStrict â€” uppercase + strip ALL dashes and whitespace, for
 // dash/space-insensitive matching. Mirrors the SQL de-dash in the active-order lookup RPCs
 // (get_active_wos_for_part / get_active_pos_for_part) so client and server agree.
 export function normalizePartNumberStrict(partNumber) {
@@ -217,15 +218,15 @@ export function normalizePartNumberStrict(partNumber) {
     return partNumber.toUpperCase().replace(/[-\s]/g, '');
 }
 
-// computePrintRoutingChain — derives the ordered routing steps for a work order traveller.
+// computePrintRoutingChain â€” derives the ordered routing steps for a work order traveller.
 // order: a work_orders row. travellerWos: { [traveller_id]: [work_orders rows] } map from store.
 // Returns an array of step strings, e.g. ['Fab', 'Weld', 'Paint', 'W2 Staging'].
 // Rules:
-//   - Fab WO present → 'Fab'
-//   - Weld WO present → 'Weld' then 'Paint' (weld always ends at paint)
-//   - No Weld WO but Fab WO has fab_bring_to → use that value as the next step
-//   - staging_area on the order → appended after the last paint/weld step
-//   - Assy WOs → appended at the end
+//   - Fab WO present â†’ 'Fab'
+//   - Weld WO present â†’ 'Weld' then 'Paint' (weld always ends at paint)
+//   - No Weld WO but Fab WO has fab_bring_to â†’ use that value as the next step
+//   - staging_area on the order â†’ appended after the last paint/weld step
+//   - Assy WOs â†’ appended at the end
 export function computePrintRoutingChain(order, travellerWos) {
     if (!order) return [];
     const wos  = order.traveller_id
@@ -255,7 +256,7 @@ export function computePrintRoutingChain(order, travellerWos) {
     return steps;
 }
 
-// isPurchasingOrderLate — true if expected_date is past and order is not complete/canceled.
+// isPurchasingOrderLate â€” true if expected_date is past and order is not complete/canceled.
 export function isPurchasingOrderLate(order) {
     if (!order?.expected_date) return false;
     if (['received', 'canceled'].includes(order.status)) return false;
@@ -264,8 +265,8 @@ export function isPurchasingOrderLate(order) {
     return new Date(order.expected_date) < today;
 }
 
-// formatMsgTime — compact timestamp for direct message display.
-// Today → "2:34 PM"; this year → "May 21"; older → "5/21/24". Input: ISO string. Output: string.
+// formatMsgTime â€” compact timestamp for direct message display.
+// Today â†’ "2:34 PM"; this year â†’ "May 21"; older â†’ "5/21/24". Input: ISO string. Output: string.
 export function formatMsgTime(dateStr) {
     if (!dateStr) return '';
     try {
@@ -281,7 +282,7 @@ export function formatMsgTime(dateStr) {
     } catch { return ''; }
 }
 
-// missingSubpartRoutingFields — for a single subpart plan/form, returns the labels of
+// missingSubpartRoutingFields â€” for a single subpart plan/form, returns the labels of
 // required routing fields that are still blank. Returns [] when Qty to Make is not a
 // positive number (an un-filled subpart imposes no requirements). Pure: no side effects.
 // A field counts as filled if it is not '' and not null/undefined (0 is allowed, e.g.
@@ -304,7 +305,7 @@ export function missingSubpartRoutingFields(form) {
         .map(([, label]) => label);
 }
 
-// validateEngInquiryForm — returns an { field: true } errors object for the
+// validateEngInquiryForm â€” returns an { field: true } errors object for the
 // create-inquiry form. Category-aware: for record_category 'inquiry' the sales
 // order # and all mower/trailer info are optional (only customer contact + CSR
 // notes are required); for 'order' / 'issue_warranty' the full field set is

@@ -7,7 +7,7 @@
 
 import * as store  from '../libs/store.js';
 import * as db     from '../libs/db.js';
-import { isNonEmpty, sanitizeText } from '../libs/utils.js';
+import { isNonEmpty, sanitizeText, buildWoCloseoutTxns } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
 // ── searchOfficeReceive ───────────────────────────────────────
@@ -250,12 +250,42 @@ export async function submitCloseout() {
 
         store.closeoutModalOpen.value = false;
         store.showToast('Work order closed out successfully.', 'success');
+        _recordCloseoutTxns(store.closeoutTarget.value); // non-fatal, not awaited
         await _refreshWoStatusData();
     } catch (err) {
         store.showToast('Failed to close out: ' + err.message);
         logError('submitCloseout', err, { id: store.closeoutTarget.value?.id });
     } finally {
         store.loading.value = false;
+    }
+}
+
+// ── Native inventory ledger: closeout emission ────────────────
+// Fired (not awaited) after a successful closeout: one MO/I row puts the
+// finished part into stock, one MO/O row per direct BOM child backflushes
+// components (single-level — subassy WOs backflush their own children at
+// their own closeout). Qty rule: office-verified qty_received, else the
+// joined qty_completed fallback; missing/zero → skip with a warning.
+// Never re-queries work_orders — archiveWorkOrder deletes them async.
+// The ledger anchors on CLOSEOUT deliberately: closeout has no undo path,
+// so no compensating rows are ever needed. Do not move this to WO
+// completion, which is undoable.
+async function _recordCloseoutTxns(row) {
+    try {
+        const qty = Number(row?.qty_received ?? row?.qty_completed_fallback ?? 0);
+        if (!row?.part_number?.trim() || !(qty > 0)) {
+            store.showToast('Closed out, but no valid quantity found — inventory ledger not updated.');
+            return;
+        }
+        const { data: children, error: bomErr } = await db.fetchBomChildrenForParent(row.part_number);
+        if (bomErr) throw bomErr;
+        const txns = buildWoCloseoutTxns(row, qty, children);
+        if (!txns.length) return;
+        const { error } = await db.insertInventoryTxns(txns);
+        if (error) throw error;
+    } catch (err) {
+        store.showToast('Closed out, but inventory ledger did not record: ' + err.message);
+        logError('_recordCloseoutTxns', err, { id: row?.id, wo: row?.wo_number });
     }
 }
 

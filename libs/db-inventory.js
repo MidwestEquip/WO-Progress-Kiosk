@@ -450,42 +450,7 @@ export async function insertOpenOrders(rows) {
     );
 }
 
-// ── Completed Orders queries ──────────────────────────────────
-
-// shipOpenOrder — copies a row from open_orders into open_orders_completed then deletes
-// the original. row: full open_orders object. shipped_at is set to now().
-// finalStatus defaults to 'Shipped'; pass 'Deleted' for recoverable row deletes —
-// the row lands in Completed Orders where Restore can bring it back.
-export async function shipOpenOrder(row, finalStatus = 'Shipped') {
-    const now = new Date().toISOString();
-    const { id, created_at, updated_at, ...fields } = row;
-    const { error: insertErr } = await withRetry(() =>
-        supabase.from('open_orders_completed').insert([{
-            ...fields,
-            original_id: id,
-            status:      finalStatus,
-            shipped_at:  now,
-            updated_at:  now,
-        }])
-    );
-    if (insertErr) return { error: insertErr };
-    return withRetry(() => supabase.from('open_orders').delete().eq('id', id));
-}
-
-// fetchCompletedOrders — all open_orders_completed rows, oldest shipped first.
-export async function fetchCompletedOrders() {
-    return withRetry(() =>
-        supabase.from('open_orders_completed')
-            .select('*')
-            .order('shipped_at', { ascending: true })
-    );
-}
-
-// deleteCompletedOrder — hard-delete one open_orders_completed row (used by Restore).
-export async function deleteCompletedOrder(id) {
-    if (!id) return { error: new Error('Missing completed order ID') };
-    return withRetry(() => supabase.from('open_orders_completed').delete().eq('id', id));
-}
+// ── Completed Orders queries: relocated to db-open-orders.js (Patch 4a) ──
 
 // insertTraveller — creates a new traveller group record and returns its ID.
 export async function insertTraveller() {

@@ -1,15 +1,3 @@
--- ============================================================
--- schema.sql — CANONICAL database schema (generated, do not hand-edit)
--- ============================================================
--- Complete definition of the public schema: tables, indexes, functions,
--- RLS policies, and grants. A from-scratch rebuild is:
---   1. Create a new Supabase project
---   2. Run this file in the SQL editor (or psql)
---   3. Restore data from the latest dump (see BACKUP-RECOVERY.md)
--- The *-migration.sql files are the historical change log; THIS file is
--- the current truth. Regenerate after applying any migration:
---   powershell -File C:\WO-Backups\scripts\gen-schema.ps1
--- ============================================================
 --
 -- PostgreSQL database dump
 --
@@ -340,14 +328,27 @@ CREATE FUNCTION public.get_part_purchased_36mo(p_part text) RETURNS TABLE(txn_da
 
 CREATE FUNCTION public.get_part_usage_summary_12mo(p_part text) RETURNS TABLE(qty_sold_12mo numeric, qty_used_mfg_12mo numeric, qty_made_12mo numeric)
     LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
     WITH sold AS (
-      SELECT COALESCE(SUM(qty), 0) AS qty
-      FROM sales_analysis_lines
-      WHERE item_normalized = p_part
-        AND doctype = 'SO' AND trantype = 'O'
-        AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
-        AND sale_date <= CURRENT_DATE
+      SELECT COALESCE(SUM(qty), 0) AS qty FROM (
+        SELECT qty
+        FROM sales_analysis_lines
+        WHERE item_normalized = p_part
+          AND doctype = 'SO' AND trantype = 'O'
+          AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
+          AND sale_date <= CURRENT_DATE
+          AND sale_date < public.native_cutover()
+        UNION ALL
+        SELECT qty
+        FROM issues_receipts
+        WHERE part_number_normalized = p_part
+          AND source = 'native'
+          AND doctype = 'SO' AND trantype = 'O'
+          AND txn_date >= CURRENT_DATE - INTERVAL '12 months'
+          AND txn_date <= CURRENT_DATE
+          AND txn_date >= public.native_cutover()
+      ) s
     ),
     mfg AS (
       SELECT
@@ -369,14 +370,26 @@ CREATE FUNCTION public.get_part_usage_summary_12mo(p_part text) RETURNS TABLE(qt
 
 CREATE FUNCTION public.get_part_usage_summary_36mo(p_part text) RETURNS TABLE(qty_sold_36mo numeric, qty_used_mfg_36mo numeric, qty_made_36mo numeric)
     LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
     WITH sold AS (
-      SELECT COALESCE(SUM(qty), 0) AS qty
-      FROM sales_analysis_lines
-      WHERE item_normalized = p_part
-        AND doctype = 'SO' AND trantype = 'O'
-        AND sale_date >= '2023-01-01'
-        AND sale_date <= CURRENT_DATE
+      SELECT COALESCE(SUM(qty), 0) AS qty FROM (
+        SELECT qty
+        FROM sales_analysis_lines
+        WHERE item_normalized = p_part
+          AND doctype = 'SO' AND trantype = 'O'
+          AND sale_date >= '2023-01-01'
+          AND sale_date <= CURRENT_DATE
+          AND sale_date < public.native_cutover()
+        UNION ALL
+        SELECT qty
+        FROM issues_receipts
+        WHERE part_number_normalized = p_part
+          AND source = 'native'
+          AND doctype = 'SO' AND trantype = 'O'
+          AND txn_date >= public.native_cutover()
+          AND txn_date <= CURRENT_DATE
+      ) s
     ),
     mfg AS (
       SELECT
@@ -453,17 +466,132 @@ CREATE FUNCTION public.get_parts_usage_summary_batch(p_parts text[]) RETURNS TAB
 
 CREATE FUNCTION public.get_sales_analysis_sold(p_parts text[], p_start date, p_end date) RETURNS TABLE(item_normalized text, qty_sold numeric)
     LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
     SELECT
       item_normalized,
       COALESCE(SUM(qty), 0) AS qty_sold
-    FROM sales_analysis_lines
-    WHERE item_normalized = ANY(p_parts)
-      AND doctype  = 'SO'
-      AND trantype = 'O'
-      AND sale_date BETWEEN p_start AND p_end
+    FROM (
+      SELECT item_normalized, qty
+      FROM sales_analysis_lines
+      WHERE item_normalized = ANY(p_parts)
+        AND doctype  = 'SO'
+        AND trantype = 'O'
+        AND sale_date BETWEEN p_start AND p_end
+        AND sale_date < public.native_cutover()
+      UNION ALL
+      SELECT part_number_normalized AS item_normalized, qty
+      FROM issues_receipts
+      WHERE part_number_normalized = ANY(p_parts)
+        AND source   = 'native'
+        AND doctype  = 'SO'
+        AND trantype = 'O'
+        AND txn_date BETWEEN p_start AND p_end
+        AND txn_date >= public.native_cutover()
+    ) s
     GROUP BY item_normalized;
   $$;
+
+
+--
+-- Name: import_inventory_count(text, numeric, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.import_inventory_count(p_part text, p_qty numeric, p_counted_by text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+    v_part text := upper(btrim(coalesce(p_part, '')));
+    v_by   text := btrim(coalesce(p_counted_by, ''));
+BEGIN
+    IF length(v_part) < 1 OR length(v_part) > 100 THEN
+        RAISE EXCEPTION 'invalid part number';
+    END IF;
+    IF p_qty IS NULL OR p_qty < 0 OR p_qty >= 100000 THEN
+        RAISE EXCEPTION 'count quantity must be between 0 and 99999';
+    END IF;
+    IF v_by = '' THEN
+        RAISE EXCEPTION 'counted_by is required';
+    END IF;
+
+    INSERT INTO issues_receipts
+        (txn_date, part_number, part_number_normalized, doctype, trantype,
+         qty, docid, source, native_event_key)
+    VALUES
+        (CURRENT_DATE, v_part, v_part, 'IC', 'C',
+         p_qty,
+         left('counted by: ' || v_by, 50),
+         'native',
+         'ic|' || v_part || '|' || to_char(now(), 'YYYYMMDDHH24MISS'))
+    ON CONFLICT (native_event_key) DO NOTHING;  -- same-second replay collapses
+END;
+$$;
+
+
+--
+-- Name: issrec_native_apply_onhand(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.issrec_native_apply_onhand() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+    v_delta numeric;
+BEGIN
+    IF NEW.doctype = 'IC' THEN
+        INSERT INTO part_on_hand (part_number_normalized, on_hand, counted_at, updated_at)
+        VALUES (NEW.part_number_normalized, NEW.qty, now(), now())
+        ON CONFLICT (part_number_normalized)
+        DO UPDATE SET on_hand    = EXCLUDED.on_hand,
+                      counted_at = now(),
+                      updated_at = now();
+        RETURN NULL;
+    END IF;
+
+    v_delta := CASE
+        WHEN NEW.doctype IN ('MO', 'PO') AND NEW.trantype = 'I' THEN  NEW.qty
+        WHEN NEW.doctype = 'MO'          AND NEW.trantype = 'O' THEN -NEW.qty
+        WHEN NEW.doctype = 'SO'          AND NEW.trantype = 'S' THEN -NEW.qty
+        ELSE NULL   -- SO/O and anything unmapped: no on-hand effect
+    END;
+    IF v_delta IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    INSERT INTO part_on_hand (part_number_normalized, on_hand, updated_at)
+    VALUES (NEW.part_number_normalized, v_delta, now())
+    ON CONFLICT (part_number_normalized)
+    DO UPDATE SET on_hand    = part_on_hand.on_hand + EXCLUDED.on_hand,
+                  updated_at = now();
+    RETURN NULL;
+END;
+$$;
+
+
+--
+-- Name: issrec_native_normalize(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.issrec_native_normalize() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+    NEW.part_number_normalized := upper(btrim(NEW.part_number));
+    RETURN NEW;   -- must return NEW or the insert is silently suppressed
+END;
+$$;
+
+
+--
+-- Name: native_cutover(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.native_cutover() RETURNS date
+    LANGUAGE sql IMMUTABLE
+    AS $$ SELECT DATE '2026-07-16' $$;
 
 
 SET default_tablespace = '';
@@ -790,7 +918,8 @@ CREATE TABLE public.issues_receipts (
     source_file_name text,
     source_row_number integer,
     import_batch_id text,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    native_event_key text
 );
 
 
@@ -885,7 +1014,7 @@ CREATE TABLE public.open_orders (
     qty_pulled integer,
     date_entered text,
     deadline text,
-    status text DEFAULT 'New/Picking'::text,
+    status text DEFAULT 'New'::text,
     store_bin text,
     update_store_bin text,
     wo_va_notes text,
@@ -971,7 +1100,9 @@ CREATE TABLE public.open_orders_completed (
     shipped_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     created_at timestamp with time zone DEFAULT now(),
-    tracking_number text
+    tracking_number text,
+    backordered boolean DEFAULT false NOT NULL,
+    waiting_on jsonb
 );
 
 
@@ -1051,6 +1182,18 @@ CREATE TABLE public.part_notes (
     purchaser_note text,
     purchaser_note_date date,
     purchaser_note_by text,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: part_on_hand; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.part_on_hand (
+    part_number_normalized text NOT NULL,
+    on_hand numeric DEFAULT 0 NOT NULL,
+    counted_at timestamp with time zone,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
@@ -1639,6 +1782,14 @@ ALTER TABLE ONLY public.part_notes
 
 
 --
+-- Name: part_on_hand part_on_hand_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.part_on_hand
+    ADD CONSTRAINT part_on_hand_pkey PRIMARY KEY (part_number_normalized);
+
+
+--
 -- Name: purchasing_order_events purchasing_order_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1825,6 +1976,13 @@ CREATE INDEX idx_cwo_wo_number ON public.completed_work_orders USING btree (wo_n
 --
 
 CREATE INDEX idx_issrec_batch ON public.issues_receipts USING btree (import_batch_id);
+
+
+--
+-- Name: idx_issrec_native_event_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_issrec_native_event_key ON public.issues_receipts USING btree (native_event_key);
 
 
 --
@@ -2039,6 +2197,20 @@ CREATE RULE ignore_duplicate_sales_analysis AS
    WHERE (EXISTS ( SELECT 1
            FROM public.sales_analysis_lines
           WHERE ((sales_analysis_lines.docid = new.docid) AND (sales_analysis_lines.linenum = new.linenum) AND (sales_analysis_lines.item_normalized = new.item_normalized) AND (sales_analysis_lines.sale_date = new.sale_date)))) DO INSTEAD NOTHING;
+
+
+--
+-- Name: issues_receipts trg_issrec_native_apply_onhand; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_issrec_native_apply_onhand AFTER INSERT ON public.issues_receipts FOR EACH ROW WHEN ((new.source = 'native'::text)) EXECUTE FUNCTION public.issrec_native_apply_onhand();
+
+
+--
+-- Name: issues_receipts trg_issrec_native_normalize; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_issrec_native_normalize BEFORE INSERT ON public.issues_receipts FOR EACH ROW WHEN ((new.source = 'native'::text)) EXECUTE FUNCTION public.issrec_native_normalize();
 
 
 --
@@ -2684,6 +2856,20 @@ ALTER TABLE public.engineering_followups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.issues_receipts ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: issues_receipts issues_receipts_native_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY issues_receipts_native_insert ON public.issues_receipts FOR INSERT TO authenticated, anon WITH CHECK (((source = 'native'::text) AND (txn_date >= public.native_cutover()) AND (txn_date <= (CURRENT_DATE + 1)) AND (doctype = ANY (ARRAY['MO'::text, 'SO'::text, 'PO'::text])) AND (trantype = ANY (ARRAY['I'::text, 'O'::text, 'S'::text])) AND (qty IS NOT NULL) AND (qty <> (0)::numeric) AND (abs(qty) < (100000)::numeric) AND ((length(btrim(part_number)) >= 1) AND (length(btrim(part_number)) <= 100)) AND (length(COALESCE(docid, ''::text)) <= 50) AND (source_file_name IS NULL) AND (source_row_number IS NULL)));
+
+
+--
+-- Name: issues_receipts issues_receipts_native_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY issues_receipts_native_select ON public.issues_receipts FOR SELECT TO authenticated, anon USING ((source = 'native'::text));
+
+
+--
 -- Name: item_master; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -2771,6 +2957,19 @@ ALTER TABLE public.part_notes ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY part_notes_anon_all ON public.part_notes TO authenticated, anon USING (true) WITH CHECK (true);
+
+
+--
+-- Name: part_on_hand; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.part_on_hand ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: part_on_hand part_on_hand_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY part_on_hand_select ON public.part_on_hand FOR SELECT TO authenticated, anon USING (true);
 
 
 --
@@ -3050,6 +3249,42 @@ GRANT ALL ON FUNCTION public.get_sales_analysis_sold(p_parts text[], p_start dat
 
 
 --
+-- Name: FUNCTION import_inventory_count(p_part text, p_qty numeric, p_counted_by text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.import_inventory_count(p_part text, p_qty numeric, p_counted_by text) TO anon;
+GRANT ALL ON FUNCTION public.import_inventory_count(p_part text, p_qty numeric, p_counted_by text) TO authenticated;
+GRANT ALL ON FUNCTION public.import_inventory_count(p_part text, p_qty numeric, p_counted_by text) TO service_role;
+
+
+--
+-- Name: FUNCTION issrec_native_apply_onhand(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.issrec_native_apply_onhand() TO anon;
+GRANT ALL ON FUNCTION public.issrec_native_apply_onhand() TO authenticated;
+GRANT ALL ON FUNCTION public.issrec_native_apply_onhand() TO service_role;
+
+
+--
+-- Name: FUNCTION issrec_native_normalize(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.issrec_native_normalize() TO anon;
+GRANT ALL ON FUNCTION public.issrec_native_normalize() TO authenticated;
+GRANT ALL ON FUNCTION public.issrec_native_normalize() TO service_role;
+
+
+--
+-- Name: FUNCTION native_cutover(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.native_cutover() TO anon;
+GRANT ALL ON FUNCTION public.native_cutover() TO authenticated;
+GRANT ALL ON FUNCTION public.native_cutover() TO service_role;
+
+
+--
 -- Name: TABLE all_boms; Type: ACL; Schema: public; Owner: -
 --
 
@@ -3143,9 +3378,17 @@ GRANT ALL ON TABLE public.engineering_followups TO service_role;
 -- Name: TABLE issues_receipts; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON TABLE public.issues_receipts TO anon;
-GRANT ALL ON TABLE public.issues_receipts TO authenticated;
 GRANT ALL ON TABLE public.issues_receipts TO service_role;
+GRANT INSERT ON TABLE public.issues_receipts TO anon;
+GRANT INSERT ON TABLE public.issues_receipts TO authenticated;
+
+
+--
+-- Name: COLUMN issues_receipts.native_event_key; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT SELECT(native_event_key) ON TABLE public.issues_receipts TO anon;
+GRANT SELECT(native_event_key) ON TABLE public.issues_receipts TO authenticated;
 
 
 --
@@ -3227,6 +3470,15 @@ GRANT ALL ON TABLE public.part_manager_notes TO service_role;
 GRANT ALL ON TABLE public.part_notes TO anon;
 GRANT ALL ON TABLE public.part_notes TO authenticated;
 GRANT ALL ON TABLE public.part_notes TO service_role;
+
+
+--
+-- Name: TABLE part_on_hand; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.part_on_hand TO anon;
+GRANT ALL ON TABLE public.part_on_hand TO authenticated;
+GRANT ALL ON TABLE public.part_on_hand TO service_role;
 
 
 --

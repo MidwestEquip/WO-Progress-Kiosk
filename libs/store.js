@@ -26,6 +26,7 @@ export * from './store-open-orders.js';
 export * from './store-engineering.js';
 export * from './store-purchasing.js';
 export * from './store-messages.js';
+export * from './store-stock.js';
 
 // ── Version update banner ─────────────────────────────────────
 export const versionUpdateAvailable = ref(false);

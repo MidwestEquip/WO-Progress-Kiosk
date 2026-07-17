@@ -12,7 +12,7 @@ import * as db    from '../libs/db.js';
 import { detectOpenOrderSection, isChutePart,
          normalizePasteDate, matchOpenOrderStatus,
          parseClipboardTable, detectPasteColumns,
-         decideOpenOrderWoAttach } from '../libs/utils.js';
+         decideOpenOrderWoAttach, buildOpenOrderSoldTxns } from '../libs/utils.js';
 import { OPEN_ORDER_STATUSES, OPEN_ORDER_STATUS_NEW, PART_NOTE_KIND,
          OPEN_ORDER_PASTE_FIELD_ORDER, OPEN_ORDER_PASTE_HEADER_SYNONYMS } from '../libs/config.js';
 import { logError } from '../libs/db-shared.js';
@@ -372,5 +372,26 @@ export async function saveOpenOrderRow() {
         const have  = new Set(store.openOrders.value.map(o => o.id));
         const fresh = inserted.filter(r => !have.has(r.id));
         if (fresh.length) store.openOrders.value = [...store.openOrders.value, ...fresh];
+    }
+    _recordSoldTxns(inserted); // non-fatal, not awaited
+}
+
+// ── Native inventory ledger: sold-at-entry emission ───────────
+// Fired (not awaited) after new rows land on the board: one SO/O row per
+// inserted row — the native "Qty Sold" leg (no on-hand effect; stock leaves
+// at ship time via SO/S). `inserted` is insertOpenOrders' return, which
+// contains only rows genuinely inserted (conflict-ignored retries return
+// nothing), so this can never double-emit. Backorder-split remainder rows
+// never pass through here — their qty is already booked by the parent row's
+// SO/O. One batch insert, one failure toast (never per-row).
+async function _recordSoldTxns(insertedRows) {
+    try {
+        const txns = buildOpenOrderSoldTxns(insertedRows);
+        if (!txns.length) return;
+        const { error } = await db.insertInventoryTxns(txns);
+        if (error) throw error;
+    } catch (err) {
+        store.showToast('Rows added, but sold ledger did not record: ' + err.message);
+        logError('_recordSoldTxns', err);
     }
 }

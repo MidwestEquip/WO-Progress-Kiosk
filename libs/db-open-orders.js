@@ -4,6 +4,43 @@
 // ============================================================
 
 import { supabase, withRetry } from './db-shared.js';
+import { NATIVE_CUTOVER_DATE, TXN_SOURCE_NATIVE } from './config.js';
+import { buildOpenOrderTerminalTxns } from './utils.js';
+
+// ── Native inventory ledger writes ────────────────────────────
+// Co-located with shipOpenOrder (which emits internally) so no db sub-file
+// ever imports another. The ONLY app write path into issues_receipts.
+
+// _localTxnDate — YYYY-MM-DD in the local timezone (ledger txn_date).
+function _localTxnDate() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// insertInventoryTxns — inserts native ledger rows into issues_receipts.
+// Stamps source='native' and txn_date (local today, unless the builder set
+// one) so the utils builders stay pure. Rows carry deterministic
+// native_event_key values (unique index) and inserts are conflict-ignored,
+// so double-clicks, lost-ack retries, and logical replays collapse to
+// no-ops — and the part_on_hand AFTER trigger never double-fires.
+// No .select(): clients hold INSERT-only access (return=minimal).
+// Input: rows from a utils build* function. Output: { error } — callers
+// treat failures as non-fatal + toast.
+export async function insertInventoryTxns(rows) {
+    if (!rows || !rows.length) return { error: null };
+    const today   = _localTxnDate();
+    const stamped = rows.map(r => ({
+        ...r,
+        source:   TXN_SOURCE_NATIVE,
+        txn_date: r.txn_date || today,
+    }));
+    const { error } = await withRetry(() =>
+        supabase.from('issues_receipts')
+            .upsert(stamped, { onConflict: 'native_event_key', ignoreDuplicates: true })
+    );
+    return { error };
+}
 
 // fetchWorkOrderStatuses — live status of a set of work orders, for the Open
 // Orders "Waiting On" column. ONE bounded query (never a full scan, never
@@ -94,4 +131,55 @@ export async function findOpenOrdersForPart(partNumber) {
         if (!seen.has(r.id)) seen.set(r.id, r);
     }
     return { data: Array.from(seen.values()), error: null };
+}
+
+// ── Completed Orders queries (relocated verbatim from db-inventory.js,
+//    which sat at 499/500 — Native Ledger Patch 4a, no behavior change) ──
+
+// shipOpenOrder — copies a row from open_orders into open_orders_completed then deletes
+// the original. row: full open_orders object. shipped_at is set to now().
+// finalStatus defaults to 'Shipped'; pass 'Deleted' for recoverable row deletes —
+// the row lands in Completed Orders where Restore can bring it back.
+export async function shipOpenOrder(row, finalStatus = 'Shipped') {
+    const now = new Date().toISOString();
+    const { id, created_at, updated_at, ...fields } = row;
+    const { error: insertErr } = await withRetry(() =>
+        supabase.from('open_orders_completed').insert([{
+            ...fields,
+            original_id: id,
+            status:      finalStatus,
+            shipped_at:  now,
+            updated_at:  now,
+        }])
+    );
+    if (insertErr) return { error: insertErr };
+
+    // Native ledger emission (non-fatal): Shipped → SO/S stock-out;
+    // Deleted/Cancelled → negative SO/O sold reversal. Emitted after the
+    // completed-copy succeeds, independent of the delete leg — replays after
+    // a failed delete re-use the same deterministic key and are ignored.
+    // Callers surface ledgerError as a toast; the board move never blocks.
+    let ledgerError = null;
+    const txns = buildOpenOrderTerminalTxns(row, finalStatus, NATIVE_CUTOVER_DATE);
+    if (txns.length) {
+        ({ error: ledgerError } = await insertInventoryTxns(txns));
+    }
+
+    const del = await withRetry(() => supabase.from('open_orders').delete().eq('id', id));
+    return { ...del, ledgerError };
+}
+
+// fetchCompletedOrders — all open_orders_completed rows, oldest shipped first.
+export async function fetchCompletedOrders() {
+    return withRetry(() =>
+        supabase.from('open_orders_completed')
+            .select('*')
+            .order('shipped_at', { ascending: true })
+    );
+}
+
+// deleteCompletedOrder — hard-delete one open_orders_completed row (used by Restore).
+export async function deleteCompletedOrder(id) {
+    if (!id) return { error: new Error('Missing completed order ID') };
+    return withRetry(() => supabase.from('open_orders_completed').delete().eq('id', id));
 }

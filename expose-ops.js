@@ -30,9 +30,10 @@ import { loadWoRequests, submitWoRequestForm, deleteWoRequestItem,
          saveWoRequestSalesOrder, saveWoRequestInlineFields,
          checkWoRequestPartMatch, acceptSoHint, dismissSoHint,
          openSendToForecast, closeSendToForecast, submitSendToForecast } from './pages/wo-request-view.js';
-import { openWoRequestDetail, closeWoRequestDetail, dismissWoRequestDetail,
-         handleWoFileUploadForRequest, openSubpartWoForm,
-         inspectSubpart, finishSubpartInspect, cancelSubpartInspect } from './pages/wo-request-detail.js';
+import { openWoRequestDetail, handleWoFileUploadForRequest,
+         inspectSubpart } from './pages/wo-request-detail.js';
+import { closeWoRequestDetail, dismissWoRequestDetail, openSubpartWoForm,
+         finishSubpartInspect, cancelSubpartInspect } from './pages/wo-request-subparts.js';
 import { moveWoRequestToOrder, moveOrderToWoRequest, deleteOrderFromDetail } from './pages/request-convert.js';
 import { loadForecastedItems,
          openDeleteConfirm, cancelDeleteForecast, confirmDeleteForecast,
@@ -168,6 +169,9 @@ export function buildOpsExpose() {
         woRequestLastMade:               store.woRequestLastMade,
         woRequestRealCount:              store.woRequestRealCount,
         woRequestRealCountLabel:         store.woRequestRealCountLabel,
+        woRequestOnHandLoading:          store.woRequestOnHandLoading,
+        woRequestOnHandDisplay:          store.woRequestOnHandDisplay,
+        woRequestOnHandSubLabel:         store.woRequestOnHandSubLabel,
         woRequestCarriedStatusNote:      store.woRequestCarriedStatusNote,
         woRequestCarriedProductionNote:  store.woRequestCarriedProductionNote,
         woRequestUsedOn:                 store.woRequestUsedOn,

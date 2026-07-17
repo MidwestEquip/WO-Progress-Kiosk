@@ -116,6 +116,11 @@ These rules protect you as the number of work orders grows into the thousands.
 4. Never store logic in the database.
    Classification rules, mode detection, routing rules all live in utils.js.
    The DB stores only the result (e.g. tc_job_mode = unit), never the rule.
+   ONE user-approved exception (July 2026): the issues_receipts triggers that
+   maintain part_on_hand (native-ledger-patch2.sql) — arithmetic bookkeeping
+   only. config.js INVENTORY_TXN constants are the readable source of truth;
+   the trigger mirrors them; reconcile-part-on-hand.sql is the arbiter.
+   Do not add further rules to triggers.
 
 5. New columns: old rows will be NULL.
    Always handle null gracefully in code. Never assume a new column is populated.
@@ -536,6 +541,129 @@ Always prefer standalone for any manager view that shop floor staff might also n
 
 ## Active Patch Series
 
+### Native Inventory Ledger (July 2026) — custom MRP foundation
+Goal: software-native inventory transactions replace periodic Alere report imports as
+the source for part metrics (Request WO data, PO history, KPIs) + live on-hand count.
+Red-teamed over 4 rounds (July 16, 2026). Full design decisions in the plan of record;
+key shape: native events append rows to issues_receipts (source='native', Alere
+doctype/trantype vocabulary, positive qty; reversal rows negative, dated
+max(original date, CUTOVER)); deterministic native_event_key (unique index,
+conflict-ignore) = the idempotency mechanism; new part_on_hand table maintained by
+BEFORE (normalize) + AFTER (signs; IC=set) triggers — a deliberate, documented
+carve-out to the "never store logic in the database" rule (arithmetic bookkeeping
+only; config.js vocabulary constants are the readable source of truth; the ledger +
+reconcile script is the arbiter). Sold = booked-at-entry (SO/O at open-order add);
+SO/S (ship) decrements on-hand and is never counted as sold.
+- Patch 1 (DONE, applied July 16 2026; cutover = 2026-07-16): native-ledger-patch1.sql — native_cutover()
+  FIX (July 17, native-ledger-patch1-fix.sql): ON CONFLICT (native_event_key) needs
+  SELECT privilege on the target column — REVOKE ALL had removed it, so every app
+  emission failed with "permission denied". Fixed with a column-level
+  GRANT SELECT (native_event_key).
+  FIX 2 (July 17, native-ledger-patch1-fix2.sql): ON CONFLICT also requires the
+  arbiter path to pass SELECT ROW-LEVEL SECURITY; with zero SELECT policies
+  (default deny) every conflict-ignored insert was rejected ("new row violates
+  row-level security"). Fixed with a SELECT policy USING (source='native') —
+  Alere/cost rows stay invisible; native rows still only expose native_event_key
+  via the column grant. LESSON: on an RLS default-deny table, upserts need BOTH a
+  conflict-column SELECT grant AND a SELECT policy covering the inserted rows.
+  fn (single cutover source of truth), native_event_key + full unique index,
+  REVOKE ALL/GRANT INSERT, constrained INSERT-only RLS policy (IC excluded from client
+  doctypes), 3 RPCs replaced with blended sold legs (get_part_usage_summary_12mo/36mo,
+  get_sales_analysis_sold). All other RPCs deliberately untouched — native rows blend
+  automatically. Regen schema.sql after applying.
+- Patch 2 (DONE, applied July 16 2026): native-ledger-patch2.sql — part_on_hand
+  table (PK part_number_normalized, on_hand, counted_at NULL-until-first-count,
+  updated_at; RLS + SELECT-only policy) + BEFORE normalize / AFTER on-hand triggers
+  (SECURITY DEFINER, WHEN source='native') + reconcile-part-on-hand.sql (repo script,
+  report + optional repair; not deployed).
+- Patch 3 (IMPLEMENTED July 16 2026, awaiting user test): INVENTORY_TXN +
+  NATIVE_CUTOVER_DATE + TXN_SOURCE_NATIVE constants in config.js;
+  buildWoCloseoutTxns pure builder in utils.js (vocabulary hardcoded inline —
+  utils takes no imports; keep in sync with config.js + DB trigger);
+  libs/db-inventory-txn.js insertInventoryTxns (stamps source + local txn_date,
+  conflict-ignore on native_event_key, no .select()) re-exported by db.js;
+  _recordCloseoutTxns in wo-status-view.js (fire-and-forget after closeout
+  success; qty = qty_received ?? qty_completed_fallback, skip+toast when
+  missing; NEVER re-queries work_orders — archiveWorkOrder deletes them async);
+  Math.max fix for multi-dept qty_completed lookup in db-office.js.
+- Patch 4a (IMPLEMENTED July 16 2026, awaiting user test): pure relocation —
+  shipOpenOrder + fetchCompletedOrders + deleteCompletedOrder moved verbatim from
+  db-inventory.js (now 464/500) into db-open-orders.js (135/500); deleted from
+  source in the same change (duplicate names across two `export *` sources
+  silently become undefined). Zero caller changes (all use the db.js namespace).
+- Patch 4b (IMPLEMENTED July 16 2026, awaiting user test): open-orders emission —
+  insertInventoryTxns relocated from (deleted) db-inventory-txn.js into
+  db-open-orders.js so shipOpenOrder emits without a db→db import; shipOpenOrder
+  emits SO/S (Shipped) / negative SO/O reversal dated max(add date, cutover)
+  (Deleted, Cancelled) after the completed-copy succeeds, returns { ..., ledgerError };
+  one-line ledgerError toasts at all 5 call sites (open-orders-view.js 158/245/300/312
+  region, open-orders-shipping.js markShipped); builders buildOpenOrderSoldTxns /
+  buildOpenOrderTerminalTxns / buildOpenOrderRestoreTxns in utils.js;
+  _recordSoldTxns in open-orders-add.js (fires from `inserted` after modal close —
+  covers manual + paste; backorder remainders naturally excluded);
+  restoreCompletedOrder mints freshId client-side (invariant: never reuse
+  original_id), emits after board insert succeeds — Shipped → SO/S reversal (skipped
+  when shipped_at < cutover or original_id missing), Deleted/Cancelled → re-book
+  SO/O on freshId.
+- Patch 5 (IMPLEMENTED July 17 2026, awaiting user test): PO receive → PO/I —
+  buildPoReceiveTxn builder (request_type='part' with part_number only; partial
+  receipts emit nothing until the completing receive); _recordPoReceiveTxn fired
+  non-fatally in submitReceiving's received branch.
+- Patch 5-split (July 17 2026): utils.js hit 503/500 → ALL native-ledger builders
+  (buildWoCloseoutTxns + the 4 open-order/PO builders + _localDateString) moved
+  verbatim to new zero-import `libs/utils-ledger.js`, re-exported by utils.js
+  (utils-open-orders.js pattern; consumers unchanged). utils.js now 336.
+  Note: builders set part_number_normalized = trim+UPPER inline (zero-import
+  rule); the DB BEFORE trigger recomputes it authoritatively anyway.
+- Patch 6 (SCRIPTS WRITTEN July 17 2026, awaiting user run): go-live ops —
+  native-ledger-golive-backfill.sql (rerunnable SO/O backfill: Part A live board,
+  Part B post-golive completed rows keyed on original_id; standard 'oo|<id>|SO|O'
+  keys so live-emitted rows dedup); NATIVE-LEDGER-OPS.md (count-import CSV spec
+  incl. required deterministic 'ic|<date>|<part>' keys, corrective-count path,
+  go-live sequence, standing OPS rules, v1 gaps).
+- Patch 7 (IMPLEMENTED July 17 2026, awaiting user test): wo-request-detail.js split
+  514 → 376 + new pages/wo-request-subparts.js (152): moved = SUBPART_FORM_BLANK,
+  openSubpartWoForm, closeWoRequestDetail, _restoreDetailSnapshot,
+  _detailFormToSubpartPlan, _SUBPART_PLAN_FIELDS, _isBlankPlanValue,
+  finishSubpartInspect, cancelSubpartInspect, dismissWoRequestDetail; _detailGen →
+  store.woRequestDetailGen ref in new libs/store-stock.js (re-exported by store.js;
+  CDN vue import); expose-ops.js imports split across the two files; CLAUDE.md
+  stale-count corrections batched here.
+- Patch 8 (IMPLEMENTED July 17 2026, awaiting user test): on-hand UI in the Request
+  WO data modal — new libs/db-onhand.js (fetchOnHandForParts batch read; read-only by
+  design); woRequestOnHand/OnUnits/OnHandLoading refs + woRequestOnHandLabel computed
+  in store-stock.js; loader in openWoRequestDetail rides the shared 1yr
+  calculateRecursiveParentUsageDemand promise (its pathDetails supply the
+  ancestor×multiplier data — NO separate BFS), gen-guarded, finally-cleared;
+  dedicated "In Stock (Software)" cell between Est. Qty in Stock and In Stock
+  (requester) in modal-wo-request-data.html (both panels) — the live part_on_hand
+  number (woRequestOnHandDisplay; '—' until first physical count) with an on-units/
+  total/last-count sub-line (woRequestOnHandSubLabel); on-units counts COUNTED
+  ancestors only with "(x/y counted)" note.
+- Patch 9a (IMPLEMENTED July 17 2026, SQL awaiting user run): Inventory Adjustment →
+  live on-hand — native-ledger-count-rpc.sql creates import_inventory_count(part,
+  qty, counted_by) SECURITY DEFINER RPC (validated: part 1-100 chars, qty 0-99999,
+  counted_by required; timestamped 'ic|<part>|<ts>' keys so every count INSERTS and
+  the on-hand trigger always fires; the ONLY client path for IC rows);
+  importInventoryCount wrapper in db-onhand.js; submitManualCount (inventory-view.js)
+  now requires a Counted By name, saves item_master as before, then calls the RPC
+  (distinct toast if only the on-hand leg fails); Counted By field added to
+  view-inventory.html (count grid 2→3 cols).
+SERIES v1 COMPLETE (July 17, 2026) — remaining: user end-to-end test, go-live backfill
+run, physical count entry (Inventory Adjustment per part, or bulk CSV per
+NATIVE-LEDGER-OPS.md). Patch 9 later-bucket items are in the plan above.
+- Patch 9 (later): ADJ entries, import_inventory_count RPC (validated), partial
+  receipts, purchasing-detail surface, supplier coid.
+Documented v1 gaps: qty-edit/backorder-split drift vs add-time SO/O (reconcile
+absorbs; NO delta machinery); partial PO receipts unledgered until full receive;
+native PO/I rows have NULL supplier/cost in purchase-history RPCs; no closeout undo;
+sold-semantics shift at cutover.
+
+OPS RULES (Native Ledger): any future Alere import into issues_receipts OR
+sales_analysis_lines must be trimmed to txn_date/sale_date < native_cutover() and
+must never modify source='native' rows. Physical counts and backfills are
+service-role operations (Table Editor / SQL editor) — never client-side.
+
 ### BOM editor + native part creation (July 2026)
 Goal: BOM lookup/edit tab in the Part Changes view + New Part form (Alere replacement).
 Decisions: item_master extended (not a second table); BOM edits auto-open a bom_change
@@ -592,8 +720,19 @@ SERIES COMPLETE (July 7, 2026) — remaining deferred items: reminder-email send
 
 ## Split Needed (pre-existing over-cap files)
 
-- `pages/wo-request-detail.js` (509 lines): went over cap in the Part Changes chain patch (April counts used a blank-line-skipping counter). Split deferred at user direction — do not add to this file without splitting first. Natural boundary: subpart-inspect functions → pages/wo-request-subparts.js.
-- `partials/modal-purchasing-detail.html` (689 lines): Split deferred — do not add without splitting first.
+- `pages/wo-request-detail.js`: SPLIT DONE (July 17 2026, Native Ledger Patch 7) —
+  restore/Done/Cancel/close side → `pages/wo-request-subparts.js` (152); capture side
+  (openWoRequestDetail, _captureDetailSnapshot, inspectSubpart) stays (376/500).
+  Shared generation counter = `store.woRequestDetailGen` in `libs/store-stock.js`.
+- `pages/purchasing-view.js` (501 lines): over cap (CLAUDE.md previously said 459 —
+  stale). Do not add to this file without splitting first.
+- `partials/view-open-orders.html` (808 lines): already OVER its documented 800 cap
+  (previous notes said ~722/797/799 — stale). Zero new lines allowed; any change
+  needs a split first. NEW Open Orders UI blocks go in their own partial (standing
+  user directive).
+- `partials/modal-purchasing-detail.html`: 436 lines — the old 689-line freeze note
+  was stale; file is under cap again (verify at implementation time before adding).
+- `pages/wo-request-view.js`: 479 lines — the ~530 over-cap note was stale; under cap.
 - `partials/modal-wo-request.html` (365 lines): Owed split DONE — the Data section (heading through "Last 3 Times Made") was extracted into the teleported partial `modal-wo-request-data.html` (target div `#wo-request-data-body`, same pattern as the subparts teleport). Now under cap.
 
 ---

@@ -7,6 +7,7 @@
 
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
+import { buildPoReceiveTxn } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 import { PURCHASING_ACTIVE_STATUSES } from '../libs/config.js';
 
@@ -175,6 +176,23 @@ export async function completeOrder() {
     }
 }
 
+// ── Native inventory ledger: PO receive emission ──────────────
+// Fired (not awaited) on FULL receive only: one PO/I row puts the purchased
+// part into stock and into native purchase history. Part-type orders only;
+// partial receipts emit nothing until the receive that completes the order
+// (documented v1 gap). Deterministic key — re-saves collapse to no-ops.
+async function _recordPoReceiveTxn(order, qtyReceived) {
+    try {
+        const txns = buildPoReceiveTxn(order, qtyReceived);
+        if (!txns.length) return;
+        const { error } = await db.insertInventoryTxns(txns);
+        if (error) throw error;
+    } catch (err) {
+        store.showToast('Received, but inventory ledger did not record: ' + err.message);
+        logError('_recordPoReceiveTxn', err, { id: order?.id });
+    }
+}
+
 // submitReceiving — record quantity received; auto-sets status.
 export async function submitReceiving() {
     const order       = store.purchasingDetailOrder.value;
@@ -229,6 +247,7 @@ export async function submitReceiving() {
         // Open Orders board: parts arrived — row becomes actionable again.
         // Only rows still on the PO path flip; WO-path/Boxed rows are untouched.
         if (newStatus === 'received') {
+            _recordPoReceiveTxn(data || order, qtyReceived); // non-fatal, not awaited
             await _syncOpenOrderForPo(data, { status: 'WO/PO Complete' },
                 { onlyIf: ['PO Requested', 'PO Created'] });
         }

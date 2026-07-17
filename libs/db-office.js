@@ -35,8 +35,12 @@ export async function fetchWoStatusOrders() {
         const { data: wos } = await withRetry(() =>
             supabase.from('work_orders').select('wo_number,qty_completed').in('wo_number', woNums)
         );
+        // Multi-dept WOs have one row per department: take the MAX numeric
+        // qty_completed (first-row-wins picked an arbitrary department).
         (wos || []).forEach(w => {
-            if (!woLookup[w.wo_number]) woLookup[w.wo_number] = w.qty_completed;
+            const q = Number(w.qty_completed);
+            if (!Number.isFinite(q)) return;
+            woLookup[w.wo_number] = Math.max(woLookup[w.wo_number] ?? 0, q);
         });
     }
 
