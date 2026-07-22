@@ -183,3 +183,28 @@ export async function deleteCompletedOrder(id) {
     if (!id) return { error: new Error('Missing completed order ID') };
     return withRetry(() => supabase.from('open_orders_completed').delete().eq('id', id));
 }
+
+// updateCompletedOrder — patch fields on one open_orders_completed row (inline
+// cell edits: notes, tracking #). Mirrors updateOpenOrder but targets the
+// completed table. patch: { column: value, ... }. Output: { error }.
+export async function updateCompletedOrder(id, patch) {
+    if (!id) return { error: new Error('Missing completed order ID') };
+    return withRetry(() =>
+        supabase.from('open_orders_completed').update(patch).eq('id', id));
+}
+
+// findOpenOrdersByPartForWoSync — active open_orders rows shipping this exact part,
+// for the WO request/approval → board status sync. Deliberately does NOT match the
+// waiting_on JSONB: subpart rows track their own WO via woInfoByPart and must keep
+// their main status. Returns only the columns buildOpenOrderWoSyncUpdates reads.
+// Input: part # (blank → []). Output: { data: rows, error }.
+export async function findOpenOrdersByPartForWoSync(partNumber) {
+    const part = (partNumber || '').trim().toUpperCase();
+    if (!part) return { data: [], error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.from('open_orders')
+            .select('id, status, wo_po_number, part_number, chute_status')
+            .eq('part_number', part)
+    );
+    return { data: data || [], error };
+}

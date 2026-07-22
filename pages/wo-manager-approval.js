@@ -10,6 +10,7 @@ import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
 import { missingSubpartRoutingFields } from '../libs/utils.js';
+import { syncOpenOrdersForWoPart } from './open-orders-wo-sync.js';
 import { PART_NOTE_KIND } from '../libs/config.js';
 
 // enterWoApprovalView — navigate to the WO approval view and load the queue.
@@ -367,18 +368,17 @@ export async function managerFinalApproveWo() {
             }).catch(err => logError('managerFinalApproveWo:learnDefaults', err, { part: partNum }));
         }
 
-        // Sync est. lead time as a date to the matching open order deadline
+        // Board sync → 'WO Created' + job # on every eligible open order for this part
+        // (matched by part # only — the SO# is not used). The work_orders rows exist as
+        // of this approval, so the board says so during the gap before the official
+        // Alere WO# lands (setAlereWoNumber overwrites wo_po_number with it).
         const leadDays = parseFloat(form.estimated_lead_time);
-        const soNum    = (req.sales_order_number || '').trim();
-        const part     = (req.part_number        || '').trim().toUpperCase();
-        if (soNum && part && leadDays > 0) {
-            const { data: oo } = await db.findOpenOrderBySoAndPart(soNum, part);
-            if (oo) {
-                const leadDate = new Date();
-                leadDate.setDate(leadDate.getDate() + leadDays);
-                await db.updateOpenOrder(oo.id, { deadline: leadDate.toISOString().split('T')[0] });
-            }
-        }
+        const ld = new Date();
+        ld.setDate(ld.getDate() + (leadDays > 0 ? leadDays : 0));
+        await syncOpenOrdersForWoPart(req.part_number, {
+            status: 'WO Created', woPoNumber: jobNumber, label: 'WO approved',
+            deadline: leadDays > 0 ? ld.toISOString().split('T')[0] : null,
+        });
 
         // Subpart work_orders from the manager-curated plans. The traveller group was
         // already created above (and the parent rows linked to it), so reuse travellerId.

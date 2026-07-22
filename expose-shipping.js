@@ -36,7 +36,8 @@ import { onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
          onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
          onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
          onDropZoneDragOver, clearDropZone, reorderDrop } from './pages/open-orders-drag.js';
-import { enterCompletedOrdersView, loadCompletedOrders, restoreCompletedOrder } from './pages/completed-orders-view.js';
+import { enterCompletedOrdersView, loadCompletedOrders, restoreCompletedOrder,
+         startCompletedCellEdit, saveCompletedCellEdit, cancelCompletedCellEdit } from './pages/completed-orders-view.js';
 
 export function buildShippingExpose() {
     return {
@@ -140,8 +141,13 @@ export function buildShippingExpose() {
         saveReminderEmail,
 
         // Completed (Shipped) Orders
-        completedOrders:        store.completedOrders,
-        completedOrdersLoading: store.completedOrdersLoading,
+        completedOrders:         store.completedOrders,
+        completedOrdersLoading:  store.completedOrdersLoading,
+        completedOrdersFilter:   store.completedOrdersFilter,
+        filteredCompletedOrders: store.filteredCompletedOrders,
+        completedEditingCell:    store.completedEditingCell,
+        completedEditingValue:   store.completedEditingValue,
         enterCompletedOrdersView, loadCompletedOrders, restoreCompletedOrder,
+        startCompletedCellEdit, saveCompletedCellEdit, cancelCompletedCellEdit,
     };
 }

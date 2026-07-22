@@ -11,6 +11,7 @@
 // under the 500-line cap. Re-exported here so `from './utils.js'` still works.
 export * from './utils-open-orders.js';
 export * from './utils-ledger.js';
+export * from './utils-planning.js';
 
 // subassyDepthBorder â€” Subassy Setup tree level aid. Returns a Tailwind
 // left-border color class, cycling by depth so each level reads as a distinct
@@ -159,6 +160,18 @@ export function clamp(n, min, max) {
 export function detectReelWeld(partNumber, reelList) {
     if (typeof partNumber !== 'string' || !Array.isArray(reelList)) return false;
     return reelList.includes(partNumber.trim().toUpperCase());
+}
+
+// â”€â”€ computeReelQtyCompleted â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Finished-piece count for a reel Weld WO. Weld and grind run on the SAME
+// pieces, so the two op quantities are never summed. Grind is the final op,
+// so a piece only counts as complete once it has been ground.
+// Inputs: weldQty, grindQty (any type — parsed leniently).
+// Output: number >= 0. weldQty is accepted but unused today; it keeps the
+// rule in one place if the op order ever changes.
+export function computeReelQtyCompleted({ weldQty, grindQty }) {
+    const grind = parseFloat(grindQty) || 0;
+    return grind > 0 ? grind : 0;
 }
 
 // addBusinessDays â€” add n Monâ€“Fri business days to a YYYY-MM-DD date string. Returns YYYY-MM-DD or null.
@@ -333,4 +346,44 @@ export function validateEngInquiryForm(form) {
         }
     }
     return errors;
+}
+
+// bucketPartWip — split the get_part_wip payload into pipeline stages: qty
+// for a part that is in flight but NOT yet in part_on_hand (the native
+// ledger only emits at closeout).
+// Inputs:
+//   wip — { work_orders: [], requests: [] } from db.fetchPartWip
+//   excludeRequestId — the request currently open in the modal, so it does
+//                      not count itself as incoming supply (optional)
+// Output: { requested, inProduction, completedNotReceived, receivedNotClosed, total }
+// Rules: qty_done is already MIN across department rows (qty that cleared
+// every department). Closed-out WOs are skipped — they are in on-hand.
+export function bucketPartWip(wip, excludeRequestId) {
+    const out = { requested: 0, inProduction: 0, completedNotReceived: 0, receivedNotClosed: 0, total: 0 };
+    const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+    for (const w of (wip?.work_orders || [])) {
+        if (w?.erp_status === 'closed') continue;          // already in on-hand
+        const done = Math.max(num(w?.qty_done), 0);
+        if (w?.erp_status === 'received') {
+            // Received by the office, awaiting closeout — no ledger row yet.
+            out.receivedNotClosed += Math.max(num(w?.qty_received ?? done), 0);
+            continue;
+        }
+        out.completedNotReceived += done;
+        out.inProduction         += Math.max(num(w?.qty_required) - done, 0);
+    }
+
+    for (const r of (wip?.requests || [])) {
+        if (excludeRequestId && r?.id === excludeRequestId) continue;
+        out.requested += Math.max(num(r?.qty_to_make), 0);
+    }
+
+    const round = v => Math.round(v * 100) / 100;
+    out.requested            = round(out.requested);
+    out.inProduction         = round(out.inProduction);
+    out.completedNotReceived = round(out.completedNotReceived);
+    out.receivedNotClosed    = round(out.receivedNotClosed);
+    out.total = round(out.requested + out.inProduction + out.completedNotReceived + out.receivedNotClosed);
+    return out;
 }

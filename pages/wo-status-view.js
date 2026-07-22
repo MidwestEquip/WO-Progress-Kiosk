@@ -188,11 +188,11 @@ export async function submitReceive() {
     store.loading.value = true;
     try {
         const order = store.receiveTarget.value;
-        // Blank receiver qty (null / '') falls back to the completed qty;
-        // an entered or completed 0 is preserved (not bumped to the WO qty).
+        // Blank receiver qty (null / '') falls back to the actual completed qty,
+        // else 0 — never the full WO qty. An entered or completed 0 is preserved.
         const rq    = store.receiverQty.value;
         const qty   = (rq === null || rq === undefined || rq === '')
-                        ? (order.qty_completed ?? order.qty_required ?? 0)
+                        ? (order.qty_completed ?? 0)
                         : rq;
 
         const { error } = await db.receiveWorkOrder(

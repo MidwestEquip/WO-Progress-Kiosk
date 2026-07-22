@@ -161,6 +161,13 @@ export const CHUTE_PART_STATUSES = [
     'Ordered', 'In Stock', 'Ready', 'Complete', 'N/A'
 ];
 
+// Open order rows in these statuses are never touched by the WO request/approval
+// sync — the part is already handled, in hand, or gone from the board.
+export const OPEN_ORDER_WO_SYNC_SKIP_STATUSES = [
+    'Shipped', 'Cancelled', 'Deleted', 'Boxed', 'In Stock',
+    'WO Created', 'In Progress', 'WO/PO Complete', 'Label Printed', 'Labelled',
+];
+
 export const PURCHASING_STATUSES = [
     'requested',
     'needs_review',
@@ -220,6 +227,12 @@ export const PARTIAL_NAMES = [
     'view-purchasing-completed',
     'view-purchasing-quotes',
     'view-po-forecasting',
+    'view-production-planning',
+    'view-planning-base-units',
+    'view-planning-plan',
+    'view-planning-review',
+    'view-planning-queues',
+    'view-planning-workload',
     'view-po-request',
     'view-messages',
     'view-subassy-setup',
@@ -241,7 +254,8 @@ export const PARTIAL_NAMES = [
     'modal-eng-confirm',
     'modal-eng-followup',
     'modal-part-change',
-    'modal-new-part'
+    'modal-new-part',
+    'modal-base-unit-edit'
 ];
 
 export const OPEN_ORDER_SORT_FIELDS = [

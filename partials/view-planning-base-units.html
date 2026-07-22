@@ -1,0 +1,286 @@
+<!-- ============================================================
+     view-planning-base-units.html — Base Units tab (Teleport into
+     #pp-tab-body): saved-unit list, read-only detail, kit wizard.
+     ============================================================ -->
+<Teleport to="#pp-tab-body" v-if="currentView === 'production_planning'">
+<div v-if="planningTab === 'base_units'" class="absolute inset-0 overflow-y-auto p-6">
+
+    <!-- ── Saved units list ────────────────────────────────── -->
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-gray-800">Base Units</h2>
+        <button @click="openBuWizard"
+            class="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+            Build Base Unit
+        </button>
+    </div>
+
+    <div v-if="!baseUnits.length && !baseUnitsLoading"
+        class="text-center text-gray-400 py-16 bg-white rounded-xl border border-gray-200">
+        No base units yet. Click <span class="font-semibold">Build Base Unit</span> to derive one from sibling config BOMs.
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div v-for="bu in baseUnits" :key="bu.id"
+            class="bg-white rounded-xl border border-gray-200 p-4 hover:border-indigo-300 cursor-pointer"
+            @click="openBaseUnitDetail(bu.id)">
+            <div class="flex items-center justify-between">
+                <span class="font-extrabold text-gray-800">{{ bu.family_name }}</span>
+                <span class="text-xs font-bold uppercase px-2 py-0.5 rounded-full"
+                    :class="bu.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'">
+                    {{ bu.status }}</span>
+            </div>
+            <div class="text-xs text-gray-500 font-mono mt-1">{{ bu.base_part_number }}</div>
+            <div class="text-xs text-gray-400 mt-1">
+                {{ (bu.included_configs || []).length }} configs in ·
+                {{ (bu.excluded_configs || []).length }} excluded</div>
+            <div class="flex items-center gap-2 mt-2">
+                <button @click.stop="openBaseUnitEdit(bu.id)"
+                    class="text-xs font-semibold rounded px-2 py-1 text-indigo-600 hover:bg-indigo-50">Edit options</button>
+                <button @click.stop="deleteBaseUnitConfirm(bu.id)"
+                    class="text-xs font-semibold rounded px-2 py-1"
+                    :class="baseUnitDeleteId === bu.id ? 'bg-red-600 text-white' : 'text-red-500 hover:bg-red-50'">
+                    {{ baseUnitDeleteId === bu.id ? 'Confirm delete?' : 'Delete' }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Read-only detail overlay ────────────────────────── -->
+    <div v-if="baseUnitDetail" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-6"
+        @click.self="closeBaseUnitDetail">
+        <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xl font-extrabold text-gray-800">{{ baseUnitDetail.unit.family_name }}
+                    <span class="text-sm font-mono text-gray-400 ml-2">{{ baseUnitDetail.unit.base_part_number }}</span></h3>
+                <div class="flex items-center gap-3">
+                    <button @click="openBaseUnitEdit(baseUnitDetail.unit.id); closeBaseUnitDetail()"
+                        class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg">Edit options</button>
+                    <button @click="closeBaseUnitDetail" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500 mb-1">
+                Included: <span class="font-mono">{{ (baseUnitDetail.unit.included_configs || []).join(', ') || '—' }}</span></p>
+            <p class="text-xs text-gray-500 mb-3">
+                Excluded: <span class="font-mono">{{ (baseUnitDetail.unit.excluded_configs || []).join(', ') || '—' }}</span></p>
+            <p v-if="baseUnitDetail.unit.notes" class="text-sm text-gray-600 mb-3">{{ baseUnitDetail.unit.notes }}</p>
+            <div v-for="opt in baseUnitDetail.options" :key="opt.id"
+                class="border border-gray-200 rounded-lg p-3 mb-2">
+                <div class="flex items-center gap-2 text-sm">
+                    <span class="font-bold text-indigo-700">{{ opt.option_group }}</span>
+                    <span class="text-gray-700">{{ opt.choice_label }}</span>
+                    <span v-if="opt.required" class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">required</span>
+                    <span v-if="opt.source === 'manual'" class="text-[10px] font-bold uppercase bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">manual</span>
+                    <span v-if="!opt.parts.length" class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">no part # — excluded from material planning</span>
+                </div>
+                <div v-for="p in opt.parts" :key="p.id" class="text-xs text-gray-500 font-mono ml-2 mt-1">
+                    {{ p.part_number }} × {{ p.qty_per_unit }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Kit wizard overlay ──────────────────────────────── -->
+    <div v-if="buWizardOpen" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+        @click.self="closeBuWizard">
+        <div class="bg-white rounded-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-extrabold text-gray-800">
+                    {{ buWizardStep === 'pick' ? 'Build Base Unit — pick sibling configs' : 'Review kit — name steps, adjust, save' }}</h3>
+                <button @click="closeBuWizard" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            </div>
+
+            <!-- Step A: config picker -->
+            <div v-if="buWizardStep === 'pick'">
+                <div class="flex gap-2 mb-4">
+                    <input v-model="buFamilySearch" @keyup.enter="searchBuConfigs"
+                        placeholder="Family prefix — e.g. 880, TCC27, 580"
+                        class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono uppercase" />
+                    <button @click="searchBuConfigs" :disabled="buSearchLoading"
+                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-lg disabled:opacity-50">
+                        {{ buSearchLoading ? 'Searching…' : 'Search' }}</button>
+                </div>
+                <p v-if="buConfigResults.length" class="text-xs text-gray-500 mb-2">
+                    Check the sibling configs to diff. Thin BOMs (&lt;10 lines) start unchecked — kits and
+                    accessories usually don't belong in the diff. Excluded configs are recorded on the base unit.</p>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <label v-for="c in buConfigResults" :key="c.config"
+                        class="flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer text-sm"
+                        :class="c.included ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200'">
+                        <input type="checkbox" :checked="c.included" @change="toggleBuConfig(c.config)" />
+                        <span class="font-mono font-semibold">{{ c.config }}</span>
+                        <span class="text-xs text-gray-400 ml-auto">{{ c.lineCount }} lines</span>
+                    </label>
+                </div>
+                <div class="flex justify-end mt-4">
+                    <button @click="runBuDerivation" :disabled="buDeriving || !buIncludedConfigs.length"
+                        class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg disabled:opacity-50">
+                        {{ buDeriving ? 'Deriving…' : 'Derive Base + Options →' }}</button>
+                </div>
+            </div>
+
+            <!-- Step B: review -->
+            <div v-if="buWizardStep === 'review' && buKit">
+                <div class="flex flex-wrap gap-3 mb-4 text-sm">
+                    <span class="bg-gray-100 rounded-lg px-3 py-1.5 font-semibold">{{ buKit.base.length }} base parts</span>
+                    <span class="bg-gray-100 rounded-lg px-3 py-1.5 font-semibold">{{ buKit.steps.length }} steps</span>
+                    <span class="rounded-lg px-3 py-1.5 font-semibold"
+                        :class="buFlagCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100'">{{ buFlagCount }} review flags</span>
+                    <span v-if="buKit.singleConfig" class="bg-indigo-100 text-indigo-700 rounded-lg px-3 py-1.5 font-semibold">
+                        Single config — whole BOM is the base; add options manually</span>
+                </div>
+                <p v-if="buModularChildren.length" class="text-xs bg-indigo-50 text-indigo-700 rounded-lg px-3 py-2 mb-3">
+                    Modular children with their own BOMs:
+                    <span class="font-mono">{{ buModularLabel }}</span>
+                    — derive each as its own base unit if it varies by config.</p>
+
+                <!-- Save form -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase">Family name</label>
+                        <input v-model="buSaveForm.family_name" class="w-full border rounded-lg px-3 py-2 text-sm font-mono uppercase"
+                            :class="buSaveErrors.family_name ? 'border-red-400' : 'border-gray-300'" />
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase">Base unit part #</label>
+                        <input v-model="buSaveForm.base_part_number" class="w-full border rounded-lg px-3 py-2 text-sm font-mono uppercase"
+                            :class="buSaveErrors.base_part_number ? 'border-red-400' : 'border-gray-300'" />
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase">Notes</label>
+                        <input v-model="buSaveForm.notes" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                </div>
+
+                <!-- Steps -->
+                <div v-for="(s, si) in buKit.steps" :key="si" class="border border-gray-200 rounded-xl p-4 mb-3">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="bg-indigo-600 text-white text-xs font-bold rounded px-2 py-1">Step {{ si + 1 }}</span>
+                        <input v-model="s.name" class="border border-gray-300 rounded px-2 py-1 text-sm font-semibold w-56" />
+                        <label class="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+                            <input type="checkbox" v-model="s.required" /> Required (pick one)</label>
+                        <button @click="removeBuStep(si)" class="ml-auto text-xs font-semibold rounded px-2 py-1"
+                            :class="buStepDeleteIndex === si ? 'bg-red-600 text-white' : 'text-red-500 hover:bg-red-50'">
+                            {{ buStepDeleteIndex === si ? 'Confirm delete step?' : 'Delete step' }}</button>
+                    </div>
+                    <div v-if="!s.choices.length" class="text-xs text-gray-400 italic mb-2">
+                        No choices yet — move one here, or add one below.</div>
+                    <div v-for="(c, ci) in s.choices" :key="ci" class="bg-gray-50 rounded-lg p-3 mb-2">
+                        <div class="flex items-center gap-2 flex-wrap mb-1">
+                            <input v-model="c.label" class="border border-gray-300 rounded px-2 py-1 text-sm font-semibold flex-1 min-w-[12rem]" />
+                            <span v-if="c.source === 'manual'" class="text-[10px] font-bold uppercase bg-gray-200 text-gray-600 rounded-full px-2 py-0.5">manual</span>
+                            <span v-if="!c.parts.length" class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">no part #</span>
+                            <select @change="moveBuChoice(si, ci, $event.target.value); $event.target.value='keep'"
+                                class="border border-gray-300 rounded px-1.5 py-1 text-xs text-gray-600">
+                                <option value="keep">Move to…</option>
+                                <option v-for="(s2, s2i) in buKit.steps" :key="s2i" :value="s2i" v-show="s2i !== si">{{ s2.name }}</option>
+                                <option value="">New step</option>
+                            </select>
+                            <button @click="removeBuChoice(si, ci)" class="text-xs text-red-500 hover:bg-red-50 rounded px-2 py-1 font-semibold">Remove</button>
+                        </div>
+                        <div class="text-[11px] text-gray-400 font-mono mb-1" v-if="c.configs.length">in: {{ c.configs.join(', ') }}</div>
+                        <div v-for="(p, pi) in c.parts" :key="p.part_number" class="text-xs text-gray-600 font-mono flex gap-2 items-center mb-1">
+                            <span class="font-semibold w-36 shrink-0">{{ p.part_number }}</span>
+                            <input v-model.number="p.qty" type="number" min="1" @change="normalizeBuPartQty(p)"
+                                class="w-16 border rounded px-1.5 py-0.5 text-xs text-right shrink-0"
+                                :class="p.flag ? 'text-red-600 font-bold border-red-300' : 'border-gray-300'" />
+                            <span v-if="p.flag" class="text-red-600 font-bold shrink-0">⚠</span>
+                            <span class="text-gray-400 truncate flex-1">{{ p.descrip }}</span>
+                            <button v-if="p.flag && c.configs.length"
+                                @click="openBomFix(c.configs[0]); runBomSearch()"
+                                class="text-emerald-700 underline decoration-dotted shrink-0">Fix in BOM editor</button>
+                            <button @click="removeBuChoicePart(si, ci, pi)" title="Remove part"
+                                class="text-red-500 hover:bg-red-50 rounded px-1.5 font-bold shrink-0">&times;</button>
+                        </div>
+                        <div class="flex gap-2 items-center mt-1">
+                            <input v-model="c.newPart.part_number" placeholder="Add part #"
+                                @keyup.enter="addBuChoicePart(si, ci)"
+                                class="border border-gray-300 rounded px-2 py-1 text-xs font-mono uppercase w-36" />
+                            <input v-model.number="c.newPart.qty" type="number" min="1"
+                                class="border border-gray-300 rounded px-2 py-1 text-xs w-16" />
+                            <button @click="addBuChoicePart(si, ci)" :disabled="buPartAdding === si + '|' + ci"
+                                class="px-2.5 py-1 bg-gray-700 hover:bg-gray-600 text-white text-[11px] font-bold rounded disabled:opacity-50">
+                                {{ buPartAdding === si + '|' + ci ? 'Checking…' : 'Add part' }}</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button @click="addBuStep"
+                    class="mb-3 px-3 py-2 bg-white border border-dashed border-indigo-300 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-50">
+                    + Add step</button>
+
+                <!-- Add manual option -->
+                <div class="border border-dashed border-gray-300 rounded-xl p-4 mb-4">
+                    <div class="text-xs font-bold text-gray-500 uppercase mb-2">Add manual option (e.g. Honda Upgrade — part # optional)</div>
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <select v-model="buManualForm.stepIndex" class="border border-gray-300 rounded px-2 py-1.5 text-sm">
+                            <option value="">New step…</option>
+                            <option v-for="(s2, s2i) in buKit.steps" :key="s2i" :value="s2i">{{ s2.name }}</option>
+                        </select>
+                        <input v-if="buManualForm.stepIndex === ''" v-model="buManualForm.group" placeholder="Step name"
+                            class="border border-gray-300 rounded px-2 py-1.5 text-sm w-36" />
+                        <input v-model="buManualForm.label" placeholder="Choice label *"
+                            class="border border-gray-300 rounded px-2 py-1.5 text-sm w-48" />
+                        <input v-model="buManualForm.part_number" placeholder="Part # (optional)"
+                            class="border border-gray-300 rounded px-2 py-1.5 text-sm font-mono uppercase w-40" />
+                        <input v-model.number="buManualForm.qty" type="number" min="1"
+                            class="border border-gray-300 rounded px-2 py-1.5 text-sm w-20" />
+                        <button @click="addBuManualOption"
+                            class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg">Add</button>
+                    </div>
+                </div>
+
+                <!-- Qty varies -->
+                <div v-if="buKit.qtyVaries.length" class="border border-amber-200 bg-amber-50 rounded-xl p-4 mb-4">
+                    <div class="text-xs font-bold text-amber-700 uppercase mb-2">Qty varies across configs — review, then fix BOMs or accept</div>
+                    <div v-for="p in buKit.qtyVaries" :key="p.part_number" class="text-xs font-mono text-gray-700 mb-1">
+                        <span class="font-semibold">{{ p.part_number }}</span>
+                        <span :class="p.flag ? 'text-red-600 font-bold' : ''" v-if="p.flag"> ⚠</span>
+                        <span class="text-gray-400 ml-1">{{ p.descrip }}</span> —
+                        <button v-for="(q, cfg) in p.qtyByConfig" :key="cfg"
+                            @click="openBomFix(cfg); runBomSearch()"
+                            class="mr-1.5 underline decoration-dotted hover:text-emerald-700"
+                            :class="q >= 100 ? 'text-red-600 font-bold' : ''"
+                            :title="'Open ' + cfg + ' in the BOM editor'">{{ cfg }}={{ q }}</button>
+                    </div>
+                    <p class="text-[11px] text-amber-600 mt-1">These parts are NOT saved into the base — click a config to fix its line in the BOM editor
+                        (the wizard keeps your work; come back and re-derive), or add them as options.</p>
+                </div>
+
+                <!-- Base parts -->
+                <details class="border border-gray-200 rounded-xl p-4 mb-4">
+                    <summary class="text-sm font-bold text-gray-700 cursor-pointer">Base unit parts ({{ buKit.base.length }})</summary>
+                    <div class="max-h-72 overflow-y-auto mt-2">
+                        <div v-for="(p, bi) in buKit.base" :key="p.part_number" class="text-xs font-mono text-gray-600 flex gap-2 py-0.5 items-center">
+                            <span class="font-semibold w-32 shrink-0">{{ p.part_number }}</span>
+                            <input v-model.number="p.qty" type="number" min="1" @change="normalizeBuPartQty(p)"
+                                class="w-16 border rounded px-1.5 py-0.5 text-xs text-right shrink-0"
+                                :class="p.flag ? 'text-red-600 font-bold border-red-300' : 'border-gray-300'" />
+                            <span v-if="p.flag" class="text-red-600 font-bold shrink-0">⚠</span>
+                            <span class="text-gray-400 truncate flex-1">{{ p.descrip }}</span>
+                            <button v-if="p.flag && buIncludedConfigs.length"
+                                @click="openBomFix(buIncludedConfigs[0]); runBomSearch()"
+                                class="text-emerald-700 underline decoration-dotted shrink-0">Fix in BOM editor</button>
+                            <select @change="promoteBuBasePart(bi, $event.target.value); $event.target.value='keep'"
+                                class="border border-gray-300 rounded px-1.5 py-0.5 text-[11px] text-gray-600 shrink-0">
+                                <option value="keep">Make an option…</option>
+                                <option v-for="(s2, s2i) in buKit.steps" :key="s2i" :value="s2i">{{ s2.name }}</option>
+                                <option value="">New step</option>
+                            </select>
+                            <button @click="removeBuBasePart(bi)" title="Remove from base"
+                                class="text-red-500 hover:bg-red-50 rounded px-1.5 font-bold shrink-0">&times;</button>
+                        </div>
+                    </div>
+                </details>
+
+                <div class="flex justify-between">
+                    <button @click="buWizardStep = 'pick'"
+                        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-bold rounded-lg">← Back</button>
+                    <button @click="saveBaseUnit" :disabled="buSaving"
+                        class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg disabled:opacity-50">
+                        {{ buSaving ? 'Saving…' : 'Save Base Unit' }}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</Teleport>

@@ -26,7 +26,8 @@ import { loadPoReceiveOrders } from './pages/inventory-view.js';
 import { loadWoRequests, loadWoRequestCarriedNotes } from './pages/wo-request-view.js';
 import { loadForecastedItems } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems } from './pages/create-wo-view.js';
-import { loadOpenOrders, loadReminderEmail, reconcileOpenOrderRealtime } from './pages/open-orders-view.js';
+import { loadOpenOrders, loadReminderEmail } from './pages/open-orders-view.js';
+import { reconcileOpenOrderRealtime } from './pages/open-orders-realtime.js';
 import { loadCompletedOrders } from './pages/completed-orders-view.js';
 import { loadWaitingOnWoStatuses } from './pages/open-orders-shipping.js';
 import { loadPurchasingOrders, loadOrderEvents, syncDetailFromRealtime } from './pages/purchasing-view.js';
@@ -41,11 +42,16 @@ import { loadEngFollowups, loadEngFollowupEvents } from './pages/engineering-fol
 import { loadEngInquiries } from './pages/engineering-view.js';
 import { loadWoRequestOpenChanges } from './pages/part-changes-view.js';
 import { loadPurchasingCarriedNote } from './pages/purchasing-notes.js';
+import { loadBaseUnits } from './pages/planning-view.js';
+import { loadPlanningRuns } from './pages/planning-review.js';
+import { loadPlanningQueues } from './pages/planning-queues.js';
+import { loadWorkload } from './pages/planning-workload.js';
 
 import { buildCoreExpose } from './expose-core.js';
 import { buildOpsExpose } from './expose-ops.js';
 import { buildEngExpose } from './expose-eng.js';
 import { buildShippingExpose } from './expose-shipping.js';
+import { buildPlanningExpose } from './expose-planning.js';
 
 // ── Load HTML partials into #app before Vue mounts ───────────
 async function loadPartials() {
@@ -235,7 +241,17 @@ try {
                 if (v === 'purchasing')       { checkForecastRevisits(); loadPurchasingOrders(); }
                 if (v === 'po_request')       { checkForecastRevisits(); loadPurchasingOrders(); }
                 if (v === 'po_forecasting')   { checkForecastRevisits(); loadPoForecast(); }
+                if (v === 'production_planning') loadBaseUnits();
             });
+            // Production Planning tab loaders (tab switch = data load)
+            watch(store.planningTab, (t) => {
+                if (store.currentView.value !== 'production_planning') return;
+                if (t === 'review')   loadPlanningRuns();
+                if (t === 'queues')   loadPlanningQueues();
+                if (t === 'workload') loadWorkload();
+            });
+            // Base unit editor closed → refresh the saved-unit list
+            watch(store.loadBaseUnitsRequested, () => loadBaseUnits());
             watch(store.managerSubView, (v) => {
                 if (v === 'home' && store.currentView.value === 'manager') loadManagerAlerts();
             });
@@ -253,7 +269,7 @@ try {
                 if (v) setTimeout(() => location.reload(), 10_000);
             });
 
-            return { ...buildCoreExpose(), ...buildOpsExpose(), ...buildEngExpose(), ...buildShippingExpose() };
+            return { ...buildCoreExpose(), ...buildOpsExpose(), ...buildEngExpose(), ...buildShippingExpose(), ...buildPlanningExpose() };
         }
     });
 

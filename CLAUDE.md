@@ -342,7 +342,9 @@ Known exceptions that cannot be split further without introducing components:
 - `partials/view-open-orders.html` (~722 lines): single continuous row template with 18
   columns; there is no v-if boundary left to split at (top bar and action bar already
   extracted; config-driven cell compression proposed July 2026 and declined). Keep under
-  800 lines. USER DIRECTIVE: any NEW Open Orders UI block (bars, panels, modals) goes in
+  820 lines (one-off bump from 800, July 2026, to fit the chute Bracket Part # cell —
+  the file is a known hard-to-split exception; adding to an existing row cell is allowed).
+  USER DIRECTIVE: any NEW Open Orders UI block (bars, panels, modals) goes in
   its own partial — only edits to existing row-grid cells may touch this file.
 - `pages/wo-request-view.js` (~530 lines): pre-existing over-cap. Split deferred — do not
   add to this file without splitting first.
@@ -663,6 +665,33 @@ OPS RULES (Native Ledger): any future Alere import into issues_receipts OR
 sales_analysis_lines must be trimmed to txn_date/sale_date < native_cutover() and
 must never modify source='native' rows. Physical counts and backfills are
 service-role operations (Table Editor / SQL editor) — never client-side.
+
+### WO Request pipeline / WIP (July 22, 2026)
+Goal: the Request WO data modal shows what is in flight but NOT yet in
+part_on_hand (the native ledger only emits at CLOSEOUT), and subtracts it from
+Suggested Qty to Make. Four stages: Requested (wo_requests pending/manager_review,
+excludes the request being viewed) · In Production · Done Not Received ·
+Received Not Closed.
+- Patch 1 (SQL AWAITING USER RUN): part-wip-migration.sql — get_part_wip(p_part)
+  RETURNS json { work_orders, requests }. Groups work_orders per WO (one row per
+  department): qty_required = MAX (identical across depts), qty_done = **MIN**
+  (qty that cleared every department — MAX would overstate). Left-joins
+  wo_status_tracking on wo_number, falling back to job_number for WOs still
+  awaiting their Alere WO#. Returns rows, not verdicts. Regen schema.sql after.
+- Patch 2 (IMPLEMENTED): libs/db-wip.js fetchPartWip (re-exported by db.js);
+  pure bucketPartWip(wip, excludeRequestId) in utils.js — skips erp_status='closed'
+  (already in on-hand), received → qty_received, else done/remaining split.
+- Patch 3 (IMPLEMENTED): woRequestWip/WipLoading refs + woRequestPipelineQty /
+  woRequestWipHasAny computeds in store-stock.js; gen-guarded loader in
+  wo-request-detail.js; violet Pipeline panel in modal-wo-request-data.html.
+- Patch 3.5 (IMPLEMENTED, split only): woRequestEstQtyInStock/SuggestedQty +
+  their 36mo twins moved verbatim from store-inventory.js (532 → 480, back under
+  cap) into store-stock.js, which now imports woRequestDetailForm from
+  store-inventory.js — one-way sibling edge (store-open-orders.js precedent).
+- Patch 4 (IMPLEMENTED): Suggested Qty (1yr + 3yr) subtracts woRequestPipelineQty;
+  it is 0 until the fetch lands, so a pending load can only over-suggest.
+Known: pipeline is the requested part only — deliberately NOT summed over the
+part-replacement chain.
 
 ### BOM editor + native part creation (July 2026)
 Goal: BOM lookup/edit tab in the Part Changes view + New Part form (Alere replacement).

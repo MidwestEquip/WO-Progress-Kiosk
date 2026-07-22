@@ -300,7 +300,7 @@ export async function findOpenOrderBySoAndPart(soNumber, partNumber) {
     if (!soNumber || !partNumber) return { data: null, error: null };
     const { data, error } = await withRetry(() =>
         supabase.from('open_orders')
-            .select('id, status, wo_po_number, deadline')
+            .select('id, status, wo_po_number, deadline, part_number, chute_status')
             .eq('sales_order',  soNumber.trim())
             .eq('part_number',  partNumber.trim().toUpperCase())
             .limit(1)

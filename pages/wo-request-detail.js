@@ -14,6 +14,7 @@
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
+import { bucketPartWip } from '../libs/utils.js';
 import { PURCHASING_3YR_START } from '../libs/config.js';
 
 // boolToYesNo — maps a boolean DB value to 'yes'/'no'/'' for dropdown binding.
@@ -235,6 +236,19 @@ export async function openWoRequestDetail(req) {
         .finally(() => {
             if (gen === store.woRequestDetailGen.value) store.woRequestOnHandLoading.value = false;
         });
+
+    // Pipeline (WIP) — requested / on the floor / finished-not-received /
+    // received-not-closed. None of it is in part_on_hand yet (the native
+    // ledger emits at closeout), so it is shown separately and subtracted
+    // from Suggested Qty. Excludes THIS request so it never counts itself.
+    store.woRequestWip.value        = null;
+    store.woRequestWipLoading.value = true;
+    db.fetchPartWip(req.part_number).then(({ data, error }) => {
+        if (gen !== store.woRequestDetailGen.value) return;    // stale: a newer detail opened
+        store.woRequestWipLoading.value = false;
+        if (error) { logError('openWoRequestDetail:wip', error, { part: req.part_number }); return; }
+        store.woRequestWip.value = bucketPartWip(data, req.id);
+    });
 
     // "Used On" — BOM parents the requested part is a child of (all_boms).
     store.woRequestUsedOn.value = [];

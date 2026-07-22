@@ -151,33 +151,6 @@ export const woRequestChainParts = computed(() =>
 export const woRequestCarriedStatusNote     = ref(null);
 export const woRequestCarriedProductionNote = ref(null);
 
-// woRequestEstQtyInStock — estimated parts on hand or embedded in assemblies.
-// Formula: qty_used_in_mfg − (direct_sold + parent_demand) + qty_made
-// Returns null when all inputs are zero (nothing to show yet).
-export const woRequestEstQtyInStock = computed(() => {
-    const form   = woRequestDetailForm.value;
-    const sold   = parseFloat(form.qty_sold_used_12mo)           || 0;
-    const parent = parseFloat(form.qty_sold_parent_usage_period) || 0;
-    const mfg    = parseFloat(form.qty_used_in_mfg)              || 0;
-    const made   = parseFloat(form.qty_made_past_12mo)           || 0;
-    if (sold === 0 && parent === 0 && mfg === 0 && made === 0) return null;
-    return mfg - (sold + parent) + (made - mfg);
-});
-
-// woRequestSuggestedQty — how many to make: total demand minus est. stock, + 5%.
-// Hidden when demand is zero or est. stock already covers demand.
-export const woRequestSuggestedQty = computed(() => {
-    const form   = woRequestDetailForm.value;
-    const sold   = parseFloat(form.qty_sold_used_12mo)           || 0;
-    const parent = parseFloat(form.qty_sold_parent_usage_period) || 0;
-    const est    = woRequestEstQtyInStock.value;
-    const total  = sold + parent;
-    if (total === 0 || est === null) return null;
-    const needed = total - Math.max(est, 0); // negative stock counts as 0
-    if (needed <= 0) return null;
-    return Math.ceil(needed * 1.05);
-});
-
 // woRequestStockWarning — true when qty made is ≥25% more than qty used in MFG,
 // suggesting existing stock may cover this WO.
 export const woRequestStockWarning = computed(() => {
@@ -187,31 +160,6 @@ export const woRequestStockWarning = computed(() => {
     const sold = parseFloat(form.qty_sold_used_12mo)  || 0;
     if (made === 0 || (used === 0 && sold === 0)) return false;
     return made >= (used + sold) * 1.25;
-});
-
-// woRequestEstQtyInStock36mo — same formula as 1yr but using 3yr fields.
-export const woRequestEstQtyInStock36mo = computed(() => {
-    const form   = woRequestDetailForm.value;
-    const sold   = parseFloat(form.qty_sold_36mo)               || 0;
-    const parent = parseFloat(form.qty_sold_parent_usage_36mo)  || 0;
-    const mfg    = parseFloat(form.qty_used_in_mfg_36mo)        || 0;
-    const made   = parseFloat(form.qty_made_36mo)               || 0;
-    if (sold === 0 && parent === 0 && mfg === 0 && made === 0) return null;
-    return mfg - (sold + parent) + (made - mfg);
-});
-
-// woRequestSuggestedQty36mo — 3yr demand minus est. stock, + 5%.
-export const woRequestSuggestedQty36mo = computed(() => {
-    const form   = woRequestDetailForm.value;
-    const sold   = parseFloat(form.qty_sold_36mo)               || 0;
-    const parent = parseFloat(form.qty_sold_parent_usage_36mo)  || 0;
-    const est    = woRequestEstQtyInStock36mo.value;
-    const total  = sold + parent;
-    if (total === 0 || est === null) return null;
-    const yearlyDemand = total / 3; // make a 1-year supply, not 3 years
-    const needed = yearlyDemand - Math.max(est, 0); // negative stock counts as 0
-    if (needed <= 0) return null;
-    return Math.ceil(needed * 1.05);
 });
 
 // woRequestYearlyAvg36mo — Since-Jan-2023 totals divided by 3 (≈ per-year average).
@@ -476,13 +424,27 @@ export const boxedOrders = computed(() => {
     return _sortSectionRows(rows, 'boxed');
 });
 
-// Board sections for the current shipping tab. 'boxed' tab shows only the Boxed
-// staging section; 'orders' tab shows New Orders atop the 4 brand boards. All
+// The Boxed tab splits into two stacked categories (same pattern as the brand
+// boards): Freight = rows that rode in as order_type='freight' (boxing only
+// changes status, so order_type is preserved); UPS = everything else. Both
+// derive from the already-sorted boxedOrders, so sort/filter carry over.
+export const boxedFreightOrders = computed(() =>
+    boxedOrders.value.filter(o => o.order_type === 'freight'));
+export const boxedUpsOrders = computed(() =>
+    boxedOrders.value.filter(o => o.order_type !== 'freight'));
+
+// Board sections for the current shipping tab. 'boxed' tab shows the Boxed
+// staging area split into UPS + Freight; 'orders' tab shows New Orders atop the
+// 4 brand boards. All
 // render through the one grid (view-open-orders.html) — so New/Boxed inherit
 // SO# grouping and the full row layout for free.
 export const openOrderSections = computed(() => {
     if (shippingTab.value === 'boxed') {
-        return [{ type: 'boxed', label: 'BOXED, READY TO SHIP', orders: boxedOrders.value, hdr: 'bg-emerald-700' }];
+        // Both keep type 'boxed' so grid layout, sort, and drag rules are shared.
+        return [
+            { type: 'boxed', label: 'UPS, READY TO SHIP',     orders: boxedUpsOrders.value,     hdr: 'bg-emerald-700' },
+            { type: 'boxed', label: 'FREIGHT, READY TO SHIP', orders: boxedFreightOrders.value, hdr: 'bg-amber-700'   },
+        ];
     }
     return [
         { type: 'new',       label: 'NEW ORDERS',       orders: newOrders.value,       hdr: 'bg-sky-700'    },

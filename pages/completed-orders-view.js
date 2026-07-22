@@ -13,6 +13,7 @@ import { logError } from '../libs/db-shared.js';
 
 // enterCompletedOrdersView — navigate to the completed orders view.
 export function enterCompletedOrdersView() {
+    store.completedOrdersFilter.value = '';  // stale filter must never silently hide rows
     store.currentView.value = 'completed_orders';
 }
 
@@ -28,6 +29,46 @@ export async function loadCompletedOrders() {
         logError('loadCompletedOrders', err);
     } finally {
         store.completedOrdersLoading.value = false;
+    }
+}
+
+// ── Inline cell editing (notes, tracking #) ───────────────────
+
+// startCompletedCellEdit — activate inline edit for one Completed Orders cell.
+// id: row uuid, field: column name, value: current value to pre-fill.
+export function startCompletedCellEdit(id, field, value) {
+    store.completedEditingCell.value  = { id, field };
+    store.completedEditingValue.value = value ?? '';
+}
+
+// cancelCompletedCellEdit — discard edit without saving.
+export function cancelCompletedCellEdit() {
+    store.completedEditingCell.value  = { id: null, field: null };
+    store.completedEditingValue.value = '';
+}
+
+// saveCompletedCellEdit — persist the draft value to open_orders_completed and
+// update the store row in place. Guard prevents a double-save when blur fires
+// after Enter. Blank trims to null. Reloads + toasts on DB failure.
+export async function saveCompletedCellEdit(id, field) {
+    if (store.completedEditingCell.value.id !== id ||
+        store.completedEditingCell.value.field !== field) return;
+    const raw   = store.completedEditingValue.value;
+    const value = typeof raw === 'string' ? (raw.trim() || null) : (raw || null);
+
+    cancelCompletedCellEdit(); // clear immediately so the UI snaps back
+
+    const { error } = await db.updateCompletedOrder(id, { [field]: value });
+    if (error) {
+        store.showToast('Failed to save: ' + error.message);
+        await loadCompletedOrders();
+        return;
+    }
+    const idx = store.completedOrders.value.findIndex(o => o.id === id);
+    if (idx !== -1) {
+        const updated = [...store.completedOrders.value];
+        updated[idx]  = { ...updated[idx], [field]: value };
+        store.completedOrders.value = updated;
     }
 }
 

@@ -240,6 +240,25 @@ export function isChutePart(partNumber) {
     return /^\d{3}-[678]$/.test(partNumber.trim());
 }
 
+// buildOpenOrderWoSyncUpdates — updates object for a WO request/approval → open
+// order sync, or null when the row is past production and must be left alone.
+// Chute rows render chute_status/bracket_adapter_status INSTEAD of the main status
+// badge, so the chute half is stamped too or the sync is invisible on the board
+// (bracket_adapter_status is never touched — the WO is for the chute part #).
+// Pure + vocabulary-free: caller supplies nowIso and the skipStatuses list.
+export function buildOpenOrderWoSyncUpdates(order, { status, woPoNumber, deadline, nowIso, skipStatuses = [] }) {
+    if (skipStatuses.includes(order?.status || '')) return null;
+    const u = { status, last_status_update: nowIso };
+    // Only fill the WO/PO column when empty — never stomp a real WO# already tied.
+    if (woPoNumber && !(order?.wo_po_number || '').trim()) u.wo_po_number = String(woPoNumber);
+    if (deadline) u.deadline = deadline;
+    if (isChutePart(order?.part_number)) {
+        u.chute_status = status;
+        u.chute_bracket_last_updated = nowIso;
+    }
+    return u;
+}
+
 // ── businessDaysSince ─────────────────────────────────────────
 // Counts Mon–Fri elapsed days between an ISO timestamp and now.
 // Returns a float; partial days included. Returns 0 for null/invalid input.

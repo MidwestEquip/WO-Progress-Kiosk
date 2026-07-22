@@ -1,0 +1,139 @@
+<!-- ============================================================
+     view-planning-review.html — Review tab (Teleport into
+     #pp-tab-body): run list, release-due panel, line grid with
+     inline overrides, approve + release actions.
+     ============================================================ -->
+<Teleport to="#pp-tab-body" v-if="currentView === 'production_planning'">
+<div v-if="planningTab === 'review'" class="absolute inset-0 overflow-y-auto p-6">
+
+    <!-- Release-due panel -->
+    <div v-if="releaseDueLines.length" class="bg-emerald-50 border border-emerald-300 rounded-xl p-4 mb-4">
+        <div class="flex items-center gap-3 mb-2">
+            <span class="font-bold text-emerald-800">Due for release — {{ releaseDueLines.length }} line(s)</span>
+            <button @click="releaseAllDue" :disabled="releasingLineId"
+                class="ml-auto px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg disabled:opacity-50">
+                Release All Due</button>
+        </div>
+        <div v-for="l in releaseDueLines" :key="l.id"
+            class="flex items-center gap-3 text-sm py-1 border-t border-emerald-100">
+            <span class="font-mono font-semibold">{{ l.part_number }}</span>
+            <span class="text-xs text-gray-500">{{ l.family_name }}</span>
+            <span class="text-xs font-bold uppercase px-2 py-0.5 rounded-full"
+                :class="l.action === 'buy' ? 'bg-sky-100 text-sky-700' : 'bg-indigo-100 text-indigo-700'">{{ l.action }}</span>
+            <span class="font-mono">qty {{ l.override_qty ?? l.recommended }}</span>
+            <span v-if="l.material" class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
+                :class="{ 'bg-emerald-100 text-emerald-700': l.material === 'ready',
+                          'bg-amber-100 text-amber-700':     l.material === 'partial',
+                          'bg-red-100 text-red-700':         l.material === 'waiting' }">
+                material {{ l.material }}</span>
+            <span class="text-xs text-gray-400">release {{ l.planned_release_date }}</span>
+            <button @click="releaseLine(l)" :disabled="releasingLineId"
+                class="ml-auto px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded disabled:opacity-50">
+                {{ releasingLineId === l.id ? 'Releasing…' : 'Release' }}</button>
+        </div>
+        <p class="text-[11px] text-emerald-700 mt-2">Releasing re-checks live stock and supply first — lines no longer needed are skipped, not created.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <!-- Run list -->
+        <div>
+            <h3 class="text-sm font-bold text-gray-700 mb-2">Open Runs</h3>
+            <div v-for="r in planningRuns" :key="r.id"
+                @click="selectRun(r)"
+                class="bg-white rounded-xl border p-3 mb-2 cursor-pointer"
+                :class="selectedRun?.id === r.id ? 'border-indigo-400 ring-1 ring-indigo-200' : 'border-gray-200 hover:border-indigo-200'">
+                <div class="flex items-center justify-between">
+                    <span class="font-extrabold text-gray-800">{{ r.family_name }}</span>
+                    <span class="font-mono text-sm">× {{ r.plan_qty }}</span>
+                </div>
+                <div class="text-[11px] text-gray-400">{{ r.mode === 'base_only' ? 'Base only' : 'Full kit' }} · {{ (r.created_at || '').slice(0, 10) }}</div>
+                <div class="flex gap-2 mt-1">
+                    <button @click.stop="closeRun(r)" class="text-[11px] text-gray-500 hover:text-gray-700 underline">Close</button>
+                    <button @click.stop="cancelRun(r)" class="text-[11px] text-red-400 hover:text-red-600 underline">Cancel</button>
+                </div>
+            </div>
+            <div v-if="!planningRuns.length && !planningRunsLoading" class="text-xs text-gray-400">No open runs — create one on the Plan tab.</div>
+        </div>
+
+        <!-- Line grid -->
+        <div class="lg:col-span-3">
+            <div v-if="selectedRun" class="flex items-center gap-3 mb-2">
+                <h3 class="text-sm font-bold text-gray-700">{{ selectedRun.family_name }} × {{ selectedRun.plan_qty }} — {{ filteredRunLines.length }} lines</h3>
+                <input v-model="runLineFilter" placeholder="Filter part / action…"
+                    class="border border-gray-300 rounded-lg px-3 py-1.5 text-xs w-48" />
+                <button @click="approveSelected" :disabled="runApproving"
+                    class="ml-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg disabled:opacity-50">
+                    {{ runApproving ? 'Approving…' : 'Approve Checked (or all)' }}</button>
+            </div>
+            <div v-if="selectedRun" class="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+                <table class="w-full text-xs">
+                    <thead class="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                        <tr>
+                            <th class="px-2 py-2"></th>
+                            <th class="px-2 py-2 text-left">Part</th>
+                            <th class="px-2 py-2 text-right">Lv</th>
+                            <th class="px-2 py-2 text-right">Need</th>
+                            <th class="px-2 py-2 text-right">Stock</th>
+                            <th class="px-2 py-2 text-right">WO</th>
+                            <th class="px-2 py-2 text-right">PO</th>
+                            <th class="px-2 py-2 text-right">Net</th>
+                            <th class="px-2 py-2 text-right">Qty</th>
+                            <th class="px-2 py-2">Action</th>
+                            <th class="px-2 py-2">Release</th>
+                            <th class="px-2 py-2">Status</th>
+                            <th class="px-2 py-2"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="l in filteredRunLines" :key="l.id"
+                            class="border-t border-gray-100"
+                            :class="{ 'opacity-40': l.line_status === 'skipped', 'bg-amber-50': l.flag }">
+                            <td class="px-2 py-1.5">
+                                <input type="checkbox" v-model="l.checked" :disabled="l.line_status !== 'proposed'" /></td>
+                            <td class="px-2 py-1.5 font-mono font-semibold whitespace-nowrap"
+                                :style="{ paddingLeft: (8 + l.level * 14) + 'px' }">{{ l.part_number }}
+                                <span v-if="l.flag" class="text-red-600">⚠</span></td>
+                            <td class="px-2 py-1.5 text-right text-gray-400">{{ l.level }}</td>
+                            <td class="px-2 py-1.5 text-right font-mono">{{ l.gross }}</td>
+                            <td class="px-2 py-1.5 text-right font-mono">{{ l.on_hand_snap }}</td>
+                            <td class="px-2 py-1.5 text-right font-mono">{{ l.open_wo_snap }}</td>
+                            <td class="px-2 py-1.5 text-right font-mono">{{ l.open_po_snap }}</td>
+                            <td class="px-2 py-1.5 text-right font-mono">{{ l.net }}</td>
+                            <td class="px-2 py-1.5 text-right">
+                                <input type="number" min="0" :value="l.override_qty ?? l.recommended"
+                                    :disabled="l.line_status !== 'proposed'"
+                                    @change="saveLineEdit(l, { override_qty: Number($event.target.value) })"
+                                    class="w-16 border border-gray-200 rounded px-1 py-0.5 text-right font-mono"
+                                    :class="l.override_qty != null && l.override_qty !== l.recommended ? 'bg-amber-50 border-amber-300' : ''" /></td>
+                            <td class="px-2 py-1.5">
+                                <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                                    :class="l.action === 'buy' ? 'bg-sky-100 text-sky-700'
+                                        : l.action === 'make' ? 'bg-indigo-100 text-indigo-700'
+                                        : 'bg-gray-100 text-gray-500'">{{ l.action }}</span></td>
+                            <td class="px-2 py-1.5">
+                                <input type="date" :value="l.planned_release_date || ''"
+                                    :disabled="!['proposed','approved'].includes(l.line_status)"
+                                    @change="saveLineEdit(l, { planned_release_date: $event.target.value || null })"
+                                    class="border border-gray-200 rounded px-1 py-0.5 text-[11px]" /></td>
+                            <td class="px-2 py-1.5">
+                                <span class="text-[10px] font-bold uppercase"
+                                    :class="{ 'text-gray-400': l.line_status === 'proposed',
+                                              'text-amber-600': l.line_status === 'approved',
+                                              'text-emerald-600': l.line_status === 'released',
+                                              'text-gray-300': l.line_status === 'skipped' }">{{ l.line_status }}</span></td>
+                            <td class="px-2 py-1.5 whitespace-nowrap">
+                                <button v-if="l.line_status === 'proposed'"
+                                    @click="saveLineEdit(l, { hold: !l.hold })"
+                                    class="text-[10px] font-bold uppercase mr-1"
+                                    :class="l.hold ? 'text-red-600' : 'text-gray-400 hover:text-gray-600'">
+                                    {{ l.hold ? 'Held' : 'Hold' }}</button>
+                                <button v-if="l.line_status === 'proposed'" @click="skipLine(l)"
+                                    class="text-[10px] font-bold uppercase text-gray-400 hover:text-gray-600">Skip</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+</Teleport>

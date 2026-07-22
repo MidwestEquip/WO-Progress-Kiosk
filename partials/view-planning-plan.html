@@ -1,0 +1,79 @@
+<!-- ============================================================
+     view-planning-plan.html — Plan tab (Teleport into #pp-tab-body):
+     base unit + qty + option splits → run the netting engine.
+     ============================================================ -->
+<Teleport to="#pp-tab-body" v-if="currentView === 'production_planning'">
+<div v-if="planningTab === 'plan'" class="absolute inset-0 overflow-y-auto p-6">
+    <div class="max-w-4xl mx-auto">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">Plan a Production Run</h2>
+
+        <div class="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Base unit</label>
+                    <select :value="planBaseUnit?.unit?.id || ''"
+                        @change="selectPlanBaseUnit($event.target.value)"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="">— pick —</option>
+                        <option v-for="bu in baseUnits" :key="bu.id" :value="bu.id">{{ bu.family_name }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Qty to plan</label>
+                    <input v-model.number="planQty" type="number" min="1" @change="applyDefaultSplits"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono" />
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Required date</label>
+                    <input v-model="planRequiredDate" type="date"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Mode</label>
+                    <select v-model="planMode" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="full_kit">Full kit (with options)</option>
+                        <option value="base_only">Base only (common parts)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-3">
+                <label class="text-xs font-bold text-gray-500 uppercase">Notes</label>
+                <input v-model="planNotes" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            </div>
+        </div>
+
+        <!-- Option splits (full kit) -->
+        <div v-if="planMode === 'full_kit' && planSplits.length" class="mb-4">
+            <div v-for="(s, si) in planSplits" :key="si"
+                class="bg-white rounded-xl border p-4 mb-3"
+                :class="planSplitStatus[si]?.ok ? 'border-gray-200' : 'border-red-300'">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="bg-indigo-600 text-white text-xs font-bold rounded px-2 py-1">Step {{ si + 1 }}</span>
+                    <span class="font-bold text-gray-800">{{ s.group }}</span>
+                    <span v-if="s.required" class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">required — must total {{ planQty || 0 }}</span>
+                    <span class="ml-auto text-sm font-mono font-bold"
+                        :class="planSplitStatus[si]?.ok ? 'text-emerald-600' : 'text-red-600'">
+                        {{ planSplitStatus[si]?.total || 0 }}/{{ planQty || 0 }}</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                    <div v-for="(c, ci) in s.choices" :key="ci"
+                        class="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-gray-700 truncate">{{ c.label }}</div>
+                            <div v-if="c.partLess" class="text-[10px] font-bold uppercase text-amber-600">no part # — not in material calc</div>
+                        </div>
+                        <input v-model.number="c.qty" type="number" min="0"
+                            class="w-20 border border-gray-300 rounded px-2 py-1 text-sm font-mono text-right" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end">
+            <button @click="runPlanningCalc" :disabled="planRunning || !planBaseUnit || !planSplitsValid"
+                class="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg disabled:opacity-50">
+                {{ planRunning ? 'Calculating…' : 'Calculate & Save Run →' }}</button>
+        </div>
+    </div>
+</div>
+</Teleport>

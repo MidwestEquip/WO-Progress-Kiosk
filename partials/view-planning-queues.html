@@ -1,0 +1,133 @@
+<!-- ============================================================
+     view-planning-queues.html — Queues & Alerts tab (Teleport into
+     #pp-tab-body): low-stock alerts, coverage-ranked queues per
+     dept, bands editor overlay.
+     ============================================================ -->
+<Teleport to="#pp-tab-body" v-if="currentView === 'production_planning'">
+<div v-if="planningTab === 'queues'" class="absolute inset-0 overflow-y-auto p-6">
+
+    <div class="flex items-center gap-3 mb-4">
+        <h2 class="text-lg font-bold text-gray-800">Replenishment Queues</h2>
+        <span v-if="queueLoadedAt" class="text-[11px] text-gray-400">
+            computed {{ queueLoadedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
+        <button @click="loadPlanningQueues" :disabled="queueLoading"
+            class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-lg disabled:opacity-50">
+            {{ queueLoading ? 'Loading…' : 'Recalculate' }}</button>
+        <button @click="openBandEditor()"
+            class="ml-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg">
+            + Add Stock Band</button>
+    </div>
+
+    <!-- Low-stock alerts -->
+    <div v-if="lowStockAlerts.length" class="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+        <div class="text-xs font-bold text-red-700 uppercase mb-2">Low-Stock Alerts — {{ lowStockAlerts.length }}</div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs">
+                <thead class="text-[10px] text-red-400 uppercase text-left">
+                    <tr><th class="py-1 pr-3">Part</th><th class="py-1 pr-3 text-right">Stock</th>
+                        <th class="py-1 pr-3 text-right">Inbound</th><th class="py-1 pr-3 text-right">Min</th>
+                        <th class="py-1 pr-3">Short by</th><th class="py-1 pr-3 text-right">Rec Qty</th>
+                        <th class="py-1 pr-3">Order by</th><th class="py-1 pr-3">Action</th><th></th></tr>
+                </thead>
+                <tbody>
+                    <tr v-for="a in lowStockAlerts" :key="a.part_number" class="border-t border-red-100">
+                        <td class="py-1 pr-3 font-mono font-semibold">{{ a.part_number }}</td>
+                        <td class="py-1 pr-3 text-right font-mono">{{ a.on_hand }}</td>
+                        <td class="py-1 pr-3 text-right font-mono">{{ a.open_supply }}</td>
+                        <td class="py-1 pr-3 text-right font-mono">{{ a.min_stock }}</td>
+                        <td class="py-1 pr-3" :class="a.already_short ? 'text-red-700 font-bold' : ''">
+                            {{ a.already_short ? 'NOW' : a.shortage_date }}</td>
+                        <td class="py-1 pr-3 text-right font-mono font-bold">{{ a.recommended_qty }}</td>
+                        <td class="py-1 pr-3">{{ a.order_by_date }}</td>
+                        <td class="py-1 pr-3 uppercase text-[10px] font-bold">{{ a.action }}</td>
+                        <td class="py-1"><button
+                            @click="proposeQueueBatch(queueRows.find(r => r.part_number === a.part_number) || a)"
+                            :disabled="queueProposingId"
+                            class="px-2 py-1 bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold rounded disabled:opacity-50">
+                            {{ queueProposingId === a.part_number ? '…' : 'Propose' }}</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Dept chips -->
+    <div class="flex gap-2 mb-3">
+        <button v-for="d in ['all', 'Assy', 'Fab', 'Weld', 'Unrouted']" :key="d"
+            @click="queueDeptFilter = d"
+            class="px-3 py-1.5 rounded-full text-xs font-bold"
+            :class="queueDeptFilter === d ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-300 text-gray-600'">
+            {{ d === 'all' ? 'All' : d }}</button>
+    </div>
+
+    <!-- Queue table -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+        <table class="w-full text-xs">
+            <thead class="bg-gray-50 text-gray-500 uppercase text-[10px] text-left">
+                <tr><th class="px-3 py-2">#</th><th class="px-3 py-2">Part</th><th class="px-3 py-2">Dept</th>
+                    <th class="px-3 py-2 text-right">Stock</th><th class="px-3 py-2 text-right">Inbound</th>
+                    <th class="px-3 py-2 text-right">Band</th><th class="px-3 py-2 text-right">Rate/day</th>
+                    <th class="px-3 py-2 text-right">Days Supply</th><th class="px-3 py-2">Run-out</th>
+                    <th class="px-3 py-2">Last count</th><th class="px-3 py-2"></th><th class="px-3 py-2"></th></tr>
+            </thead>
+            <tbody>
+                <tr v-for="(r, i) in filteredQueueRows" :key="r.part_number"
+                    class="border-t border-gray-100" :class="{ 'bg-red-50': r.below_min, 'opacity-40': r.planning_hold }">
+                    <td class="px-3 py-1.5 text-gray-400 font-bold">{{ i + 1 }}</td>
+                    <td class="px-3 py-1.5">
+                        <div class="font-mono font-semibold">{{ r.part_number }}</div>
+                        <div class="text-gray-400 truncate max-w-[16rem]">{{ r.descrip }}</div></td>
+                    <td class="px-3 py-1.5">{{ r.dept }}</td>
+                    <td class="px-3 py-1.5 text-right font-mono" :class="r.below_min ? 'text-red-600 font-bold' : ''">{{ r.on_hand }}</td>
+                    <td class="px-3 py-1.5 text-right font-mono">{{ r.open_supply }}</td>
+                    <td class="px-3 py-1.5 text-right font-mono">{{ r.min_stock }}<span v-if="r.target_stock">–{{ r.target_stock }}</span></td>
+                    <td class="px-3 py-1.5 text-right font-mono">{{ r.daily_rate ? r.daily_rate.toFixed(2) : '—' }}</td>
+                    <td class="px-3 py-1.5 text-right font-mono font-bold"
+                        :class="r.days_of_supply !== null && r.days_of_supply < 14 ? 'text-red-600' : ''">
+                        {{ r.days_of_supply === null ? '—' : r.days_of_supply }}</td>
+                    <td class="px-3 py-1.5">{{ r.run_out_date || '—' }}</td>
+                    <td class="px-3 py-1.5 text-gray-400">{{ r.counted_at ? r.counted_at.slice(0, 10) : 'never' }}</td>
+                    <td class="px-3 py-1.5">
+                        <button @click="proposeQueueBatch(r)" :disabled="queueProposingId || r.planning_hold"
+                            class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold rounded disabled:opacity-50">
+                            {{ queueProposingId === r.part_number ? '…' : 'Propose batch' }}</button></td>
+                    <td class="px-3 py-1.5">
+                        <button @click="openBandEditor(r)" class="text-[10px] text-gray-400 hover:text-gray-600 underline">Edit band</button></td>
+                </tr>
+            </tbody>
+        </table>
+        <div v-if="!queueRows.length && !queueLoading" class="text-center text-gray-400 text-sm py-10">
+            No stock bands yet — add one to put a part on the queue.</div>
+    </div>
+
+    <!-- Bands editor overlay -->
+    <div v-if="bandEditorOpen" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+        @click.self="closeBandEditor">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6">
+            <h3 class="text-lg font-extrabold text-gray-800 mb-3">Stock Band</h3>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2">
+                    <label class="text-xs font-bold text-gray-500 uppercase">Part #</label>
+                    <input v-model="bandForm.part_number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono uppercase" />
+                </div>
+                <div><label class="text-xs font-bold text-gray-500 uppercase">Min stock *</label>
+                    <input v-model.number="bandForm.min_stock" type="number" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono" /></div>
+                <div><label class="text-xs font-bold text-gray-500 uppercase">Target stock</label>
+                    <input v-model.number="bandForm.target_stock" type="number" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono" /></div>
+                <div><label class="text-xs font-bold text-gray-500 uppercase">Min batch</label>
+                    <input v-model.number="bandForm.min_batch_qty" type="number" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono" /></div>
+                <div><label class="text-xs font-bold text-gray-500 uppercase">Lead time (days)</label>
+                    <input v-model.number="bandForm.lead_time_days" type="number" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono" /></div>
+                <label class="col-span-2 flex items-center gap-2 text-sm text-gray-600">
+                    <input type="checkbox" v-model="bandForm.planning_hold" /> Planning hold (stay off the queue)</label>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="closeBandEditor" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-bold rounded-lg">Cancel</button>
+                <button @click="saveBand" :disabled="bandSaving"
+                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg disabled:opacity-50">
+                    {{ bandSaving ? 'Saving…' : 'Save Band' }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+</Teleport>

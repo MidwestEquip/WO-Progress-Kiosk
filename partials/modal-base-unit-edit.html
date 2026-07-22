@@ -1,0 +1,133 @@
+<!-- ============================================================
+     modal-base-unit-edit.html — edit a SAVED base unit's option steps.
+     Every control writes straight to the database (no Save-all button);
+     the common-parts BOM is edited in the BOM editor, not here.
+     ============================================================ -->
+<div v-if="baseUnitEditOpen" class="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
+    @click.self="closeBaseUnitEdit">
+    <div class="bg-white rounded-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto p-6">
+
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-extrabold text-gray-800">Edit Base Unit
+                <span class="text-sm font-mono text-gray-400 ml-2">{{ baseUnitEditUnit?.base_part_number }}</span></h3>
+            <button @click="closeBaseUnitEdit" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div v-if="baseUnitEditLoading" class="text-center text-gray-400 py-12">Loading…</div>
+
+        <div v-else-if="baseUnitEditUnit">
+            <!-- Unit-level fields -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end mb-4 bg-gray-50 rounded-xl p-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Family name</label>
+                    <input v-model="baseUnitEditUnit.family_name"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono uppercase" />
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Status</label>
+                    <select v-model="baseUnitEditUnit.status"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="draft">draft</option>
+                        <option value="active">active</option>
+                        <option value="archived">archived</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase">Notes</label>
+                    <input v-model="baseUnitEditUnit.notes"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <button @click="saveBuEditUnit" :disabled="baseUnitEditSaving === 'unit'"
+                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg disabled:opacity-50">
+                    {{ baseUnitEditSaving === 'unit' ? 'Saving…' : 'Save details' }}</button>
+            </div>
+
+            <p class="text-xs text-gray-500 mb-4">
+                Common parts live in this unit's BOM —
+                <button @click="openBomFix(baseUnitEditUnit?.base_part_number); closeBaseUnitEdit(); runBomSearch()"
+                    class="text-emerald-700 font-semibold underline decoration-dotted">edit them in the BOM editor</button>.
+                Changes below save immediately.</p>
+
+            <!-- Steps -->
+            <div v-for="(s, si) in baseUnitEditSteps" :key="s.sort_order + '|' + s.origGroup"
+                class="border border-gray-200 rounded-xl p-4 mb-3">
+                <div class="flex items-center gap-3 mb-2 flex-wrap">
+                    <span class="bg-indigo-600 text-white text-xs font-bold rounded px-2 py-1">Step {{ si + 1 }}</span>
+                    <input v-model="s.group" class="border border-gray-300 rounded px-2 py-1 text-sm font-semibold w-56" />
+                    <label class="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+                        <input type="checkbox" v-model="s.required" /> Required (pick one)</label>
+                    <button @click="saveBuEditStep(s)" :disabled="baseUnitEditSaving === s.sort_order + '|' + s.origGroup"
+                        class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded disabled:opacity-50">
+                        Save step</button>
+                    <button @click="deleteBuEditStep(s)"
+                        class="ml-auto text-xs font-semibold rounded px-2 py-1"
+                        :class="baseUnitEditDeleteKey === 'step|' + s.sort_order + '|' + s.origGroup ? 'bg-red-600 text-white' : 'text-red-500 hover:bg-red-50'">
+                        {{ baseUnitEditDeleteKey === 'step|' + s.sort_order + '|' + s.origGroup ? 'Confirm delete step?' : 'Delete step' }}</button>
+                </div>
+
+                <!-- Choices -->
+                <div v-for="c in s.choices" :key="c.id" class="bg-gray-50 rounded-lg p-3 mb-2">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <input v-model="c.choice_label" @change="saveBuEditChoice(c)"
+                            class="border border-gray-300 rounded px-2 py-1 text-sm font-semibold flex-1 min-w-[12rem]" />
+                        <label class="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+                            <input type="radio" :checked="c.is_default" @change="setBuEditDefault(s, c)" /> Default</label>
+                        <span v-if="!c.parts.length" class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">no part #</span>
+                        <button @click="deleteBuEditChoice(c)"
+                            class="text-xs font-semibold rounded px-2 py-1"
+                            :class="baseUnitEditDeleteKey === 'choice|' + c.id ? 'bg-red-600 text-white' : 'text-red-500 hover:bg-red-50'">
+                            {{ baseUnitEditDeleteKey === 'choice|' + c.id ? 'Confirm remove?' : 'Remove' }}</button>
+                    </div>
+                    <div v-for="(p, pi) in c.parts" :key="p.part_number"
+                        class="text-xs text-gray-600 font-mono flex gap-2 items-center mb-1">
+                        <span class="font-semibold w-36 shrink-0">{{ p.part_number }}</span>
+                        <input v-model.number="p.qty_per_unit" type="number" min="1" @change="saveBuEditPartQty(c, p)"
+                            class="w-16 border border-gray-300 rounded px-1.5 py-0.5 text-xs text-right shrink-0" />
+                        <span class="flex-1"></span>
+                        <button @click="removeBuEditPart(c, pi)" title="Remove part"
+                            class="text-red-500 hover:bg-red-50 rounded px-1.5 font-bold shrink-0">&times;</button>
+                    </div>
+                    <div class="flex gap-2 items-center mt-1">
+                        <input v-model="c.newPart.part_number" placeholder="Add part #" @keyup.enter="addBuEditPart(c)"
+                            class="border border-gray-300 rounded px-2 py-1 text-xs font-mono uppercase w-36" />
+                        <input v-model.number="c.newPart.qty_per_unit" type="number" min="1"
+                            class="border border-gray-300 rounded px-2 py-1 text-xs w-16" />
+                        <button @click="addBuEditPart(c)" :disabled="baseUnitEditSaving === c.id"
+                            class="px-2.5 py-1 bg-gray-700 hover:bg-gray-600 text-white text-[11px] font-bold rounded disabled:opacity-50">
+                            {{ baseUnitEditSaving === c.id ? 'Saving…' : 'Add part' }}</button>
+                    </div>
+                </div>
+
+                <!-- Add a choice to this step -->
+                <div class="flex flex-wrap gap-2 items-center border-t border-dashed border-gray-200 pt-2 mt-2">
+                    <input v-model="s.newChoice.label" placeholder="New choice label *"
+                        class="border border-gray-300 rounded px-2 py-1.5 text-sm w-48" />
+                    <input v-model="s.newChoice.part_number" placeholder="Part # (optional)"
+                        class="border border-gray-300 rounded px-2 py-1.5 text-sm font-mono uppercase w-36" />
+                    <input v-model.number="s.newChoice.qty" type="number" min="1"
+                        class="border border-gray-300 rounded px-2 py-1.5 text-sm w-16" />
+                    <button @click="addBuEditChoice(s)" :disabled="baseUnitEditSaving === s.sort_order + '|' + s.origGroup"
+                        class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg disabled:opacity-50">
+                        Add choice</button>
+                </div>
+            </div>
+
+            <!-- Add a step -->
+            <div class="border border-dashed border-indigo-300 rounded-xl p-4">
+                <div class="text-xs font-bold text-gray-500 uppercase mb-2">Add a step (needs a first choice)</div>
+                <div class="flex flex-wrap gap-2 items-center">
+                    <input v-model="baseUnitEditStepForm.group" placeholder="Step name *"
+                        class="border border-gray-300 rounded px-2 py-1.5 text-sm w-44" />
+                    <input v-model="baseUnitEditStepForm.label" placeholder="First choice label *"
+                        class="border border-gray-300 rounded px-2 py-1.5 text-sm w-48" />
+                    <label class="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+                        <input type="checkbox" v-model="baseUnitEditStepForm.required" /> Required</label>
+                    <button @click="addBuEditStep" :disabled="baseUnitEditSaving === 'newstep'"
+                        class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg disabled:opacity-50">
+                        {{ baseUnitEditSaving === 'newstep' ? 'Adding…' : 'Add step' }}</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>

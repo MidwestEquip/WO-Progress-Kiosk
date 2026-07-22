@@ -12,6 +12,7 @@ import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
 import { logError } from '../libs/db-shared.js';
 import { missingSubpartRoutingFields, normalizePartNumber } from '../libs/utils.js';
+import { syncOpenOrdersForWoPart } from './open-orders-wo-sync.js';
 import { PART_NOTE_KIND } from '../libs/config.js';
 
 // checkWoRequestPartMatch — on blur of Part # field:
@@ -127,15 +128,13 @@ export async function submitWoRequestForm() {
         const { error } = await db.submitWoRequest(form);
         if (error) throw error;
 
-        // Sync open order status → 'WO Requested' if SO# + Part# match
-        const soNum = (form.sales_order_number || '').trim();
-        const part  = (form.part_number || '').trim().toUpperCase();
-        if (soNum && part) {
-            const { data: oo } = await db.findOpenOrderBySoAndPart(soNum, part);
-            if (oo && oo.status !== 'WO Requested' && oo.status !== 'WO Created') {
-                await db.updateOpenOrder(oo.id, { status: 'WO Requested', last_status_update: new Date().toISOString() });
-            }
-        }
+        // Board sync → 'WO Requested' on every eligible open order for this part
+        // (matched by part # only — no SO# needed). No number is written: the job #
+        // only exists from manager approval onward. 'WO Requested' is skipped as a
+        // no-op so re-requesting doesn't churn last_status_update.
+        await syncOpenOrdersForWoPart(form.part_number, {
+            status: 'WO Requested', skipExtra: ['WO Requested'], label: 'Request submitted',
+        });
 
         resetWoRequestForm();
         store.showToast('WO request submitted.', 'success');

@@ -31,39 +31,9 @@ export async function loadOpenOrders() {
     }
 }
 
-// _openOrderRowsEqualIgnoringVolatile — self-echo check; ignores the
-// server-stamped updated_at so our own saves (already applied locally) don't
-// force a re-render.
-function _openOrderRowsEqualIgnoringVolatile(a, b) {
-    if (!a || !b) return false;
-    const strip = ({ updated_at, ...rest }) => rest;
-    return JSON.stringify(strip(a)) === JSON.stringify(strip(b));
-}
-
-// reconcileOpenOrderRealtime — surgical in-place merge of a realtime open_orders
-// change into store.openOrders, replacing the old full-list reload that reset
-// scroll/focus on every cell edit. The open_orders table holds only active rows
-// (shipped/deleted rows move to open_orders_completed), so every row belongs —
-// no status predicate needed; the view computeds handle section ordering.
-// Input: realtime payload { eventType, new: row, old }. No return value.
-export function reconcileOpenOrderRealtime({ eventType, new: row, old }) {
-    const list = store.openOrders.value;
-    if (eventType === 'DELETE') {
-        const id = old?.id;
-        if (id != null) store.openOrders.value = list.filter(o => o.id !== id);
-        return;
-    }
-    if (!row) return;
-    const idx = list.findIndex(o => o.id === row.id);
-    if (idx === -1) {
-        store.openOrders.value = [...list, row];
-        return;
-    }
-    if (_openOrderRowsEqualIgnoringVolatile(list[idx], row)) return; // self-echo, no-op
-    const next = [...list];
-    next[idx]  = row;
-    store.openOrders.value = next;
-}
+// Realtime reconcile (reconcileOpenOrderRealtime + its self-echo helper) moved
+// to pages/open-orders-realtime.js for the 500-line cap. main.js imports it
+// from there now.
 
 // setSectionSort — toggle sort field/dir for one section.
 // section: 'emergency'|'freight'|'trac_vac'|'tru_cut', field: column name string.
@@ -233,6 +203,9 @@ export async function saveCellEdit(id, field) {
         const trimmed = String(raw).trim().toUpperCase();
         if (!trimmed) { cancelCellEdit(); return; }  // required — don't save blank
         value = trimmed;
+    } else if (field === 'bracket_part_number') {
+        // Part number: trim + uppercase like part_number, but optional (blank clears).
+        value = String(raw).trim().toUpperCase() || null;
     } else {
         value = typeof raw === 'string' ? (raw.trim() || null) : (raw || null);
     }
@@ -277,12 +250,22 @@ export async function saveCellEdit(id, field) {
     if (field === 'status') updates.last_status_update = new Date().toISOString();
     if (field === 'chute_status' || field === 'bracket_adapter_status') {
         updates.chute_bracket_last_updated = new Date().toISOString();
-        // Both halves Boxed → the whole row is boxed: promote the main status so
-        // the line auto-moves to the Boxed, Ready to Ship tab in the same write.
+        // When both halves reach the SAME status the whole row inherits it:
+        // matching 'Boxed' → Boxed tab; matching 'Labelled'/'Shipped' → ship to
+        // Completed (same as the single-status path); any other match just syncs
+        // the main status.
         const row   = store.openOrders.value.find(o => o.id === id);
         const other = field === 'chute_status' ? row?.bracket_adapter_status : row?.chute_status;
-        if (value === 'Boxed' && other === 'Boxed') {
-            updates.status = 'Boxed';
+        if (value && value === other) {
+            if (value === OPEN_ORDER_STATUS_LABELLED || value === 'Shipped') {
+                const shipped = { ...row, ...updates, status: 'Shipped', last_status_update: new Date().toISOString() };
+                const { error, ledgerError } = await db.shipOpenOrder(shipped);
+                if (error) { store.showToast('Failed to ship: ' + error.message); return; }
+                if (ledgerError) store.showToast('Shipped, but inventory ledger did not record: ' + ledgerError.message);
+                store.openOrders.value = store.openOrders.value.filter(o => o.id !== id);
+                return;
+            }
+            updates.status = value;
             updates.last_status_update = new Date().toISOString();
         } else if (value && value !== 'Boxed' && row?.status === 'Boxed') {
             // Un-boxing: a half moved off Boxed while the row sat in the Boxed
@@ -430,7 +413,15 @@ export async function openWoDetailPanel(order) {
     try {
         const { data, error } = await db.fetchWorkOrdersByWoNumber(order.wo_po_number);
         if (error) throw error;
-        store.openOrderWoPanelOrders.value = data || [];
+        let wos = data || [];
+        // Pending WO (approved, awaiting official Alere WO#): the shown number is the
+        // internal job_number, so fall back to a job_number lookup (active rows only).
+        if (!wos.length) {
+            const jr = await db.fetchAllWorkOrdersByJobNumber(order.wo_po_number);
+            if (jr.error) throw jr.error;
+            wos = (jr.data || []).filter(w => w.status !== 'completed');
+        }
+        store.openOrderWoPanelOrders.value = wos;
     } catch (err) {
         store.showToast('Failed to load WO details: ' + err.message);
         logError('openWoDetailPanel', err);

@@ -7,6 +7,26 @@
 // ============================================================
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
+import { openOrderMatchesFilter } from './utils.js';
+import { completedOrders } from './store-inventory.js';
+
+// ── Completed (Shipped) Orders search ─────────────────────────
+// Live filter box for the Completed Orders view. Reuses the pure
+// openOrderMatchesFilter (completed rows share the open-order shape, incl.
+// wo_va_notes). completedOrders itself lives in store-inventory.js; imported
+// here (one-way) so the filtered computed can co-locate with the filter ref.
+export const completedOrdersFilter = ref('');
+export const filteredCompletedOrders = computed(() => {
+    const q = completedOrdersFilter.value.trim().toLowerCase();
+    if (!q) return completedOrders.value;
+    return completedOrders.value.filter(o => openOrderMatchesFilter(o, q));
+});
+
+// Inline cell editing for the Completed Orders table (notes, tracking #).
+// Dedicated refs, isolated from the open-order board edit state (which carries
+// ship side-effects). { id, field } identifies the active cell; value is the draft.
+export const completedEditingCell  = ref({ id: null, field: null });
+export const completedEditingValue = ref('');
 
 // ── Waiting On modal ──────────────────────────────────────────
 // A row can be blocked on several missing subparts. Each entry is

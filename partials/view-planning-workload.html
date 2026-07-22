@@ -1,0 +1,97 @@
+<!-- ============================================================
+     view-planning-workload.html — Workload tab (Teleport into
+     #pp-tab-body): weekly capacity heatmap + work-center and
+     routing editors.
+     ============================================================ -->
+<Teleport to="#pp-tab-body" v-if="currentView === 'production_planning'">
+<div v-if="planningTab === 'workload'" class="absolute inset-0 overflow-y-auto p-6">
+
+    <div class="flex items-center gap-3 mb-4">
+        <h2 class="text-lg font-bold text-gray-800">Machine & Department Workload</h2>
+        <span v-if="workloadLoadedAt" class="text-[11px] text-gray-400">
+            computed {{ workloadLoadedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
+        <button @click="loadWorkload" :disabled="workloadLoading"
+            class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-lg disabled:opacity-50">
+            {{ workloadLoading ? 'Loading…' : 'Recalculate' }}</button>
+    </div>
+
+    <!-- Capacity heatmap -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-x-auto mb-5">
+        <table class="w-full text-xs">
+            <thead class="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                <tr>
+                    <th class="px-3 py-2 text-left">Work Center</th>
+                    <th class="px-3 py-2 text-left">Dept</th>
+                    <th class="px-3 py-2 text-right">Hrs/wk</th>
+                    <th v-for="w in workloadWeeks" :key="w" class="px-3 py-2 text-right whitespace-nowrap">W of {{ w.slice(5) }}</th>
+                    <th class="px-3 py-2"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="wc in workCenters" :key="wc.id" class="border-t border-gray-100">
+                    <td class="px-3 py-2 font-semibold">{{ wc.name }}</td>
+                    <td class="px-3 py-2 text-gray-500">{{ wc.dept || '—' }}</td>
+                    <td class="px-3 py-2 text-right font-mono">{{ wc.available_hours_week }}</td>
+                    <td v-for="w in workloadWeeks" :key="w" class="px-3 py-2 text-right font-mono"
+                        :class="{
+                            'bg-red-100 text-red-700 font-bold':   workloadCellState(wc, workloadGrid[wc.id]?.[w] || 0) === 'over',
+                            'bg-amber-50 text-amber-700':          workloadCellState(wc, workloadGrid[wc.id]?.[w] || 0) === 'near',
+                            'bg-emerald-50 text-emerald-700':      workloadCellState(wc, workloadGrid[wc.id]?.[w] || 0) === 'ok',
+                            'text-gray-300':                       workloadCellState(wc, workloadGrid[wc.id]?.[w] || 0) === 'idle',
+                        }">
+                        {{ (workloadGrid[wc.id]?.[w] || 0).toFixed(1) }}</td>
+                    <td class="px-3 py-2">
+                        <button @click="removeWorkCenter(wc.id)" class="text-[10px] text-red-400 hover:text-red-600 underline">Remove</button></td>
+                </tr>
+            </tbody>
+        </table>
+        <div v-if="!workCenters.length && !workloadLoading" class="text-center text-gray-400 text-sm py-8">
+            No work centers yet — add Laser, Brake, Weld Robot… below. Hours come from part routings × approved planning lines.</div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Work center editor -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="text-xs font-bold text-gray-500 uppercase mb-2">Add / update work center</div>
+            <div class="flex flex-wrap gap-2 items-center">
+                <input v-model="wcForm.name" placeholder="Name (e.g. Laser)"
+                    class="border border-gray-300 rounded px-2 py-1.5 text-sm w-36" />
+                <select v-model="wcForm.dept" class="border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <option value="">Dept…</option>
+                    <option>Fab</option><option>Weld</option><option>TC Assy</option><option>TV Assy</option>
+                </select>
+                <input v-model.number="wcForm.available_hours_week" type="number" min="1" placeholder="Hrs/wk"
+                    class="border border-gray-300 rounded px-2 py-1.5 text-sm w-20 font-mono" />
+                <button @click="saveWorkCenter"
+                    class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg">Save</button>
+            </div>
+        </div>
+
+        <!-- Routing editor -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+            <div class="text-xs font-bold text-gray-500 uppercase mb-2">Add part routing (hours drive the heatmap)</div>
+            <div class="flex flex-wrap gap-2 items-center">
+                <input v-model="routingForm.part_number" placeholder="Part #"
+                    class="border border-gray-300 rounded px-2 py-1.5 text-sm font-mono uppercase w-32" />
+                <select v-model="routingForm.work_center_id" class="border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <option value="">Work center…</option>
+                    <option v-for="wc in workCenters" :key="wc.id" :value="wc.id">{{ wc.name }}</option>
+                </select>
+                <input v-model.number="routingForm.setup_hours" type="number" min="0" step="0.1" placeholder="Setup h"
+                    class="border border-gray-300 rounded px-2 py-1.5 text-sm w-20 font-mono" />
+                <input v-model.number="routingForm.run_hours_per_part" type="number" min="0" step="0.01" placeholder="Run h/pc"
+                    class="border border-gray-300 rounded px-2 py-1.5 text-sm w-20 font-mono" />
+                <button @click="suggestRoutingHours"
+                    class="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold rounded-lg"
+                    title="Average actual hours per part from time-session history">Suggest from time data</button>
+                <button @click="saveRouting"
+                    class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg">Save</button>
+            </div>
+            <p v-if="routingSuggestion" class="text-[11px] text-sky-700 mt-2">
+                History: {{ routingSuggestion.sessions }} sessions · {{ routingSuggestion.total_qty }} pcs ·
+                {{ routingSuggestion.total_hours }} h total →
+                <span class="font-bold">{{ routingSuggestion.hours_per_part ?? '—' }} h/pc</span></p>
+        </div>
+    </div>
+</div>
+</Teleport>

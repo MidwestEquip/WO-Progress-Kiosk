@@ -13,6 +13,7 @@
 
 import { supabase, withRetry, DEPT_ALIASES, normalizeDept } from './db-shared.js';
 import { insertProgressEvent, openTimeSession, closeTimeSession, closeAllOpenSessions } from './db-activity.js';
+import { computeReelQtyCompleted } from './utils.js';
 
 export { withRetry, supabase } from './db-shared.js';
 // Re-export activity helpers so existing callers of db.js keep working
@@ -24,6 +25,7 @@ export * from './db-manager.js';
 export * from './db-inventory.js';
 export * from './db-open-orders.js';
 export * from './db-onhand.js';
+export * from './db-wip.js';
 export * from './db-cs.js';
 export * from './db-storage.js';
 export * from './db-engineering.js';
@@ -33,6 +35,8 @@ export * from './db-part-changes.js';
 export * from './db-part-defaults.js';
 export * from './db-part-notes.js';
 export * from './db-purchasing.js';
+export * from './db-planning.js';
+export * from './db-planning-runs.js';
 
 // ── Dashboard queries ─────────────────────────────────────────
 
@@ -262,6 +266,13 @@ export async function updateReelOperation({ id, currentOrder, op, newStatus, opN
         updates[qtyCol] = prevQty + sessionQty;
     }
 
+    // Derive both op quantities post-update so qty_completed reflects this write.
+    // Weld and grind run on the same pieces — never summed; see computeReelQtyCompleted.
+    // updates[qtyCol] is only present when this write accumulated qty; fall back otherwise.
+    const weldQty  = (op === 'weld'  ? updates[qtyCol] : undefined) ?? currentOrder.weld_reel_qty;
+    const grindQty = (op === 'grind' ? updates[qtyCol] : undefined) ?? currentOrder.grind_reel_qty;
+    updates.qty_completed = computeReelQtyCompleted({ weldQty, grindQty });
+
     // Derive both op statuses to determine the overall WO status
     const weldStatus  = op === 'weld'  ? newStatus : (currentOrder.weld_reel_status  || null);
     const grindStatus = op === 'grind' ? newStatus : (currentOrder.grind_reel_status || null);
@@ -336,11 +347,17 @@ export async function completeReelWo({ id, currentOrder, opName }) {
 
     const result = await withRetry(async () => {
         const query = supabase.from('work_orders').update({
-            status:     'completed',
-            comp_date:  now,
-            operator:   opName,
+            status:        'completed',
+            comp_date:     now,
+            operator:      opName,
             notes,
-            updated_at: now,
+            updated_at:    now,
+            // Safety net: repairs rows whose ops were logged before qty_completed
+            // was wired into updateReelOperation.
+            qty_completed: computeReelQtyCompleted({
+                weldQty:  currentOrder.weld_reel_qty,
+                grindQty: currentOrder.grind_reel_qty,
+            }),
         }).eq('id', id);
         const filtered = currentOrder.updated_at
             ? query.eq('updated_at', currentOrder.updated_at)
