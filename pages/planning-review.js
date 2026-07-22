@@ -6,6 +6,7 @@
 
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
+import { buildWhereUsedIndex, buildRunChildIndex, computeQtyCascade, bucketPartWip } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
 function _today() { return new Date().toISOString().slice(0, 10); }
@@ -28,22 +29,114 @@ export async function loadPlanningRuns() {
     }
 }
 
-// selectRun — load one run's lines into the grid.
+// selectRun — load one run's lines into the grid, then fill in the reference
+// data the lines do not store (descriptions, where-used).
 export async function selectRun(run) {
     store.selectedRun.value = run;
     store.runLines.value = [];
+    store.runLineDescrips.value = {};
+    store.runWhereUsed.value  = {};
+    store.runChildIndex.value = {};   // else a qty cascade uses the last run's tree
     if (!run) return;
     store.runLinesLoading.value = true;
     try {
         const { data, error } = await db.fetchRunLines(run.id);
         if (error) throw error;
         store.runLines.value = data.map(l => ({ ...l, checked: false }));
+        _loadRunLineRefs(run.id, data);
     } catch (err) {
         store.showToast('Failed to load run lines: ' + err.message);
         logError('selectRun', err, { id: run.id });
     } finally {
         store.runLinesLoading.value = false;
     }
+}
+
+// _loadRunLineRefs — non-blocking companion load for the selected run:
+// item_master descriptions, and the where-used index inverted from the live
+// BOM. Both are derived rather than snapshotted on the line — a description or
+// a BOM link is current-state reference data, not a calc-time number like
+// on_hand_snap. Guarded on the still-selected run so a fast run switch cannot
+// paint one run's references over another's.
+async function _loadRunLineRefs(runId, lines) {
+    const parts = [...new Set((lines || []).map(l => l.part_number_normalized || l.part_number))];
+    if (!parts.length) return;
+    store.runRefsLoading.value = true;
+    try {
+        const [descs, boms] = await Promise.all([
+            db.fetchItemDescriptions(parts),
+            db.fetchBomsForParents(parts),
+        ]);
+        if (store.selectedRun.value?.id !== runId) return;
+        if (descs.error) throw descs.error;
+        if (boms.error)  throw boms.error;
+        store.runLineDescrips.value = descs.data || {};
+        store.runWhereUsed.value  = buildWhereUsedIndex(boms.data, parts);
+        store.runChildIndex.value = buildRunChildIndex(boms.data, parts);
+    } catch (err) {
+        store.showToast('Line descriptions / where-used failed to load: ' + err.message);
+        logError('_loadRunLineRefs', err, { runId });
+    } finally {
+        if (store.selectedRun.value?.id === runId) store.runRefsLoading.value = false;
+    }
+}
+
+// saveLineQty — a qty edit from the grid. Saves the line, then (if this part
+// has subparts in the run and the qty actually moved) offers to push the same
+// change down the subtree. The parent is saved either way — cancelling the
+// dialog leaves the parent changed and the children alone.
+export async function saveLineQty(line, newQty) {
+    const from = Number(line.override_qty ?? line.recommended) || 0;
+    const to   = Number(newQty);
+    if (!Number.isFinite(to) || to < 0) { store.showToast('Enter a quantity of 0 or more.'); return; }
+    await saveLineEdit(line, { override_qty: to });
+    if (to === from) return;
+
+    const part = line.part_number_normalized || line.part_number;
+    const linesByPart = {};
+    store.runLines.value.forEach(l => { linesByPart[l.part_number_normalized || l.part_number] = l; });
+    const { changes, skipped } = computeQtyCascade(
+        part, to - from, store.runChildIndex.value, linesByPart);
+    if (!changes.length && !skipped.length) return;   // no subparts in this run
+
+    store.qtyCascadePreview.value = { part, from, to, delta: to - from, changes, skipped };
+    store.qtyCascadeOpen.value = true;
+}
+
+// applyQtyCascade — write the previewed child quantities. Each line is saved
+// individually (no bulk endpoint); a failure stops the batch and reports how
+// far it got, so the grid is never silently half-applied without saying so.
+export async function applyQtyCascade() {
+    const preview = store.qtyCascadePreview.value;
+    if (!preview) return;
+    const byPart = {};
+    store.runLines.value.forEach(l => { byPart[l.part_number_normalized || l.part_number] = l; });
+    store.qtyCascadeSaving.value = true;
+    let done = 0;
+    try {
+        for (const c of preview.changes) {
+            const line = byPart[c.part];
+            if (!line) continue;
+            const { data, error } = await db.updateRunLine(line.id, {
+                override_qty: c.to, updated_by: store.sessionRole.value || null,
+            });
+            if (error) throw error;
+            Object.assign(line, data);
+            done++;
+        }
+        store.showToast(`Updated ${done} subpart line(s).`, 'success');
+        closeQtyCascade();
+    } catch (err) {
+        store.showToast(`Cascade stopped after ${done} of ${preview.changes.length}: ${err.message}`);
+        logError('applyQtyCascade', err, { part: preview.part, done });
+    } finally {
+        store.qtyCascadeSaving.value = false;
+    }
+}
+
+export function closeQtyCascade() {
+    store.qtyCascadeOpen.value = false;
+    store.qtyCascadePreview.value = null;
 }
 
 // saveLineEdit — persist an inline edit (override qty, hold, release date).
@@ -136,17 +229,21 @@ export async function releaseLine(line) {
     store.releasingLineId.value = line.id;
     try {
         const part = line.part_number_normalized;
-        const [oh, wo, po, prm] = await Promise.all([
+        const [oh, wip, po, prm] = await Promise.all([
             db.fetchOnHandForParts([part]),
-            db.fetchOpenWoSupply([part]),
+            db.fetchPartWip(part),
             db.fetchOpenPoSupply([part]),
             db.fetchPartPlanningParams([part]),
         ]);
-        const p    = prm.data[part] || {};
+        const p = prm.data[part] || {};
+        // Same in-flight measure the calc used, or release would create work
+        // the plan already said was covered. Pending requests stay excluded.
+        const b = bucketPartWip(wip.data, null);
+        const inFlight = b.inProduction + b.completedNotReceived + b.receivedNotClosed;
         const live = Math.max(0,
             (Number(line.gross) || 0) + (Number(p.min_stock) || 0)
             - (Number(oh.data[part]?.on_hand) || 0)
-            - (Number(wo.data[part]) || 0) - (Number(po.data[part]) || 0));
+            - inFlight - (Number(po.data[part]) || 0));
         let qty = Number(line.override_qty ?? 0) > 0 ? Number(line.override_qty) : live;
         if (qty > 0 && !(Number(line.override_qty) > 0)) {
             if (Number(p.min_batch_qty) > 0) qty = Math.max(qty, Number(p.min_batch_qty));

@@ -189,6 +189,7 @@ function blankNewPart() { return { part_number: '', qty: 1 }; }
 export function moveBuChoice(fromStep, choiceIndex, toStep) {
     const kit = store.buKit.value;
     if (!kit || toStep === 'keep' || !kit.steps[fromStep]) return;
+    if (toStep === 'base') { _moveChoiceToBase(fromStep, choiceIndex); return; }
     const [choice] = kit.steps[fromStep].choices.splice(choiceIndex, 1);
     if (!choice) return;
     if (toStep === '' || toStep === null) {
@@ -196,6 +197,37 @@ export function moveBuChoice(fromStep, choiceIndex, toStep) {
     } else {
         kit.steps[Number(toStep)].choices.push(choice);
     }
+}
+
+// _moveChoiceToBase — the reverse of promoteBuBasePart: fold one choice's parts
+// into the common-parts base list and drop the choice. A part already in the
+// base has its qty summed rather than duplicated (a duplicate line would double
+// that part in the base unit's saved BOM).
+function _moveChoiceToBase(stepIndex, choiceIndex) {
+    const kit = store.buKit.value;
+    const choice = kit.steps[stepIndex].choices[choiceIndex];
+    if (!choice) return;
+    if (!choice.parts.length) {
+        store.showToast('That choice has no part # — nothing to move into the base.');
+        return;
+    }
+    let merged = 0;
+    choice.parts.forEach(p => {
+        const existing = kit.base.find(b => b.part_number === p.part_number);
+        if (existing) {
+            existing.qty = (Number(existing.qty) || 0) + (Number(p.qty) || 0);
+            merged++;
+        } else {
+            kit.base.push({ ...p });
+        }
+    });
+    const moved = choice.parts.length;
+    kit.steps[stepIndex].choices.splice(choiceIndex, 1);
+    store.showToast(
+        merged
+            ? `Moved ${moved} part(s) to the base — ${merged} merged into an existing base line.`
+            : `Moved ${moved} part(s) into the base unit.`,
+        'success');
 }
 
 // addBuStep — append an empty decision step for the user to fill.

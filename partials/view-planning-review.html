@@ -71,10 +71,13 @@
                         <tr>
                             <th class="px-2 py-2"></th>
                             <th class="px-2 py-2 text-left">Part</th>
+                            <th class="px-2 py-2 text-left">Description</th>
+                            <th class="px-2 py-2 text-left">Used In</th>
                             <th class="px-2 py-2 text-right">Lv</th>
                             <th class="px-2 py-2 text-right">Need</th>
                             <th class="px-2 py-2 text-right">Stock</th>
-                            <th class="px-2 py-2 text-right">WO</th>
+                            <th class="px-2 py-2 text-right">In Flight</th>
+                            <th class="px-2 py-2 text-right">Req</th>
                             <th class="px-2 py-2 text-right">PO</th>
                             <th class="px-2 py-2 text-right">Net</th>
                             <th class="px-2 py-2 text-right">Qty</th>
@@ -93,16 +96,32 @@
                             <td class="px-2 py-1.5 font-mono font-semibold whitespace-nowrap"
                                 :style="{ paddingLeft: (8 + l.level * 14) + 'px' }">{{ l.part_number }}
                                 <span v-if="l.flag" class="text-red-600">⚠</span></td>
+                            <td class="px-2 py-1.5 text-gray-500 max-w-[16rem] truncate"
+                                :title="runLineDescrips[l.part_number_normalized] || ''">
+                                {{ runLineDescrips[l.part_number_normalized] || '—' }}</td>
+                            <td class="px-2 py-1.5 font-mono text-[11px] text-gray-500 max-w-[12rem] truncate"
+                                :title="(runWhereUsed[l.part_number_normalized] || []).join(', ')">
+                                <span v-if="!(runWhereUsed[l.part_number_normalized] || []).length" class="text-gray-300">top level</span>
+                                <span v-else>{{ (runWhereUsed[l.part_number_normalized] || [])[0] }}<span
+                                    v-if="(runWhereUsed[l.part_number_normalized] || []).length > 1"
+                                    class="text-indigo-500 font-bold"> +{{ (runWhereUsed[l.part_number_normalized] || []).length - 1 }}</span></span></td>
                             <td class="px-2 py-1.5 text-right text-gray-400">{{ l.level }}</td>
                             <td class="px-2 py-1.5 text-right font-mono">{{ l.gross }}</td>
                             <td class="px-2 py-1.5 text-right font-mono">{{ l.on_hand_snap }}</td>
-                            <td class="px-2 py-1.5 text-right font-mono">{{ l.open_wo_snap }}</td>
+                            <td class="px-2 py-1.5 text-right font-mono"
+                                :title="l.in_flight_snap == null ? 'Run predates in-flight netting — open WOs only'
+                                    : 'In production + done-not-received + received-not-closed'">
+                                {{ l.in_flight_snap ?? l.open_wo_snap
+                                }}<span v-if="l.in_flight_snap == null" class="text-amber-500">*</span></td>
+                            <td class="px-2 py-1.5 text-right font-mono text-gray-400"
+                                title="Pending WO requests — shown for reference, NOT subtracted">
+                                {{ l.requested_snap ? l.requested_snap : '' }}</td>
                             <td class="px-2 py-1.5 text-right font-mono">{{ l.open_po_snap }}</td>
                             <td class="px-2 py-1.5 text-right font-mono">{{ l.net }}</td>
                             <td class="px-2 py-1.5 text-right">
                                 <input type="number" min="0" :value="l.override_qty ?? l.recommended"
                                     :disabled="l.line_status !== 'proposed'"
-                                    @change="saveLineEdit(l, { override_qty: Number($event.target.value) })"
+                                    @change="saveLineQty(l, $event.target.value)"
                                     class="w-16 border border-gray-200 rounded px-1 py-0.5 text-right font-mono"
                                     :class="l.override_qty != null && l.override_qty !== l.recommended ? 'bg-amber-50 border-amber-300' : ''" /></td>
                             <td class="px-2 py-1.5">
@@ -122,6 +141,8 @@
                                               'text-emerald-600': l.line_status === 'released',
                                               'text-gray-300': l.line_status === 'skipped' }">{{ l.line_status }}</span></td>
                             <td class="px-2 py-1.5 whitespace-nowrap">
+                                <button @click="openPartData(l.part_number)"
+                                    class="text-[10px] font-bold uppercase text-indigo-600 hover:text-indigo-800 mr-1">Data</button>
                                 <button v-if="l.line_status === 'proposed'"
                                     @click="saveLineEdit(l, { hold: !l.hold })"
                                     class="text-[10px] font-bold uppercase mr-1"

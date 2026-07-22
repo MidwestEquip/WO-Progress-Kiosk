@@ -472,7 +472,9 @@ export function openOrderStatusClass(status) {
         'Shipped':      'bg-teal-100   text-teal-800',
         'On Hold':      'bg-red-100    text-red-800',
         'Deleted':      'bg-rose-100   text-rose-800',
-        'Cancelled':    'bg-orange-100 text-orange-800',
+        // Deleted and Cancelled read as the same "this order is dead" outcome,
+        // so they share one red badge.
+        'Cancelled':    'bg-rose-100   text-rose-800',
     };
     return map[status] || 'bg-slate-100 text-slate-700';
 }

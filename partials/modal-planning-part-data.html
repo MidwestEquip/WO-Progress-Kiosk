@@ -1,0 +1,128 @@
+<!-- ============================================================
+     modal-planning-part-data.html — read-only Part Data for one part,
+     opened from a Production Planning run line. Same reference figures
+     as the WO Request Data panel, with no form and no write actions.
+     ============================================================ -->
+<div v-if="partDataOpen" class="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
+    @click.self="closePartData">
+    <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto p-6">
+
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xl font-extrabold text-gray-800">Part Data
+                <span class="font-mono text-indigo-700 ml-2">{{ partDataPart }}</span></h3>
+            <button @click="closePartData" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div v-if="partDataLoading" class="text-center text-gray-400 py-16">Loading part data…</div>
+
+        <div v-else-if="partData">
+            <!-- Replacement chain -->
+            <div v-if="partData.links.length" class="bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-3">
+                <p class="text-xs font-bold text-indigo-800 uppercase tracking-wide mb-1">
+                    Includes history from replaced part{{ partData.links.length > 1 ? 's' : '' }}:
+                    {{ partData.chain.join(' → ') }}</p>
+                <p v-for="l in partData.links" :key="l.id" class="text-xs text-indigo-700">
+                    <span class="font-semibold">{{ l.previous_part_number }}</span>
+                    <span v-if="l.carry_forward_note || l.replacement_reason">
+                        — {{ l.carry_forward_note || l.replacement_reason }}</span></p>
+            </div>
+
+            <!-- Headline tiles -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div class="border border-gray-200 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-gray-500 uppercase">In Stock (Software)</div>
+                    <div class="text-2xl font-extrabold text-gray-800">
+                        {{ partData.onHand && partData.onHand.on_hand != null ? partData.onHand.on_hand : '—' }}</div>
+                    <div class="text-[10px] text-gray-400">
+                        {{ partData.onHand && partData.onHand.counted_at
+                            ? 'last count ' + partData.onHand.counted_at.slice(0, 10)
+                            : 'never physically counted' }}</div>
+                </div>
+                <div class="border border-gray-200 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-gray-500 uppercase">On Units</div>
+                    <div class="text-2xl font-extrabold text-gray-800">
+                        {{ partData.onUnits ? partData.onUnits.qty : '—' }}</div>
+                    <div class="text-[10px] text-gray-400" v-if="partData.onUnits">
+                        {{ partData.onUnits.counted }}/{{ partData.onUnits.total }} ancestors counted</div>
+                </div>
+                <div class="border border-violet-300 bg-violet-50 rounded-xl p-3">
+                    <div class="text-[10px] font-bold text-violet-700 uppercase">Pipeline (in flight)</div>
+                    <div class="text-2xl font-extrabold text-violet-900">{{ partDataPipelineQty }}</div>
+                    <div class="text-[10px] text-violet-600">not yet in stock</div>
+                </div>
+                <div class="border rounded-xl p-3"
+                    :class="partDataSuggestedQty ? 'border-sky-300 bg-sky-50' : 'border-gray-200'">
+                    <div class="text-[10px] font-bold uppercase" :class="partDataSuggestedQty ? 'text-sky-700' : 'text-gray-500'">Suggested Qty</div>
+                    <div class="text-2xl font-extrabold" :class="partDataSuggestedQty ? 'text-sky-900' : 'text-gray-400'">
+                        {{ partDataSuggestedQty ?? '—' }}</div>
+                    <div class="text-[10px]" :class="partDataSuggestedQty ? 'text-sky-600' : 'text-gray-400'">
+                        {{ partDataSuggestedQty ? 'demand − stock − pipeline, +5%' : 'stock + pipeline covers demand' }}</div>
+                </div>
+            </div>
+
+            <!-- Pipeline breakdown -->
+            <div v-if="partDataWip && partDataPipelineQty > 0" class="bg-violet-50 border border-violet-200 rounded-xl p-3 mb-4">
+                <div class="text-xs font-bold text-violet-800 uppercase mb-1">Pipeline breakdown</div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div><span class="font-mono font-bold">{{ partDataWip.requested }}</span> <span class="text-violet-700">requested</span></div>
+                    <div><span class="font-mono font-bold">{{ partDataWip.inProduction }}</span> <span class="text-violet-700">in production</span></div>
+                    <div><span class="font-mono font-bold">{{ partDataWip.completedNotReceived }}</span> <span class="text-violet-700">done, not received</span></div>
+                    <div><span class="font-mono font-bold">{{ partDataWip.receivedNotClosed }}</span> <span class="text-violet-700">received, not closed</span></div>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <div class="border border-gray-200 rounded-xl p-3">
+                    <div class="text-xs font-bold text-gray-600 uppercase mb-2">Last 12 months</div>
+                    <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Sold</span>
+                        <span class="font-mono font-bold">{{ partData.usage12.qty_sold_used_12mo }}</span></div>
+                    <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Used in parent BOMs</span>
+                        <span class="font-mono font-bold">{{ partData.parentDemand12 }}</span></div>
+                    <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Used in mfg</span>
+                        <span class="font-mono font-bold">{{ partData.usage12.qty_used_in_mfg }}</span></div>
+                    <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Made</span>
+                        <span class="font-mono font-bold">{{ partData.usage12.qty_made_past_12mo }}</span></div>
+                    <div class="flex justify-between text-sm py-0.5 border-t border-gray-100 mt-1 pt-1">
+                        <span class="text-gray-500">Est. qty in stock</span>
+                        <span class="font-mono font-bold">{{ partDataEstInStock ?? '—' }}</span></div>
+                </div>
+                <div class="border border-gray-200 rounded-xl p-3">
+                    <div class="text-xs font-bold text-gray-600 uppercase mb-2">Last 3 years</div>
+                    <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Sold</span>
+                        <span class="font-mono font-bold">{{ partData.usage36.qty_sold_used_36mo }}</span></div>
+                    <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Used in parent BOMs</span>
+                        <span class="font-mono font-bold">{{ partData.parentDemand36 }}</span></div>
+                    <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Used in mfg</span>
+                        <span class="font-mono font-bold">{{ partData.usage36.qty_used_in_mfg_36mo }}</span></div>
+                    <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Made</span>
+                        <span class="font-mono font-bold">{{ partData.usage36.qty_made_past_36mo }}</span></div>
+                </div>
+            </div>
+
+            <!-- Last made + Used on -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="border border-gray-200 rounded-xl p-3">
+                    <div class="text-xs font-bold text-gray-600 uppercase mb-2">Last 3 times made</div>
+                    <div v-if="!partData.lastMade.length" class="text-xs text-gray-400">No make history.</div>
+                    <div v-for="(m, mi) in partData.lastMade" :key="mi"
+                        class="flex justify-between text-sm py-0.5">
+                        <span class="text-gray-500">{{ (m.txn_date || '').slice(0, 10) }}</span>
+                        <span class="font-mono font-bold">{{ m.qty }}</span></div>
+                </div>
+                <div class="border border-gray-200 rounded-xl p-3">
+                    <div class="text-xs font-bold text-gray-600 uppercase mb-2">Used on ({{ partData.usedOn.length }})</div>
+                    <div v-if="!partData.usedOn.length" class="text-xs text-gray-400">Not a child of any BOM.</div>
+                    <div class="max-h-48 overflow-y-auto">
+                        <div v-for="u in partData.usedOn" :key="u.part" class="text-xs py-0.5">
+                            <span class="font-mono font-semibold">{{ u.part }}</span>
+                            <span class="text-gray-400"> × {{ u.qty }}</span>
+                            <span class="text-gray-400 ml-1">{{ u.desc }}</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-else class="text-center text-gray-400 py-16">No data for this part.</div>
+    </div>
+</div>

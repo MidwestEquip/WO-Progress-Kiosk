@@ -255,7 +255,9 @@ export const PARTIAL_NAMES = [
     'modal-eng-followup',
     'modal-part-change',
     'modal-new-part',
-    'modal-base-unit-edit'
+    'modal-base-unit-edit',
+    'modal-planning-part-data',
+    'modal-planning-qty-cascade'
 ];
 
 export const OPEN_ORDER_SORT_FIELDS = [

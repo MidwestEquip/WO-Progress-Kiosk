@@ -5,7 +5,7 @@
 
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
-import { explodeAndNet, sanitizeText } from '../libs/utils.js';
+import { explodeAndNet, sanitizeText, bucketPartWip, normalizePartNumberStrict } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
 // selectPlanBaseUnit — load one base unit's kit and build the split editor
@@ -48,6 +48,22 @@ export function applyDefaultSplits() {
     });
 }
 
+// togglePlanChoice — tick a choice into (or out of) the plan. The first choice
+// picked in a step takes the whole plan quantity; each further pick takes only
+// what is still unallocated, so a split is adjusted by hand from there. The qty
+// box stays the source of truth — the tick mark is just `qty > 0`, so the two
+// can never drift apart.
+export function togglePlanChoice(step, choice) {
+    if (!step || !choice) return;
+    if (Number(choice.qty) > 0) { choice.qty = 0; return; }
+    const qty = Number(store.planQty.value) || 0;
+    const allocated = step.choices.reduce((sum, c) => sum + (Number(c.qty) || 0), 0);
+    choice.qty = Math.max(0, qty - allocated);
+    if (!(choice.qty > 0)) {
+        store.showToast('Step is already fully allocated — lower another choice first.');
+    }
+}
+
 // runPlanningCalc — validate, build demands, fetch every engine input in
 // parallel, run explodeAndNet, save the run + lines, jump to Review.
 export async function runPlanningCalc() {
@@ -86,26 +102,46 @@ export async function runPlanningCalc() {
         bomRows.forEach(r => { allParts.add(r.item_parent_normalized); allParts.add(r.item_child_normalized); });
         const partList = [...allParts];
 
-        const [oh, wo, po, prm, mb] = await Promise.all([
+        const [oh, wip, po, prm, mb] = await Promise.all([
             db.fetchOnHandForParts(partList),
-            db.fetchOpenWoSupply(partList),
+            db.fetchPartsWipBatch(partList),
             db.fetchOpenPoSupply(partList),
             db.fetchPartPlanningParams(partList),
             db.fetchMakeBuyAttrs(partList),
         ]);
-        for (const r of [oh, wo, po, prm, mb]) if (r.error) throw r.error;
+        for (const r of [oh, wip, po, prm, mb]) if (r.error) throw r.error;
+
+        // In-flight supply. The WIP RPC keys on the strict normalization
+        // (dashes/spaces stripped) while the engine keys on trim+upper, so
+        // each part is looked up under its strict key and stored under its
+        // engine key. Only COMMITTED work is subtracted — pending requests are
+        // carried for display and never enter the netting.
+        const inFlight = {}, inProd = {}, requested = {};
+        partList.forEach(part => {
+            const b = bucketPartWip(wip.data[normalizePartNumberStrict(part)] || null, null);
+            inFlight[part]  = b.inProduction + b.completedNotReceived + b.receivedNotClosed;
+            inProd[part]    = b.inProduction;
+            requested[part] = b.requested;
+        });
 
         // The base part is a pseudo-item: always phantom (blow straight through).
         const params = { ...prm.data, [basePart]: { ...(prm.data[basePart] || {}), phantom: true } };
 
         const result = explodeAndNet({
             demands, bomRows,
-            onHand: oh.data, openWo: wo.data, openPo: po.data,
+            onHand: oh.data, inFlight, openPo: po.data,
             params, makeBuy: mb.data,
         });
         if (result.cycleDetected) store.showToast('Circular BOM detected — affected branches truncated.', 'error');
 
-        const lines = result.rows.filter(r => !r.phantom);
+        // Attach the supply snapshots the engine does not carry: the
+        // in-production portion (continuity with older runs) and the advisory
+        // requested qty (displayed, never subtracted).
+        const lines = result.rows.filter(r => !r.phantom).map(r => ({
+            ...r,
+            open_wo:   inProd[r.part_number]    || 0,
+            requested: requested[r.part_number] || 0,
+        }));
         const { error: runErr } = await db.insertPlanningRun({
             base_unit_id: bu.unit.id,
             family_name: bu.unit.family_name,

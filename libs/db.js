@@ -33,6 +33,7 @@ export * from './db-bom.js';
 export * from './db-followup.js';
 export * from './db-part-changes.js';
 export * from './db-part-defaults.js';
+export * from './db-part-data.js';
 export * from './db-part-notes.js';
 export * from './db-purchasing.js';
 export * from './db-planning.js';

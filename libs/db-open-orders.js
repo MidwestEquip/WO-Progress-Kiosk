@@ -169,12 +169,29 @@ export async function shipOpenOrder(row, finalStatus = 'Shipped') {
     return { ...del, ledgerError };
 }
 
-// fetchCompletedOrders — all open_orders_completed rows, oldest shipped first.
-export async function fetchCompletedOrders() {
+// fetchCompletedOrders — open_orders_completed rows, newest shipped first.
+// (The view re-sorts client-side to keep same-SO rows grouped; this order just
+// keeps the raw fetch consistent with what the table shows.)
+// sinceIso (optional ISO timestamp): only rows shipped on/after it, plus rows
+// with no shipped_at at all (pre-feature/legacy rows would otherwise be
+// invisible forever). Omit it to fetch every row.
+export async function fetchCompletedOrders(sinceIso) {
+    return withRetry(() => {
+        let q = supabase.from('open_orders_completed').select('*');
+        if (sinceIso) q = q.or(`shipped_at.gte.${sinceIso},shipped_at.is.null`);
+        return q.order('shipped_at', { ascending: false, nullsFirst: false });
+    });
+}
+
+// countCompletedOrdersBefore — how many completed rows shipped BEFORE sinceIso.
+// Head-only count (no rows transferred); drives the "Load more" button's
+// visibility and its remaining-count label. Returns { count, error }.
+export async function countCompletedOrdersBefore(sinceIso) {
+    if (!sinceIso) return { count: 0, error: null };
     return withRetry(() =>
         supabase.from('open_orders_completed')
-            .select('*')
-            .order('shipped_at', { ascending: true })
+            .select('id', { count: 'exact', head: true })
+            .lt('shipped_at', sinceIso)
     );
 }
 

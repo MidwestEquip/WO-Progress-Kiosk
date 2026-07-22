@@ -27,3 +27,28 @@ export async function fetchPartWip(partNumber) {
     if (error) return { data: empty, error };
     return { data: data || empty, error: null };
 }
+
+// fetchPartsWipBatch — pipeline rows for MANY parts via get_parts_wip_batch.
+// The batch twin of fetchPartWip: a planning run needs hundreds of parts and
+// the single-part RPC would be hundreds of round trips. Same row shapes, so
+// each entry feeds bucketPartWip unchanged. Chunked to keep the array
+// parameter a sane size.
+// Input: array of part numbers (any casing/spacing).
+// Output: { data: { NORM_NO_DASH: { work_orders: [], requests: [] } }, error }.
+// Keys are the RPC's normalization (upper, trimmed, '-' and spaces removed) —
+// callers must normalize the same way before looking a part up.
+export async function fetchPartsWipBatch(partNumbers) {
+    const list = [...new Set(
+        (partNumbers || []).map(p => (p || '').toString().trim()).filter(Boolean)
+    )];
+    if (!list.length) return { data: {}, error: null };
+    const out = {};
+    for (let i = 0; i < list.length; i += 200) {
+        const { data, error } = await withRetry(() =>
+            supabase.rpc('get_parts_wip_batch', { p_parts: list.slice(i, i + 200) })
+        );
+        if (error) return { data: out, error };
+        Object.assign(out, data || {});
+    }
+    return { data: out, error: null };
+}

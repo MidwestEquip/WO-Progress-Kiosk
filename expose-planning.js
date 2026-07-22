@@ -23,12 +23,14 @@ import {
     addBuEditPart, removeBuEditPart, saveBuEditPartQty,
 } from './pages/planning-base-unit-edit.js';
 import {
-    selectPlanBaseUnit, applyDefaultSplits, runPlanningCalc,
+    selectPlanBaseUnit, applyDefaultSplits, runPlanningCalc, togglePlanChoice,
 } from './pages/planning-run.js';
 import {
     loadPlanningRuns, selectRun, saveLineEdit, approveSelected, skipLine,
     loadReleaseDue, releaseLine, releaseAllDue, closeRun, cancelRun,
+    saveLineQty, applyQtyCascade, closeQtyCascade,
 } from './pages/planning-review.js';
+import { openPartData, closePartData } from './pages/planning-part-data.js';
 import {
     loadPlanningQueues, proposeQueueBatch, openBandEditor, closeBandEditor, saveBand,
 } from './pages/planning-queues.js';
@@ -94,7 +96,7 @@ export function buildPlanningExpose() {
         planRunning:       store.planRunning,
         planSplitStatus:   store.planSplitStatus,
         planSplitsValid:   store.planSplitsValid,
-        selectPlanBaseUnit, applyDefaultSplits, runPlanningCalc,
+        selectPlanBaseUnit, applyDefaultSplits, runPlanningCalc, togglePlanChoice,
 
         // ── Review tab ───────────────────────────────────────
         planningRuns:        store.planningRuns,
@@ -103,12 +105,31 @@ export function buildPlanningExpose() {
         runLines:            store.runLines,
         runLinesLoading:     store.runLinesLoading,
         runLineFilter:       store.runLineFilter,
+        runLineDescrips:     store.runLineDescrips,
+        runWhereUsed:        store.runWhereUsed,
+        runRefsLoading:      store.runRefsLoading,
         filteredRunLines:    store.filteredRunLines,
         releaseDueLines:     store.releaseDueLines,
         releasingLineId:     store.releasingLineId,
         runApproving:        store.runApproving,
         loadPlanningRuns, selectRun, saveLineEdit, approveSelected, skipLine,
         loadReleaseDue, releaseLine, releaseAllDue, closeRun, cancelRun,
+        saveLineQty, applyQtyCascade, closeQtyCascade,
+        runChildIndex:      store.runChildIndex,
+        qtyCascadeOpen:     store.qtyCascadeOpen,
+        qtyCascadeSaving:   store.qtyCascadeSaving,
+        qtyCascadePreview:  store.qtyCascadePreview,
+
+        // ── Part Data modal ──────────────────────────────────
+        partDataOpen:         store.partDataOpen,
+        partDataPart:         store.partDataPart,
+        partDataLoading:      store.partDataLoading,
+        partData:             store.partData,
+        partDataWip:          store.partDataWip,
+        partDataPipelineQty:  store.partDataPipelineQty,
+        partDataEstInStock:   store.partDataEstInStock,
+        partDataSuggestedQty: store.partDataSuggestedQty,
+        openPartData, closePartData,
 
         // ── Queues & Alerts tab ──────────────────────────────
         queueRows:         store.queueRows,

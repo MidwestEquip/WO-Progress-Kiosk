@@ -120,7 +120,11 @@ const REC_OUTLIER_THRESHOLD = 10000;
 //   demands  = [{ part_number, qty }] top-level gross demand
 //   bomRows  = all_boms rows covering every level (fetchBomTreeRows)
 //   onHand   = { NORM: { on_hand } }               (part_on_hand)
-//   openWo   = { NORM: qty }  open WO supply       (fetchOpenWoSupply)
+//   inFlight = { NORM: qty }  committed WO-side supply: work in production
+//              + finished-not-received + received-not-closed-out. NOT pending
+//              wo_requests — a request can still be rejected, so it is shown
+//              in the grid but never subtracted. (fetchPartsWipBatch +
+//              bucketPartWip; see planning-run.js)
 //   openPo   = { NORM: qty }  open PO supply       (fetchOpenPoSupply)
 //   params   = { NORM: part_planning row }         (min_stock, min_batch_qty,
 //              order_multiple, phantom, planning_hold, make_buy_override)
@@ -133,10 +137,10 @@ const REC_OUTLIER_THRESHOLD = 10000;
 // never explode. Held parts recommend 0 and do not explode. Phantoms pass
 // net demand straight through with no recommendation of their own.
 //
-// Output: { rows: [{ part_number, level, gross, on_hand, open_wo, open_po,
+// Output: { rows: [{ part_number, level, gross, on_hand, in_flight, open_po,
 //   min_stock, net, recommended, action: 'make'|'buy'|'review', held, phantom,
 //   flag }], cycleDetected, maxDepth }
-export function explodeAndNet({ demands, bomRows, onHand, openWo, openPo, params, makeBuy }) {
+export function explodeAndNet({ demands, bomRows, onHand, inFlight, openPo, params, makeBuy }) {
     const P = p => (params   || {})[p] || {};
     const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -193,14 +197,14 @@ export function explodeAndNet({ demands, bomRows, onHand, openWo, openPo, params
             if (!(g > 0)) continue;
             const prm  = P(part);
             const oh   = num((onHand || {})[part]?.on_hand);
-            const wo   = num((openWo || {})[part]);
+            const inf  = num((inFlight || {})[part]);
             const po   = num((openPo || {})[part]);
             const kids = children[part] || {};
             const mb   = prm.make_buy_override || (makeBuy || {})[part] || null;
 
             if (prm.planning_hold) {
                 rows.push({ part_number: part, level: lvl, gross: g, on_hand: oh,
-                    open_wo: wo, open_po: po, min_stock: num(prm.min_stock),
+                    in_flight: inf, open_po: po, min_stock: num(prm.min_stock),
                     net: 0, recommended: 0, action: mb || 'review',
                     held: true, phantom: false, flag: null });
                 continue; // held: no recommendation, no explosion
@@ -209,7 +213,7 @@ export function explodeAndNet({ demands, bomRows, onHand, openWo, openPo, params
             if (prm.phantom) {
                 const net = Math.max(0, g - oh);
                 rows.push({ part_number: part, level: lvl, gross: g, on_hand: oh,
-                    open_wo: wo, open_po: po, min_stock: 0,
+                    in_flight: inf, open_po: po, min_stock: 0,
                     net, recommended: 0, action: mb || 'review',
                     held: false, phantom: true, flag: null });
                 Object.entries(kids).forEach(([chl, qpa]) => {
@@ -219,7 +223,7 @@ export function explodeAndNet({ demands, bomRows, onHand, openWo, openPo, params
             }
 
             const floor = num(prm.min_stock);
-            const net   = Math.max(0, g + floor - oh - wo - po);
+            const net   = Math.max(0, g + floor - oh - inf - po);
             let rec = net;
             if (rec > 0) {
                 if (num(prm.min_batch_qty) > 0) rec = Math.max(rec, num(prm.min_batch_qty));
@@ -228,7 +232,7 @@ export function explodeAndNet({ demands, bomRows, onHand, openWo, openPo, params
             }
             const action = mb || 'review';
             rows.push({ part_number: part, level: lvl, gross: g, on_hand: oh,
-                open_wo: wo, open_po: po, min_stock: floor,
+                in_flight: inf, open_po: po, min_stock: floor,
                 net, recommended: rec, action,
                 held: false, phantom: false,
                 flag: rec >= REC_OUTLIER_THRESHOLD ? 'qty_outlier' : null });
@@ -344,4 +348,106 @@ export function findModularChildren(bomRows, includedConfigs, partsWithBoms) {
     return Object.entries(usage)
         .map(([part, set]) => ({ part_number: part, inConfigs: [...set].sort() }))
         .sort((a, b) => b.inConfigs.length - a.inConfigs.length || a.part_number.localeCompare(b.part_number));
+}
+
+// buildWhereUsedIndex — invert BOM rows into child → [parent part numbers],
+// restricted to the parts present in a planning run.
+//
+// The netting engine emits each part ONCE at its lowest level, with demand
+// summed over every parent that uses it, so a line legitimately has several
+// parents. This index is what lets the Review grid say what a line is a
+// subpart of. Pure: no imports, no side effects.
+//
+// Input: bomRows = all_boms rows, runParts = part numbers in the run.
+// Output: { CHILD_NORM: [PARENT_NORM, ...] } (sorted, de-duplicated).
+export function buildWhereUsedIndex(bomRows, runParts) {
+    const inRun = new Set((runParts || []).map(_norm).filter(Boolean));
+    const index = {};
+    (bomRows || []).forEach(r => {
+        const parent = _norm(r.item_parent_normalized || r.item_parent);
+        const child  = _norm(r.item_child_normalized  || r.item_child);
+        if (!parent || !child || parent === child) return;
+        if (!inRun.has(child)) return;
+        if (!index[child]) index[child] = new Set();
+        index[child].add(parent);
+    });
+    Object.keys(index).forEach(k => { index[k] = [...index[k]].sort(); });
+    return index;
+}
+
+// buildRunChildIndex — parent → [{ child, qpa }] for the parts in a run.
+// The companion to buildWhereUsedIndex: that one drops qty_per_assy because
+// it only names parents; a qty cascade needs the per-assembly multiplier.
+// Duplicate BOM lines for the same pair are summed. Pure.
+// Output: { PARENT_NORM: [{ child, qpa }] }.
+export function buildRunChildIndex(bomRows, runParts) {
+    const inRun = new Set((runParts || []).map(_norm).filter(Boolean));
+    const acc = {};
+    (bomRows || []).forEach(r => {
+        const parent = _norm(r.item_parent_normalized || r.item_parent);
+        const child  = _norm(r.item_child_normalized  || r.item_child);
+        if (!parent || !child || parent === child) return;
+        if (!inRun.has(parent) || !inRun.has(child)) return;
+        const qpa = Number(r.qty_per_assy) > 0 ? Number(r.qty_per_assy) : 1;
+        if (!acc[parent]) acc[parent] = {};
+        acc[parent][child] = (acc[parent][child] || 0) + qpa;
+    });
+    const out = {};
+    Object.keys(acc).forEach(p => {
+        out[p] = Object.entries(acc[p])
+            .map(([child, qpa]) => ({ child, qpa }))
+            .sort((a, b) => a.child.localeCompare(b.child));
+    });
+    return out;
+}
+
+// computeQtyCascade — preview a parent qty change flowing down its subtree.
+//
+// A child used twice per assembly moves by twice the parent's delta, and a
+// grandchild compounds the multipliers. A part reached by several BOM paths
+// accumulates the delta from EVERY path (each path is a distinct physical
+// usage), matching how parent-usage demand is calculated elsewhere.
+//
+// Only 'proposed' lines change; anything already approved / released / skipped
+// is reported instead, never silently moved. Quantities clamp at 0.
+// Cycle-safe: each branch carries its own visited path, depth-capped.
+//
+// Input: parentPart, delta (signed), childIndex (buildRunChildIndex),
+//        linesByPart = { NORM: run line }.
+// Output: { changes: [{ part, from, to, delta, perAssy }], skipped: [{ part, status }] }.
+export function computeQtyCascade(parentPart, delta, childIndex, linesByPart) {
+    const changes = [], skipped = [];
+    const root = _norm(parentPart);
+    const d = Number(delta);
+    if (!root || !Number.isFinite(d) || d === 0) return { changes, skipped };
+
+    // Total multiplier per descendant, summed over every path from the root.
+    const totalMult = {};
+    let frontier = [{ part: root, mult: 1, path: new Set([root]) }];
+    for (let depth = 0; depth < EXPLODE_MAX_DEPTH && frontier.length; depth++) {
+        const next = [];
+        for (const node of frontier) {
+            for (const { child, qpa } of (childIndex[node.part] || [])) {
+                if (node.path.has(child)) continue;          // cycle on this branch
+                const mult = node.mult * qpa;
+                totalMult[child] = (totalMult[child] || 0) + mult;
+                const path = new Set(node.path); path.add(child);
+                next.push({ part: child, mult, path });
+            }
+        }
+        frontier = next;
+    }
+
+    Object.keys(totalMult).sort().forEach(part => {
+        const line = (linesByPart || {})[part];
+        if (!line) return;                                    // not in this run
+        if (line.line_status !== 'proposed') {
+            skipped.push({ part, status: line.line_status });
+            return;
+        }
+        const from = Number(line.override_qty ?? line.recommended) || 0;
+        const to   = Math.max(0, from + d * totalMult[part]);
+        if (to !== from) changes.push({ part, from, to, delta: to - from, perAssy: totalMult[part] });
+    });
+    return { changes, skipped };
 }

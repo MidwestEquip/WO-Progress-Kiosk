@@ -1,0 +1,67 @@
+<!-- ============================================================
+     modal-planning-qty-cascade.html — confirm pushing a parent qty
+     change down to its subparts. Preview only until confirmed; the
+     parent line is already saved by the time this opens.
+     ============================================================ -->
+<div v-if="qtyCascadeOpen && qtyCascadePreview"
+    class="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center p-4"
+    @click.self="closeQtyCascade">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
+
+        <h3 class="text-lg font-extrabold text-gray-800 mb-1">Apply this change to subparts?</h3>
+        <p class="text-sm text-gray-600 mb-3">
+            <span class="font-mono font-bold">{{ qtyCascadePreview.part }}</span>
+            went from <span class="font-mono font-bold">{{ qtyCascadePreview.from }}</span>
+            to <span class="font-mono font-bold">{{ qtyCascadePreview.to }}</span>
+            (<span class="font-mono font-bold"
+                :class="qtyCascadePreview.delta > 0 ? 'text-emerald-600' : 'text-red-600'">{{
+                qtyCascadePreview.delta > 0 ? '+' : '' }}{{ qtyCascadePreview.delta }}</span>).
+            Each subpart moves by that amount times how many go into one assembly.</p>
+
+        <div v-if="qtyCascadePreview.changes.length" class="border border-gray-200 rounded-xl overflow-hidden mb-3">
+            <table class="w-full text-xs">
+                <thead class="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                    <tr>
+                        <th class="px-3 py-2 text-left">Subpart</th>
+                        <th class="px-3 py-2 text-right">Per assy</th>
+                        <th class="px-3 py-2 text-right">From</th>
+                        <th class="px-3 py-2 text-right">To</th>
+                        <th class="px-3 py-2 text-right">Change</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="c in qtyCascadePreview.changes" :key="c.part" class="border-t border-gray-100">
+                        <td class="px-3 py-1.5 font-mono font-semibold">{{ c.part }}</td>
+                        <td class="px-3 py-1.5 text-right font-mono text-gray-400">×{{ c.perAssy }}</td>
+                        <td class="px-3 py-1.5 text-right font-mono">{{ c.from }}</td>
+                        <td class="px-3 py-1.5 text-right font-mono font-bold">{{ c.to }}</td>
+                        <td class="px-3 py-1.5 text-right font-mono font-bold"
+                            :class="c.delta > 0 ? 'text-emerald-600' : 'text-red-600'">
+                            {{ c.delta > 0 ? '+' : '' }}{{ c.delta }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p v-else class="text-sm text-gray-500 mb-3">No proposed subpart lines would change.</p>
+
+        <div v-if="qtyCascadePreview.skipped.length"
+            class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
+            <div class="text-xs font-bold text-amber-800 uppercase mb-1">
+                Left alone — already acted on ({{ qtyCascadePreview.skipped.length }})</div>
+            <div class="text-xs text-amber-700 font-mono">
+                <span v-for="(s, si) in qtyCascadePreview.skipped" :key="s.part">
+                    {{ s.part }} <span class="text-amber-500">({{ s.status }})</span><span
+                        v-if="si < qtyCascadePreview.skipped.length - 1">, </span></span>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2">
+            <button @click="closeQtyCascade" :disabled="qtyCascadeSaving"
+                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-bold rounded-lg disabled:opacity-50">
+                No, parent only</button>
+            <button @click="applyQtyCascade" :disabled="qtyCascadeSaving || !qtyCascadePreview.changes.length"
+                class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg disabled:opacity-50">
+                {{ qtyCascadeSaving ? 'Applying…' : 'Yes, update ' + qtyCascadePreview.changes.length + ' subpart(s)' }}</button>
+        </div>
+    </div>
+</div>

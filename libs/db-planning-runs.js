@@ -30,6 +30,7 @@ export async function insertPlanningRun(run, lines) {
         part_number: l.part_number,
         level: l.level,
         gross: l.gross, on_hand_snap: l.on_hand, open_wo_snap: l.open_wo,
+        in_flight_snap: l.in_flight, requested_snap: l.requested,
         open_po_snap: l.open_po, min_stock_snap: l.min_stock,
         net: l.net, recommended: l.recommended,
         action: l.action, flag: l.flag || null,

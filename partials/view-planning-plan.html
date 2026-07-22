@@ -57,7 +57,10 @@
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                     <div v-for="(c, ci) in s.choices" :key="ci"
-                        class="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                        class="flex items-center gap-2 rounded-lg px-3 py-2 border"
+                        :class="c.qty > 0 ? 'bg-indigo-50 border-indigo-300' : 'bg-gray-50 border-transparent'">
+                        <input type="checkbox" :checked="c.qty > 0" @change="togglePlanChoice(s, c)"
+                            class="shrink-0" />
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-gray-700 truncate">{{ c.label }}</div>
                             <div v-if="c.partLess" class="text-[10px] font-bold uppercase text-amber-600">no part # — not in material calc</div>

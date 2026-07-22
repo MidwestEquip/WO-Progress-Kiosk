@@ -36,7 +36,8 @@ import { onRowMouseDown, onRowMouseEnter, onRowDragStart, onRowDragEnd,
          onSectionDragOver, onSectionDragLeave, onSectionDrop, clearRowSelection,
          onScrollAreaDragOver, onGripDragStart, onGripDragEnd,
          onDropZoneDragOver, clearDropZone, reorderDrop } from './pages/open-orders-drag.js';
-import { enterCompletedOrdersView, loadCompletedOrders, restoreCompletedOrder,
+import { enterCompletedOrdersView, loadCompletedOrders, loadMoreCompletedOrders,
+         restoreCompletedOrder,
          startCompletedCellEdit, saveCompletedCellEdit, cancelCompletedCellEdit } from './pages/completed-orders-view.js';
 
 export function buildShippingExpose() {
@@ -47,6 +48,7 @@ export function buildShippingExpose() {
         openOrdersFilter:         store.openOrdersFilter,
         openOrdersSort:           store.openOrdersSort,
         openOrderSections:        store.openOrderSections,
+        openOrdersTotalCount:     store.openOrdersTotalCount,
         shippingTab:              store.shippingTab,
         boxedOrders:              store.boxedOrders,
         openOrderColorPickerRow:  store.openOrderColorPickerRow,
@@ -147,7 +149,11 @@ export function buildShippingExpose() {
         filteredCompletedOrders: store.filteredCompletedOrders,
         completedEditingCell:    store.completedEditingCell,
         completedEditingValue:   store.completedEditingValue,
-        enterCompletedOrdersView, loadCompletedOrders, restoreCompletedOrder,
+        completedOrdersDays:        store.completedOrdersDays,
+        completedOrdersOlderCount:  store.completedOrdersOlderCount,
+        completedOrdersMoreLoading: store.completedOrdersMoreLoading,
+        enterCompletedOrdersView, loadCompletedOrders, loadMoreCompletedOrders,
+        restoreCompletedOrder,
         startCompletedCellEdit, saveCompletedCellEdit, cancelCompletedCellEdit,
     };
 }

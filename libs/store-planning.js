@@ -75,9 +75,27 @@ export const selectedRun        = ref(null);
 export const runLines           = ref([]);
 export const runLinesLoading    = ref(false);
 export const runLineFilter      = ref('');
+// Derived on run open, not stored on the line: descriptions come from
+// item_master, and where-used is inverted from the live BOM.
+export const runLineDescrips    = ref({});    // { NORM: descrip }
+export const runWhereUsed       = ref({});    // { NORM: [parent part #] }
+export const runChildIndex      = ref({});    // { NORM: [{ child, qpa }] }
+export const runRefsLoading     = ref(false);
+
+// Qty cascade confirm: preview of a parent qty change flowing to its subparts
+export const qtyCascadeOpen    = ref(false);
+export const qtyCascadeSaving  = ref(false);
+export const qtyCascadePreview = ref(null);   // { part, from, to, delta, changes, skipped }
 export const releaseDueLines    = ref([]);
 export const releasingLineId    = ref(null);
 export const runApproving       = ref(false);
+
+// ── Part Data modal (read-only, opened from the Review grid) ──
+export const partDataOpen    = ref(false);
+export const partDataPart    = ref('');
+export const partDataLoading = ref(false);
+export const partData        = ref(null);   // fetchPartDataBundle result
+export const partDataWip     = ref(null);   // bucketPartWip(partData.wipRaw)
 
 // ── Queues / Alerts tab ───────────────────────────────────────
 export const queueRows        = ref([]);      // banded parts + coverage, ranked
@@ -121,7 +139,9 @@ export const filteredRunLines = computed(() => {
     const f = (runLineFilter.value || '').trim().toUpperCase();
     if (!f) return runLines.value;
     return runLines.value.filter(l =>
-        l.part_number_normalized.includes(f) || (l.action || '').toUpperCase().includes(f));
+        l.part_number_normalized.includes(f)
+        || (l.action || '').toUpperCase().includes(f)
+        || (runLineDescrips.value[l.part_number_normalized] || '').toUpperCase().includes(f));
 });
 
 // Queue rows for the active dept chip, ranked worst-coverage first
@@ -174,6 +194,32 @@ export const buExcludedConfigs = computed(() =>
 
 export const buModularLabel = computed(() =>
     buModularChildren.value.map(m => m.part_number).join(', '));
+
+// Part Data modal figures. Same formulas as the WO Request panel
+// (store-stock.js woRequestEstQtyInStock / woRequestSuggestedQty) — kept as
+// separate computeds because they read the bundle, not the request form.
+export const partDataPipelineQty = computed(() => partDataWip.value?.total || 0);
+
+export const partDataEstInStock = computed(() => {
+    const d = partData.value;
+    if (!d) return null;
+    const sold   = Number(d.usage12.qty_sold_used_12mo) || 0;
+    const parent = Number(d.parentDemand12)             || 0;
+    const mfg    = Number(d.usage12.qty_used_in_mfg)    || 0;
+    const made   = Number(d.usage12.qty_made_past_12mo) || 0;
+    if (sold === 0 && parent === 0 && mfg === 0 && made === 0) return null;
+    return mfg - (sold + parent) + (made - mfg);
+});
+
+export const partDataSuggestedQty = computed(() => {
+    const d = partData.value;
+    if (!d) return null;
+    const total = (Number(d.usage12.qty_sold_used_12mo) || 0) + (Number(d.parentDemand12) || 0);
+    const est   = partDataEstInStock.value;
+    if (total === 0 || est === null) return null;
+    const needed = total - Math.max(est, 0) - partDataPipelineQty.value;
+    return needed <= 0 ? null : Math.ceil(needed * 1.05);
+});
 
 export const buFlagCount = computed(() => {
     const kit = buKit.value;

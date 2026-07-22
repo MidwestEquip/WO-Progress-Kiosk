@@ -7,8 +7,15 @@
 // ============================================================
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
-import { openOrderMatchesFilter } from './utils.js';
-import { completedOrders } from './store-inventory.js';
+import { openOrderMatchesFilter, compareSalesOrder } from './utils.js';
+import { completedOrders, openOrderSections } from './store-inventory.js';
+
+// ── Open Orders row count ─────────────────────────────────────
+// Total rows currently on the shipping board — the sum of every section in the
+// active tab, so it already reflects the filter box and the Orders/Boxed tab.
+// Lives here (not store-inventory.js, at 480/500) on the existing one-way edge.
+export const openOrdersTotalCount = computed(() =>
+    openOrderSections.value.reduce((n, s) => n + (s.orders?.length || 0), 0));
 
 // ── Completed (Shipped) Orders search ─────────────────────────
 // Live filter box for the Completed Orders view. Reuses the pure
@@ -18,9 +25,48 @@ import { completedOrders } from './store-inventory.js';
 export const completedOrdersFilter = ref('');
 export const filteredCompletedOrders = computed(() => {
     const q = completedOrdersFilter.value.trim().toLowerCase();
-    if (!q) return completedOrders.value;
-    return completedOrders.value.filter(o => openOrderMatchesFilter(o, q));
+    const rows = q ? completedOrders.value.filter(o => openOrderMatchesFilter(o, q))
+                   : completedOrders.value;
+    // Sorted copy (never mutates completedOrders): NEWEST shipped first, then
+    // back through time. Rows are grouped by sales order regardless of ship
+    // date, so the neighbor-based openOrderGroupClass outline in
+    // view-completed-orders.html can box every same-SO row as one block. Each
+    // group is anchored at its LATEST ship date, so an SO surfaces with its most
+    // recent shipment; blank SOs are their own single-row groups. Rows with no
+    // shipped_at get an empty key, which sorts last in descending order.
+    // One O(n) pass builds the anchors, then a plain comparator sort.
+    const anchor = new Map();
+    for (const o of rows) {
+        const so = (o.sales_order || '').trim();
+        if (!so) continue;
+        const d = (o.shipped_at || '').slice(0, 10);   // '' when never shipped
+        const cur = anchor.get(so);
+        if (cur === undefined || d > cur) anchor.set(so, d);
+    }
+    const keyOf = o => {
+        const so = (o.sales_order || '').trim();
+        return so ? anchor.get(so) : (o.shipped_at || '').slice(0, 10);
+    };
+    return rows.slice().sort((a, b) => {
+        const ka = keyOf(a), kb = keyOf(b);
+        if (ka !== kb) return ka > kb ? -1 : 1;          // newest group first
+        const so = compareSalesOrder(a.sales_order, b.sales_order);
+        if (so !== 0) return so;
+        const da = (a.shipped_at || ''), db = (b.shipped_at || '');
+        if (da !== db) return da > db ? -1 : 1;          // newest row first
+        return (a.part_number || '').localeCompare(b.part_number || '');
+    });
 });
+
+// ── Completed Orders window (30-day pages) ────────────────────
+// The view loads only the last completedOrdersDays days of shipped rows and
+// widens by 30 more on each "Load more". completedOrdersOlderCount is a
+// head-only DB count of rows older than the current window (0 = nothing left,
+// so the button hides). MoreLoading is separate from completedOrdersLoading so
+// widening never blanks the table behind a full-page spinner.
+export const completedOrdersDays        = ref(30);
+export const completedOrdersOlderCount  = ref(0);
+export const completedOrdersMoreLoading = ref(false);
 
 // Inline cell editing for the Completed Orders table (notes, tracking #).
 // Dedicated refs, isolated from the open-order board edit state (which carries

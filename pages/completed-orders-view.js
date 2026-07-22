@@ -12,23 +12,61 @@ import { NATIVE_CUTOVER_DATE } from '../libs/config.js';
 import { logError } from '../libs/db-shared.js';
 
 // enterCompletedOrdersView — navigate to the completed orders view.
+// Also resets the window to the most recent 30 days so a revisit never inherits
+// a huge window widened in an earlier session.
 export function enterCompletedOrdersView() {
     store.completedOrdersFilter.value = '';  // stale filter must never silently hide rows
+    store.completedOrdersDays.value   = 30;
     store.currentView.value = 'completed_orders';
 }
 
-// loadCompletedOrders — fetch all completed_orders rows (oldest shipped first).
+// _windowStartIso — ISO timestamp N days back from now (start of the window).
+function _windowStartIso(days) {
+    return new Date(Date.now() - days * 86400000).toISOString();
+}
+
+// loadCompletedOrders — fetch the current window of completed rows (oldest
+// shipped first) and refresh the count of still-older rows. Each call refetches
+// the whole widened window rather than appending a page, so the list can never
+// hold duplicates or drift out of sort order.
 export async function loadCompletedOrders() {
     store.completedOrdersLoading.value = true;
     try {
-        const { data, error } = await db.fetchCompletedOrders();
+        const since = _windowStartIso(store.completedOrdersDays.value);
+        const { data, error } = await db.fetchCompletedOrders(since);
         if (error) throw error;
         store.completedOrders.value = data || [];
+        // Non-fatal: a failed count only costs the "Load more" button.
+        const { count, error: countErr } = await db.countCompletedOrdersBefore(since);
+        store.completedOrdersOlderCount.value = countErr ? 0 : (count || 0);
     } catch (err) {
         store.showToast('Failed to load completed orders: ' + err.message);
         logError('loadCompletedOrders', err);
     } finally {
         store.completedOrdersLoading.value = false;
+    }
+}
+
+// loadMoreCompletedOrders — widen the window by another 30 days and reload.
+// Uses its own MoreLoading flag so the table stays on screen while it runs.
+export async function loadMoreCompletedOrders() {
+    if (store.completedOrdersMoreLoading.value) return;
+    store.completedOrdersMoreLoading.value = true;
+    const prevDays = store.completedOrdersDays.value;
+    try {
+        store.completedOrdersDays.value = prevDays + 30;
+        const since = _windowStartIso(store.completedOrdersDays.value);
+        const { data, error } = await db.fetchCompletedOrders(since);
+        if (error) throw error;
+        store.completedOrders.value = data || [];
+        const { count, error: countErr } = await db.countCompletedOrdersBefore(since);
+        store.completedOrdersOlderCount.value = countErr ? 0 : (count || 0);
+    } catch (err) {
+        store.completedOrdersDays.value = prevDays;  // window never widens on failure
+        store.showToast('Failed to load older orders: ' + err.message);
+        logError('loadMoreCompletedOrders', err);
+    } finally {
+        store.completedOrdersMoreLoading.value = false;
     }
 }
 

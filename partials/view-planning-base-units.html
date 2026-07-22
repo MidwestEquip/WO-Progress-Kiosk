@@ -173,6 +173,7 @@
                                 <option value="keep">Move to…</option>
                                 <option v-for="(s2, s2i) in buKit.steps" :key="s2i" :value="s2i" v-show="s2i !== si">{{ s2.name }}</option>
                                 <option value="">New step</option>
+                                <option value="base">Base unit (common part)</option>
                             </select>
                             <button @click="removeBuChoice(si, ci)" class="text-xs text-red-500 hover:bg-red-50 rounded px-2 py-1 font-semibold">Remove</button>
                         </div>

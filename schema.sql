@@ -406,6 +406,72 @@ CREATE FUNCTION public.get_part_usage_summary_36mo(p_part text) RETURNS TABLE(qt
 
 
 --
+-- Name: get_part_wip(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_part_wip(p_part text) RETURNS json
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+    with norm as (
+      select replace(replace(upper(trim(p_part)), '-', ''), ' ', '') as k
+    ),
+    wos as (
+      select
+        coalesce(w.wo_number, 'job:' || w.job_number::text, 'id:' || w.id::text) as wo_key,
+        max(w.wo_number)                  as wo_number,
+        max(w.job_number)                 as job_number,
+        max(coalesce(w.qty_required, 0))  as qty_required,
+        min(coalesce(w.qty_completed, 0)) as qty_done,
+        count(*)::int                     as dept_count
+      from work_orders w, norm
+      where norm.k <> ''
+        and replace(replace(upper(trim(w.part_number)), '-', ''), ' ', '') = norm.k
+      group by 1
+    )
+    select json_build_object(
+      'work_orders', coalesce((
+        select json_agg(json_build_object(
+          'wo_key',       x.wo_key,
+          'wo_number',    x.wo_number,
+          'job_number',   x.job_number,
+          'qty_required', x.qty_required,
+          'qty_done',     x.qty_done,
+          'dept_count',   x.dept_count,
+          'erp_status',   t.erp_status,
+          'qty_received', t.qty_received,
+          'received_at',  t.received_at))
+        from wos x
+        -- Office receiving keys on wo_number when it exists; WOs still
+        -- awaiting their official Alere WO# are tracked by job_number.
+        left join lateral (
+          select tr.erp_status, tr.qty_received, tr.received_at
+          from wo_status_tracking tr
+          where (x.wo_number is not null and tr.wo_number = x.wo_number)
+             or (x.wo_number is null and x.job_number is not null and tr.job_number = x.job_number)
+          order by tr.received_at desc nulls last, tr.created_at desc
+          limit 1
+        ) t on true
+      ), '[]'::json),
+      -- Requests that have NOT yet become work_orders. 'in production'
+      -- requests are deliberately excluded — their work_orders rows are
+      -- already counted above, and counting both would double up.
+      'requests', coalesce((
+        select json_agg(json_build_object(
+          'id',          r.id,
+          'status',      r.status,
+          'qty_to_make', r.qty_to_make))
+        from wo_requests r, norm
+        where norm.k <> ''
+          and r.forecasted = false
+          and r.status in ('pending', 'manager_review')
+          and replace(replace(upper(trim(r.part_number)), '-', ''), ' ', '') = norm.k
+      ), '[]'::json)
+    );
+  $$;
+
+
+--
 -- Name: get_parts_made_all_time(text[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -457,6 +523,77 @@ CREATE FUNCTION public.get_parts_usage_summary_batch(p_parts text[]) RETURNS TAB
     WHERE part_number_normalized = ANY(p_parts)
       AND txn_date >= NOW() - INTERVAL '12 months'
     GROUP BY part_number_normalized;
+  $$;
+
+
+--
+-- Name: get_parts_wip_batch(text[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_parts_wip_batch(p_parts text[]) RETURNS json
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+    with norm as (
+      select distinct replace(replace(upper(trim(p)), '-', ''), ' ', '') as k
+      from unnest(coalesce(p_parts, '{}'::text[])) as p
+      where replace(replace(upper(trim(p)), '-', ''), ' ', '') <> ''
+    ),
+    wos as (
+      select
+        replace(replace(upper(trim(w.part_number)), '-', ''), ' ', '') as k,
+        coalesce(w.wo_number, 'job:' || w.job_number::text, 'id:' || w.id::text) as wo_key,
+        max(w.wo_number)                  as wo_number,
+        max(w.job_number)                 as job_number,
+        max(coalesce(w.qty_required, 0))  as qty_required,
+        min(coalesce(w.qty_completed, 0)) as qty_done,
+        count(*)::int                     as dept_count
+      from work_orders w
+      where replace(replace(upper(trim(w.part_number)), '-', ''), ' ', '')
+            in (select k from norm)
+      group by 1, 2
+    )
+    select coalesce(json_object_agg(n.k, json_build_object(
+      'work_orders', coalesce((
+        select json_agg(json_build_object(
+          'wo_key',       x.wo_key,
+          'wo_number',    x.wo_number,
+          'job_number',   x.job_number,
+          'qty_required', x.qty_required,
+          'qty_done',     x.qty_done,
+          'dept_count',   x.dept_count,
+          'erp_status',   t.erp_status,
+          'qty_received', t.qty_received,
+          'received_at',  t.received_at))
+        from wos x
+        -- Office receiving keys on wo_number when it exists; WOs still
+        -- awaiting their official Alere WO# are tracked by job_number.
+        left join lateral (
+          select tr.erp_status, tr.qty_received, tr.received_at
+          from wo_status_tracking tr
+          where (x.wo_number is not null and tr.wo_number = x.wo_number)
+             or (x.wo_number is null and x.job_number is not null and tr.job_number = x.job_number)
+          order by tr.received_at desc nulls last, tr.created_at desc
+          limit 1
+        ) t on true
+        where x.k = n.k
+      ), '[]'::json),
+      -- Pending requests are returned for DISPLAY only. Planning does not
+      -- subtract them as supply (a request can still be rejected or
+      -- revised) — the Review grid shows them in an advisory column so a
+      -- released line is not silently re-planned before it is approved.
+      'requests', coalesce((
+        select json_agg(json_build_object(
+          'id',          r.id,
+          'status',      r.status,
+          'qty_to_make', r.qty_to_make))
+        from wo_requests r
+        where r.forecasted = false
+          and r.status in ('pending', 'manager_review')
+          and replace(replace(upper(trim(r.part_number)), '-', ''), ' ', '') = n.k
+      ), '[]'::json)
+    )), '{}'::json)
+    from norm n;
   $$;
 
 
@@ -652,6 +789,59 @@ ALTER SEQUENCE public.app_pins_id_seq OWNED BY public.app_pins.id;
 CREATE TABLE public.app_settings (
     key text NOT NULL,
     value text
+);
+
+
+--
+-- Name: base_unit_option_parts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.base_unit_option_parts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    option_id uuid NOT NULL,
+    part_number text NOT NULL,
+    part_number_normalized text GENERATED ALWAYS AS (upper(TRIM(BOTH FROM part_number))) STORED,
+    qty_per_unit numeric DEFAULT 1 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: base_unit_options; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.base_unit_options (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    base_unit_id uuid NOT NULL,
+    option_group text NOT NULL,
+    sort_order integer DEFAULT 0 NOT NULL,
+    required boolean DEFAULT false NOT NULL,
+    choice_label text NOT NULL,
+    is_default boolean DEFAULT false NOT NULL,
+    source text DEFAULT 'derived'::text NOT NULL,
+    choice_configs jsonb DEFAULT '[]'::jsonb NOT NULL,
+    notes text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: base_units; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.base_units (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    family_name text NOT NULL,
+    base_part_number text NOT NULL,
+    base_part_number_normalized text GENERATED ALWAYS AS (upper(TRIM(BOTH FROM base_part_number))) STORED,
+    included_configs jsonb DEFAULT '[]'::jsonb NOT NULL,
+    excluded_configs jsonb DEFAULT '[]'::jsonb NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    notes text,
+    created_by text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by text,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -1046,7 +1236,8 @@ CREATE TABLE public.open_orders (
     chute_bracket_last_updated timestamp with time zone,
     tracking_number text,
     waiting_on jsonb,
-    backordered boolean DEFAULT false NOT NULL
+    backordered boolean DEFAULT false NOT NULL,
+    bracket_part_number text
 );
 
 
@@ -1102,7 +1293,8 @@ CREATE TABLE public.open_orders_completed (
     created_at timestamp with time zone DEFAULT now(),
     tracking_number text,
     backordered boolean DEFAULT false NOT NULL,
-    waiting_on jsonb
+    waiting_on jsonb,
+    bracket_part_number text
 );
 
 
@@ -1194,6 +1386,100 @@ CREATE TABLE public.part_on_hand (
     part_number_normalized text NOT NULL,
     on_hand numeric DEFAULT 0 NOT NULL,
     counted_at timestamp with time zone,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: part_planning; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.part_planning (
+    part_number text NOT NULL,
+    part_number_normalized text GENERATED ALWAYS AS (upper(TRIM(BOTH FROM part_number))) STORED,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    min_stock numeric,
+    target_stock numeric,
+    min_batch_qty numeric,
+    order_multiple numeric,
+    lead_time_days integer,
+    make_buy_override text,
+    phantom boolean DEFAULT false NOT NULL,
+    planning_hold boolean DEFAULT false NOT NULL,
+    notes text,
+    updated_by text,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: part_routings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.part_routings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    part_number text NOT NULL,
+    part_number_normalized text GENERATED ALWAYS AS (upper(TRIM(BOTH FROM part_number))) STORED,
+    work_center_id uuid NOT NULL,
+    seq integer DEFAULT 1 NOT NULL,
+    setup_hours numeric DEFAULT 0 NOT NULL,
+    run_hours_per_part numeric DEFAULT 0 NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: planning_run_lines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.planning_run_lines (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    run_id uuid NOT NULL,
+    part_number text NOT NULL,
+    part_number_normalized text GENERATED ALWAYS AS (upper(TRIM(BOTH FROM part_number))) STORED,
+    level integer DEFAULT 0 NOT NULL,
+    gross numeric DEFAULT 0 NOT NULL,
+    on_hand_snap numeric DEFAULT 0 NOT NULL,
+    open_wo_snap numeric DEFAULT 0 NOT NULL,
+    open_po_snap numeric DEFAULT 0 NOT NULL,
+    min_stock_snap numeric DEFAULT 0 NOT NULL,
+    net numeric DEFAULT 0 NOT NULL,
+    recommended numeric DEFAULT 0 NOT NULL,
+    action text DEFAULT 'review'::text NOT NULL,
+    flag text,
+    override_qty numeric,
+    hold boolean DEFAULT false NOT NULL,
+    line_status text DEFAULT 'proposed'::text NOT NULL,
+    planned_release_date date,
+    required_date date,
+    created_ref_type text,
+    created_ref_id uuid,
+    updated_by text,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    in_flight_snap numeric,
+    requested_snap numeric
+);
+
+
+--
+-- Name: planning_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.planning_runs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    base_unit_id uuid,
+    family_name text NOT NULL,
+    plan_qty numeric NOT NULL,
+    mode text DEFAULT 'full_kit'::text NOT NULL,
+    option_splits jsonb DEFAULT '[]'::jsonb NOT NULL,
+    required_date date,
+    status text DEFAULT 'open'::text NOT NULL,
+    notes text,
+    created_by text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
@@ -1544,6 +1830,19 @@ CREATE TABLE public.wo_status_tracking (
 
 
 --
+-- Name: work_centers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.work_centers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    dept text,
+    available_hours_week numeric DEFAULT 40 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: work_orders; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1651,6 +1950,30 @@ ALTER TABLE ONLY public.app_pins
 
 ALTER TABLE ONLY public.app_settings
     ADD CONSTRAINT app_settings_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: base_unit_option_parts base_unit_option_parts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.base_unit_option_parts
+    ADD CONSTRAINT base_unit_option_parts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: base_unit_options base_unit_options_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.base_unit_options
+    ADD CONSTRAINT base_unit_options_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: base_units base_units_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.base_units
+    ADD CONSTRAINT base_units_pkey PRIMARY KEY (id);
 
 
 --
@@ -1790,6 +2113,38 @@ ALTER TABLE ONLY public.part_on_hand
 
 
 --
+-- Name: part_planning part_planning_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.part_planning
+    ADD CONSTRAINT part_planning_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: part_routings part_routings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.part_routings
+    ADD CONSTRAINT part_routings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: planning_run_lines planning_run_lines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.planning_run_lines
+    ADD CONSTRAINT planning_run_lines_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: planning_runs planning_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.planning_runs
+    ADD CONSTRAINT planning_runs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: purchasing_order_events purchasing_order_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1886,6 +2241,14 @@ ALTER TABLE ONLY public.wo_status_tracking
 
 
 --
+-- Name: work_centers work_centers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.work_centers
+    ADD CONSTRAINT work_centers_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: work_orders work_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1899,6 +2262,34 @@ ALTER TABLE ONLY public.work_orders
 
 ALTER TABLE ONLY public.work_orders
     ADD CONSTRAINT work_orders_wo_number_department_unique UNIQUE (wo_number, department);
+
+
+--
+-- Name: base_unit_option_parts_option_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX base_unit_option_parts_option_idx ON public.base_unit_option_parts USING btree (option_id);
+
+
+--
+-- Name: base_unit_option_parts_part_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX base_unit_option_parts_part_idx ON public.base_unit_option_parts USING btree (part_number_normalized);
+
+
+--
+-- Name: base_unit_options_unit_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX base_unit_options_unit_idx ON public.base_unit_options USING btree (base_unit_id, sort_order);
+
+
+--
+-- Name: base_units_family_uniq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX base_units_family_uniq ON public.base_units USING btree (upper(TRIM(BOTH FROM family_name)));
 
 
 --
@@ -2182,10 +2573,59 @@ CREATE INDEX idx_work_orders_wo_request_id ON public.work_orders USING btree (wo
 
 
 --
+-- Name: part_planning_part_uniq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX part_planning_part_uniq ON public.part_planning USING btree (part_number_normalized);
+
+
+--
+-- Name: part_routings_part_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX part_routings_part_idx ON public.part_routings USING btree (part_number_normalized, seq);
+
+
+--
+-- Name: part_routings_wc_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX part_routings_wc_idx ON public.part_routings USING btree (work_center_id);
+
+
+--
+-- Name: planning_run_lines_release_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX planning_run_lines_release_idx ON public.planning_run_lines USING btree (line_status, planned_release_date);
+
+
+--
+-- Name: planning_run_lines_run_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX planning_run_lines_run_idx ON public.planning_run_lines USING btree (run_id, level, part_number_normalized);
+
+
+--
+-- Name: planning_runs_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX planning_runs_status_idx ON public.planning_runs USING btree (status, created_at DESC);
+
+
+--
 -- Name: wo_errors_ts_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX wo_errors_ts_idx ON public.wo_errors USING btree (ts DESC);
+
+
+--
+-- Name: work_centers_name_uniq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX work_centers_name_uniq ON public.work_centers USING btree (upper(TRIM(BOTH FROM name)));
 
 
 --
@@ -2211,6 +2651,46 @@ CREATE TRIGGER trg_issrec_native_apply_onhand AFTER INSERT ON public.issues_rece
 --
 
 CREATE TRIGGER trg_issrec_native_normalize BEFORE INSERT ON public.issues_receipts FOR EACH ROW WHEN ((new.source = 'native'::text)) EXECUTE FUNCTION public.issrec_native_normalize();
+
+
+--
+-- Name: base_unit_option_parts base_unit_option_parts_option_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.base_unit_option_parts
+    ADD CONSTRAINT base_unit_option_parts_option_id_fkey FOREIGN KEY (option_id) REFERENCES public.base_unit_options(id) ON DELETE CASCADE;
+
+
+--
+-- Name: base_unit_options base_unit_options_base_unit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.base_unit_options
+    ADD CONSTRAINT base_unit_options_base_unit_id_fkey FOREIGN KEY (base_unit_id) REFERENCES public.base_units(id) ON DELETE CASCADE;
+
+
+--
+-- Name: part_routings part_routings_work_center_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.part_routings
+    ADD CONSTRAINT part_routings_work_center_id_fkey FOREIGN KEY (work_center_id) REFERENCES public.work_centers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: planning_run_lines planning_run_lines_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.planning_run_lines
+    ADD CONSTRAINT planning_run_lines_run_id_fkey FOREIGN KEY (run_id) REFERENCES public.planning_runs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: planning_runs planning_runs_base_unit_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.planning_runs
+    ADD CONSTRAINT planning_runs_base_unit_id_fkey FOREIGN KEY (base_unit_id) REFERENCES public.base_units(id) ON DELETE SET NULL;
 
 
 --
@@ -2786,6 +3266,45 @@ CREATE POLICY "authenticated update part_approval_defaults" ON public.part_appro
 
 
 --
+-- Name: base_unit_option_parts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.base_unit_option_parts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: base_unit_option_parts base_unit_option_parts_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY base_unit_option_parts_all ON public.base_unit_option_parts USING (true) WITH CHECK (true);
+
+
+--
+-- Name: base_unit_options; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.base_unit_options ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: base_unit_options base_unit_options_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY base_unit_options_all ON public.base_unit_options USING (true) WITH CHECK (true);
+
+
+--
+-- Name: base_units; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.base_units ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: base_units base_units_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY base_units_all ON public.base_units USING (true) WITH CHECK (true);
+
+
+--
 -- Name: completed_work_orders; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -2973,6 +3492,58 @@ CREATE POLICY part_on_hand_select ON public.part_on_hand FOR SELECT TO authentic
 
 
 --
+-- Name: part_planning; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.part_planning ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: part_planning part_planning_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY part_planning_all ON public.part_planning USING (true) WITH CHECK (true);
+
+
+--
+-- Name: part_routings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.part_routings ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: part_routings part_routings_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY part_routings_all ON public.part_routings USING (true) WITH CHECK (true);
+
+
+--
+-- Name: planning_run_lines; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.planning_run_lines ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: planning_run_lines planning_run_lines_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY planning_run_lines_all ON public.planning_run_lines USING (true) WITH CHECK (true);
+
+
+--
+-- Name: planning_runs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.planning_runs ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: planning_runs planning_runs_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY planning_runs_all ON public.planning_runs USING (true) WITH CHECK (true);
+
+
+--
 -- Name: purchasing_order_events public insert purchasing_order_events; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -3078,6 +3649,19 @@ ALTER TABLE public.wo_requests ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.wo_status_tracking ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: work_centers; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.work_centers ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: work_centers work_centers_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY work_centers_all ON public.work_centers USING (true) WITH CHECK (true);
+
 
 --
 -- Name: work_orders; Type: ROW SECURITY; Schema: public; Owner: -
@@ -3213,6 +3797,15 @@ GRANT ALL ON FUNCTION public.get_part_usage_summary_36mo(p_part text) TO service
 
 
 --
+-- Name: FUNCTION get_part_wip(p_part text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_part_wip(p_part text) TO anon;
+GRANT ALL ON FUNCTION public.get_part_wip(p_part text) TO authenticated;
+GRANT ALL ON FUNCTION public.get_part_wip(p_part text) TO service_role;
+
+
+--
 -- Name: FUNCTION get_parts_made_all_time(p_parts text[]); Type: ACL; Schema: public; Owner: -
 --
 
@@ -3237,6 +3830,15 @@ GRANT ALL ON FUNCTION public.get_parts_sold_in_period(p_parts text[], p_start da
 GRANT ALL ON FUNCTION public.get_parts_usage_summary_batch(p_parts text[]) TO anon;
 GRANT ALL ON FUNCTION public.get_parts_usage_summary_batch(p_parts text[]) TO authenticated;
 GRANT ALL ON FUNCTION public.get_parts_usage_summary_batch(p_parts text[]) TO service_role;
+
+
+--
+-- Name: FUNCTION get_parts_wip_batch(p_parts text[]); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_parts_wip_batch(p_parts text[]) TO anon;
+GRANT ALL ON FUNCTION public.get_parts_wip_batch(p_parts text[]) TO authenticated;
+GRANT ALL ON FUNCTION public.get_parts_wip_batch(p_parts text[]) TO service_role;
 
 
 --
@@ -3318,6 +3920,33 @@ GRANT ALL ON SEQUENCE public.app_pins_id_seq TO service_role;
 GRANT ALL ON TABLE public.app_settings TO anon;
 GRANT ALL ON TABLE public.app_settings TO authenticated;
 GRANT ALL ON TABLE public.app_settings TO service_role;
+
+
+--
+-- Name: TABLE base_unit_option_parts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.base_unit_option_parts TO anon;
+GRANT ALL ON TABLE public.base_unit_option_parts TO authenticated;
+GRANT ALL ON TABLE public.base_unit_option_parts TO service_role;
+
+
+--
+-- Name: TABLE base_unit_options; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.base_unit_options TO anon;
+GRANT ALL ON TABLE public.base_unit_options TO authenticated;
+GRANT ALL ON TABLE public.base_unit_options TO service_role;
+
+
+--
+-- Name: TABLE base_units; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.base_units TO anon;
+GRANT ALL ON TABLE public.base_units TO authenticated;
+GRANT ALL ON TABLE public.base_units TO service_role;
 
 
 --
@@ -3482,6 +4111,42 @@ GRANT ALL ON TABLE public.part_on_hand TO service_role;
 
 
 --
+-- Name: TABLE part_planning; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.part_planning TO anon;
+GRANT ALL ON TABLE public.part_planning TO authenticated;
+GRANT ALL ON TABLE public.part_planning TO service_role;
+
+
+--
+-- Name: TABLE part_routings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.part_routings TO anon;
+GRANT ALL ON TABLE public.part_routings TO authenticated;
+GRANT ALL ON TABLE public.part_routings TO service_role;
+
+
+--
+-- Name: TABLE planning_run_lines; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.planning_run_lines TO anon;
+GRANT ALL ON TABLE public.planning_run_lines TO authenticated;
+GRANT ALL ON TABLE public.planning_run_lines TO service_role;
+
+
+--
+-- Name: TABLE planning_runs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.planning_runs TO anon;
+GRANT ALL ON TABLE public.planning_runs TO authenticated;
+GRANT ALL ON TABLE public.planning_runs TO service_role;
+
+
+--
 -- Name: TABLE purchasing_order_events; Type: ACL; Schema: public; Owner: -
 --
 
@@ -3596,6 +4261,15 @@ GRANT ALL ON TABLE public.wo_requests TO service_role;
 GRANT ALL ON TABLE public.wo_status_tracking TO anon;
 GRANT ALL ON TABLE public.wo_status_tracking TO authenticated;
 GRANT ALL ON TABLE public.wo_status_tracking TO service_role;
+
+
+--
+-- Name: TABLE work_centers; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.work_centers TO anon;
+GRANT ALL ON TABLE public.work_centers TO authenticated;
+GRANT ALL ON TABLE public.work_centers TO service_role;
 
 
 --
