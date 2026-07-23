@@ -4,7 +4,7 @@
 // ============================================================
 
 import { supabase, withRetry } from './db-shared.js';
-import { NATIVE_CUTOVER_DATE, TXN_SOURCE_NATIVE } from './config.js';
+import { NATIVE_CUTOVER_DATE, TXN_SOURCE_NATIVE, OPEN_ORDER_DEMAND_STATUSES } from './config.js';
 import { buildOpenOrderTerminalTxns } from './utils.js';
 
 // ── Native inventory ledger writes ────────────────────────────
@@ -224,4 +224,43 @@ export async function findOpenOrdersByPartForWoSync(partNumber) {
             .eq('part_number', part)
     );
     return { data: data || [], error };
+}
+
+// fetchOpenOrderQtyForParts — batch read of qty still owed on the live board
+// for a set of parts. Read-only; the board is never written from here.
+//
+// Filtered on BOTH axes (never a full-table scan): status is restricted to
+// OPEN_ORDER_DEMAND_STATUSES (outstanding demand only — picked/created/boxed
+// rows are already covered) and part_number to the caller's list, chunked so a
+// long ancestor list cannot blow the request URL.
+//
+// Input: array of part number strings (trim+UPPER'd and deduped internally;
+// board rows are stored uppercase by open-orders-add.js, and returned values
+// are re-normalized when summing so a hand-edited mixed-case row still lands).
+// Output: { data: { [PART_NUMBER]: qty }, error }. A part with nothing on the
+// board is simply absent — callers treat absence as 0. Null to_ship counts 0.
+export async function fetchOpenOrderQtyForParts(partNumbers) {
+    const list = [...new Set(
+        (partNumbers || []).map(p => (p || '').trim().toUpperCase()).filter(Boolean)
+    )];
+    if (!list.length) return { data: {}, error: null };
+
+    const CHUNK = 150;
+    const map = {};
+    for (let i = 0; i < list.length; i += CHUNK) {
+        const chunk = list.slice(i, i + CHUNK);
+        const { data, error } = await withRetry(() =>
+            supabase.from('open_orders')
+                .select('part_number, to_ship')
+                .in('status', OPEN_ORDER_DEMAND_STATUSES)
+                .in('part_number', chunk)
+        );
+        if (error) return { data: {}, error };
+        (data || []).forEach(r => {
+            const part = (r.part_number || '').trim().toUpperCase();
+            if (!part) return;
+            map[part] = (map[part] || 0) + (Number(r.to_ship) || 0);
+        });
+    }
+    return { data: map, error: null };
 }

@@ -38,6 +38,7 @@ export * from './db-part-notes.js';
 export * from './db-purchasing.js';
 export * from './db-planning.js';
 export * from './db-planning-runs.js';
+export * from './db-planning-demand.js';
 
 // ── Dashboard queries ─────────────────────────────────────────
 

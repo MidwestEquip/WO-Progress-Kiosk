@@ -666,6 +666,54 @@ sales_analysis_lines must be trimmed to txn_date/sale_date < native_cutover() an
 must never modify source='native' rows. Physical counts and backfills are
 service-role operations (Table Editor / SQL editor) — never client-side.
 
+### Production Planning: year-supply basis (July 22, 2026)
+Goal: a planning run sized from the kit explosion ignores parts SOLD as service
+parts — sell 40 frames over the year and the kit can no longer be built. The
+year-supply basis re-sizes each subpart from its OWN rolling-12-month demand.
+User decisions (asked up front): sales qty REPLACES the explosion qty (the
+explosion still decides which parts are in the run and at what level, not the
+quantities) · "used on" = parent-usage BFS, same as WO Request, NOT ledger
+qty_used_in_mfg · full netting (on-hand + in-flight + open PO + min_stock).
+- Patch 1 (SQL, user-run): planning-year-supply-migration.sql — get_parts_parent_demand
+  RPC (recursive CTE up all_boms, per-path multiplier, path-array cycle guard,
+  depth 10 = MAX_BOM_DEPTH; ancestor sales use get_sales_analysis_sold's blended
+  definition so Planning and WO Request can never disagree; returns a row per
+  input part, 0 not missing) + planning_runs.plan_basis/pct_adjust/base_sold_12mo
+  + planning_run_lines.demand_12mo/kit_gross (nullable — old runs read NULL).
+- Patch 2: libs/db-planning-demand.js — fetchPartsParentDemandBatch,
+  fetchBaseUnitSold12Mo (sums the family's included_configs, NOT the pseudo base
+  part), planningDemandWindow. Calls supabase.rpc directly (no db→db edge).
+  PLANNING_DEMAND_WINDOW_DAYS / PLAN_BASIS_* / PLAN_PCT_ADJUST_* in config.js.
+- Patch 3: libs/utils-planning-year.js (zero-import) — applyPctAdjust +
+  applyYearSupplyNetting, a POST-PASS over explodeAndNet. A parent's new qty
+  deliberately does NOT flow down (re-exploding would double-count every child).
+  Phantoms untouched (their gross IS the plan target); held still recommends 0.
+  no_history flag when demand=0 but the kit wanted some — never silently
+  backfilled with the kit qty. NOTE: pct is (q×(100+p))/100, not q×(1+p/100) —
+  the latter is float-inexact (100×1.1 = 110.00000000000001) and ceil added a
+  phantom unit to every line.
+- Patch 4: Plan tab — planBasis/planPctAdjust/planBaseSold/planQtyIsAuto +
+  planAutoQty computed in store-planning.js (defaults to year_supply; the DB
+  column defaults to 'kit' for pre-existing rows); loadBaseUnitSold auto-fills
+  Qty to Plan, stale-guarded, never overwrites a hand-typed qty; % steppers;
+  demand fetch HARD-FAILS the run (a partial map would silently zero real parts).
+- Patch 5: Review grid — Demand column, kit_gross shown as "/N" beside Need,
+  red no_history rows + count chip, year-supply chip on run cards.
+- Patch A/B (option demand, same day): an option choice left at qty 0 never
+  entered the run at all, so it was never sized from its own demand — the
+  planner hand-allocated the plan qty across choices. Now loadOptionDemand
+  fetches every option part (same 2 batch calls, same window as the run) and
+  stamps c.demand on each choice; choiceSupportableQty in utils-planning-year.js
+  = min(demand ÷ qty_per_unit) across the choice's parts (the SCARCEST part
+  gates it). planSplitsValid drops the must-total-plan-qty rule on year supply
+  (steps are no longer an allocation of it). Also fixed: a % change moved the
+  plan qty but left the option steps at the old number (red 234/246) —
+  applyDefaultSplits now rescales a step holding an UNTOUCHED auto-fill
+  (planSplitQtyApplied memo), never a hand-made split.
+Known v1 gaps: pipeline/WIP is not subtracted twice (in_flight netting only);
+no per-part % override; recall of a previous run and manual WO splitting are
+deferred (user put both on hold July 22, 2026 — build split BEFORE recall).
+
 ### WO Request pipeline / WIP (July 22, 2026)
 Goal: the Request WO data modal shows what is in flight but NOT yet in
 part_on_hand (the native ledger only emits at CLOSEOUT), and subtracts it from

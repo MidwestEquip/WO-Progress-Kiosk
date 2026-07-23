@@ -83,6 +83,8 @@
                         <span class="font-mono font-bold">{{ partData.usage12.qty_used_in_mfg }}</span></div>
                     <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Made</span>
                         <span class="font-mono font-bold">{{ partData.usage12.qty_made_past_12mo }}</span></div>
+                    <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Purchased</span>
+                        <span class="font-mono font-bold">{{ partData.usage12.qty_purchased_12mo ?? 0 }}</span></div>
                     <div class="flex justify-between text-sm py-0.5 border-t border-gray-100 mt-1 pt-1">
                         <span class="text-gray-500">Est. qty in stock</span>
                         <span class="font-mono font-bold">{{ partDataEstInStock ?? '—' }}</span></div>
@@ -97,18 +99,23 @@
                         <span class="font-mono font-bold">{{ partData.usage36.qty_used_in_mfg_36mo }}</span></div>
                     <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Made</span>
                         <span class="font-mono font-bold">{{ partData.usage36.qty_made_past_36mo }}</span></div>
+                    <div class="flex justify-between text-sm py-0.5"><span class="text-gray-500">Purchased</span>
+                        <span class="font-mono font-bold">{{ partData.usage36.qty_purchased_36mo ?? 0 }}</span></div>
                 </div>
             </div>
 
             <!-- Last made + Used on -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div class="border border-gray-200 rounded-xl p-3">
-                    <div class="text-xs font-bold text-gray-600 uppercase mb-2">Last 3 times made</div>
-                    <div v-if="!partData.lastMade.length" class="text-xs text-gray-400">No make history.</div>
+                    <div class="text-xs font-bold text-gray-600 uppercase mb-2">Last 3 times made or purchased</div>
+                    <div v-if="!partData.lastMade.length" class="text-xs text-gray-400">No make/purchase history.</div>
                     <div v-for="(m, mi) in partData.lastMade" :key="mi"
-                        class="flex justify-between text-sm py-0.5">
+                        class="flex justify-between items-center text-sm py-0.5">
                         <span class="text-gray-500">{{ (m.txn_date || '').slice(0, 10) }}</span>
-                        <span class="font-mono font-bold">{{ m.qty }}</span></div>
+                        <span class="flex items-center gap-2">
+                            <span class="text-[9px] font-bold uppercase rounded px-1"
+                                :class="m.kind === 'purchased' ? 'bg-sky-100 text-sky-700' : 'bg-indigo-100 text-indigo-700'">{{ m.kind || 'made' }}</span>
+                            <span class="font-mono font-bold">{{ m.qty }}</span></span></div>
                 </div>
                 <div class="border border-gray-200 rounded-xl p-3">
                     <div class="text-xs font-bold text-gray-600 uppercase mb-2">Used on ({{ partData.usedOn.length }})</div>

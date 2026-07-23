@@ -108,7 +108,7 @@ async function resolveChainOrSelf(normalized) {
 // Returns { data: { qty_sold_used_12mo, qty_used_in_mfg, qty_made_past_12mo, chain, links }, error }.
 // All three sums default to 0 when no matching rows exist.
 export async function fetchPartUsageSummary12Mo(partNumber, preResolvedChain = null) {
-    const zero = { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0, chain: [], links: [] };
+    const zero = { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0, qty_purchased_12mo: 0, chain: [], links: [] };
     const normalized = normalizePartNumber(partNumber);
     if (!normalized) return { data: zero, error: null };
 
@@ -121,12 +121,12 @@ export async function fetchPartUsageSummary12Mo(partNumber, preResolvedChain = n
     const failed = results.find(r => r.error);
     if (failed) return { data: { ...zero, chain, links }, error: failed.error };
 
-    const sums = { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0 };
+    const sums = { qty_sold_used_12mo: 0, qty_used_in_mfg: 0, qty_made_past_12mo: 0, qty_purchased_12mo: 0 };
     results.forEach(({ data }) => {
         const row = (data && data[0]) || {};
-        sums.qty_sold_used_12mo += Number(row.qty_sold_12mo     ?? 0);
-        sums.qty_used_in_mfg    += Number(row.qty_used_mfg_12mo ?? 0);
-        sums.qty_made_past_12mo += Number(row.qty_made_12mo     ?? 0);
+        sums.qty_sold_used_12mo += Number(row.qty_sold_12mo      ?? 0);
+        sums.qty_used_in_mfg    += Number(row.qty_used_mfg_12mo  ?? 0);
+        sums.qty_made_past_12mo += Number(row.qty_made_12mo ?? 0); sums.qty_purchased_12mo += Number(row.qty_purchased_12mo ?? 0);
     });
     return { data: { ...sums, chain, links }, error: null };
 }
@@ -135,7 +135,7 @@ export async function fetchPartUsageSummary12Mo(partNumber, preResolvedChain = n
 // (same contract as fetchPartUsageSummary12Mo).
 // Returns { data: { qty_sold_used_36mo, qty_used_in_mfg_36mo, qty_made_past_36mo, chain, links }, error }.
 export async function fetchPartUsageSummary36Mo(partNumber, preResolvedChain = null) {
-    const zero = { qty_sold_used_36mo: 0, qty_used_in_mfg_36mo: 0, qty_made_past_36mo: 0, chain: [], links: [] };
+    const zero = { qty_sold_used_36mo: 0, qty_used_in_mfg_36mo: 0, qty_made_past_36mo: 0, qty_purchased_36mo: 0, chain: [], links: [] };
     const normalized = normalizePartNumber(partNumber);
     if (!normalized) return { data: zero, error: null };
 
@@ -148,12 +148,12 @@ export async function fetchPartUsageSummary36Mo(partNumber, preResolvedChain = n
     const failed = results.find(r => r.error);
     if (failed) return { data: { ...zero, chain, links }, error: failed.error };
 
-    const sums = { qty_sold_used_36mo: 0, qty_used_in_mfg_36mo: 0, qty_made_past_36mo: 0 };
+    const sums = { qty_sold_used_36mo: 0, qty_used_in_mfg_36mo: 0, qty_made_past_36mo: 0, qty_purchased_36mo: 0 };
     results.forEach(({ data }) => {
         const row = (data && data[0]) || {};
-        sums.qty_sold_used_36mo   += Number(row.qty_sold_36mo     ?? 0);
-        sums.qty_used_in_mfg_36mo += Number(row.qty_used_mfg_36mo ?? 0);
-        sums.qty_made_past_36mo   += Number(row.qty_made_36mo     ?? 0);
+        sums.qty_sold_used_36mo   += Number(row.qty_sold_36mo      ?? 0);
+        sums.qty_used_in_mfg_36mo += Number(row.qty_used_mfg_36mo  ?? 0);
+        sums.qty_made_past_36mo   += Number(row.qty_made_36mo ?? 0); sums.qty_purchased_36mo += Number(row.qty_purchased_36mo ?? 0);
     });
     return { data: { ...sums, chain, links }, error: null };
 }
@@ -196,7 +196,8 @@ export async function fetchPartsUsageSummaryBatch(partNumbers) {
     );
     if (error) return { data: {}, error };
     const map = {};
-    (data || []).forEach(r => { map[r.part_normalized] = { qty_made_12mo: r.qty_made_12mo, qty_used_mfg_12mo: r.qty_used_mfg_12mo }; });
+    (data || []).forEach(r => { map[r.part_normalized] = { qty_made_12mo: r.qty_made_12mo,
+        qty_used_mfg_12mo: r.qty_used_mfg_12mo, qty_purchased_12mo: r.qty_purchased_12mo }; });
     return { data: map, error: null };
 }
 

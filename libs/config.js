@@ -115,6 +115,14 @@ export const OPEN_ORDER_STATUSES = [
     'Shipped', 'On Hold'
 ];
 
+// Board statuses that still represent OUTSTANDING demand (the WO Request
+// "Qty On Order" cells, via fetchOpenOrderQtyForParts). Rows past this point
+// are already covered — picked, on a created WO/PO, boxed — so counting them
+// would double-order. 'New/Picking' is retired but legacy rows remain.
+export const OPEN_ORDER_DEMAND_STATUSES = [
+    'New', 'New/Picking', 'WO Requested', 'PO Requested', 'On Hold'
+];
+
 // Open Orders paste import — column mapping.
 // OPEN_ORDER_PASTE_FIELD_ORDER is the fixed positional order used when a pasted
 // block has NO recognizable header row (the legacy behavior). Its indexes are
@@ -435,6 +443,10 @@ export const BOM_PERIOD_END   = '2025-12-31';
 
 // ----- Purchasing Research tab: 3yr fixed start (data import origin; 1yr is always rolling) -----
 export const PURCHASING_3YR_START = '2023-01-01';
+
+// ----- Production Planning constants live in libs/config-planning.js -----
+// (PLANNING_DEMAND_WINDOW_DAYS, PLAN_BASIS_*, PLAN_PCT_ADJUST_*). Split out
+// July 2026 for line-cap relief; imported directly, not re-exported here.
 
 // ----- Last Alere report upload date (update here when new data is imported) -----
 export const LAST_REPORT_DATE = 'May 22, 2026';

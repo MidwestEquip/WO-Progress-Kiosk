@@ -129,6 +129,8 @@ const REC_OUTLIER_THRESHOLD = 10000;
 //   params   = { NORM: part_planning row }         (min_stock, min_batch_qty,
 //              order_multiple, phantom, planning_hold, make_buy_override)
 //   makeBuy  = { NORM: 'make'|'buy'|null }         derived from item_master attrs
+//   makeBuyHistory = { NORM: { made, purchased } } rolling-12mo qty (the
+//              classifier's primary signal; overrides + attrs are fallbacks)
 //
 // Netting per part:  net = max(0, gross + min_stock − on_hand − open supply)
 // Batch rules on the recommendation only: max(net, min_batch_qty), then round
@@ -138,9 +140,29 @@ const REC_OUTLIER_THRESHOLD = 10000;
 // net demand straight through with no recommendation of their own.
 //
 // Output: { rows: [{ part_number, level, gross, on_hand, in_flight, open_po,
-//   min_stock, net, recommended, action: 'make'|'buy'|'review', held, phantom,
-//   flag }], cycleDetected, maxDepth }
-export function explodeAndNet({ demands, bomRows, onHand, inFlight, openPo, params, makeBuy }) {
+//   min_stock, net, recommended, action: 'make'|'buy'|'review', action_source,
+//   qty_made_12mo, qty_purchased_12mo, held, phantom, flag }],
+//   cycleDetected, maxDepth }
+
+// resolveMakeBuy — decide make vs buy for one part, and record WHY.
+// Priority: explicit override → history (purchased vs made) → item_master
+// attr → 'review' (unknown, blocked from release downstream).
+// Inputs: override 'make'|'buy'|null, made/purchased numbers (may be
+// null/undefined = no history), attr 'make'|'buy'|null.
+// Output: { action: 'make'|'buy'|'review', source: 'override'|'history'|'attr'|'review' }.
+export function resolveMakeBuy(override, made, purchased, attr) {
+    if (override === 'make' || override === 'buy') return { action: override, source: 'override' };
+    const m = Number(made) || 0, p = Number(purchased) || 0;
+    if (m > 0 || p > 0) {
+        if (p > m) return { action: 'buy',  source: 'history' };
+        if (m > p) return { action: 'make', source: 'history' };
+        // tie with both > 0: ambiguous — fall through to attr, then review.
+    }
+    if (attr === 'make' || attr === 'buy') return { action: attr, source: 'attr' };
+    return { action: 'review', source: 'review' };
+}
+
+export function explodeAndNet({ demands, bomRows, onHand, inFlight, openPo, params, makeBuy, makeBuyHistory }) {
     const P = p => (params   || {})[p] || {};
     const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -200,12 +222,18 @@ export function explodeAndNet({ demands, bomRows, onHand, inFlight, openPo, para
             const inf  = num((inFlight || {})[part]);
             const po   = num((openPo || {})[part]);
             const kids = children[part] || {};
-            const mb   = prm.make_buy_override || (makeBuy || {})[part] || null;
+            const hist = (makeBuyHistory || {})[part] || {};
+            const made12 = hist.made      == null ? null : num(hist.made);
+            const pur12  = hist.purchased == null ? null : num(hist.purchased);
+            const { action, source: action_source } = resolveMakeBuy(
+                prm.make_buy_override, hist.made, hist.purchased, (makeBuy || {})[part]);
+            const mbFields = { action, action_source,
+                qty_made_12mo: made12, qty_purchased_12mo: pur12 };
 
             if (prm.planning_hold) {
                 rows.push({ part_number: part, level: lvl, gross: g, on_hand: oh,
                     in_flight: inf, open_po: po, min_stock: num(prm.min_stock),
-                    net: 0, recommended: 0, action: mb || 'review',
+                    net: 0, recommended: 0, ...mbFields,
                     held: true, phantom: false, flag: null });
                 continue; // held: no recommendation, no explosion
             }
@@ -214,7 +242,7 @@ export function explodeAndNet({ demands, bomRows, onHand, inFlight, openPo, para
                 const net = Math.max(0, g - oh);
                 rows.push({ part_number: part, level: lvl, gross: g, on_hand: oh,
                     in_flight: inf, open_po: po, min_stock: 0,
-                    net, recommended: 0, action: mb || 'review',
+                    net, recommended: 0, ...mbFields,
                     held: false, phantom: true, flag: null });
                 Object.entries(kids).forEach(([chl, qpa]) => {
                     gross[chl] = (gross[chl] || 0) + net * qpa;
@@ -230,10 +258,9 @@ export function explodeAndNet({ demands, bomRows, onHand, inFlight, openPo, para
                 const mult = num(prm.order_multiple);
                 if (mult > 0) rec = Math.ceil(rec / mult) * mult;
             }
-            const action = mb || 'review';
             rows.push({ part_number: part, level: lvl, gross: g, on_hand: oh,
                 in_flight: inf, open_po: po, min_stock: floor,
-                net, recommended: rec, action,
+                net, recommended: rec, ...mbFields,
                 held: false, phantom: false,
                 flag: rec >= REC_OUTLIER_THRESHOLD ? 'qty_outlier' : null });
 

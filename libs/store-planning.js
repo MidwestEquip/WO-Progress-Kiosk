@@ -6,6 +6,8 @@
 // ============================================================
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
+import { applyPctAdjust } from './utils.js';
+import { PLAN_BASIS_YEAR_SUPPLY } from './config-planning.js';
 
 // ── View / tabs ───────────────────────────────────────────────
 export const planningTab = ref('base_units');
@@ -68,6 +70,38 @@ export const planNotes        = ref('');
 export const planSplits       = ref([]);      // [{ group, required, choices:[{ label, parts, qty, partLess }] }]
 export const planRunning      = ref(false);
 
+// Year-supply basis. planBaseSold = the unit's rolling-12-month sold qty that
+// Qty to Plan auto-fills from; planQtyIsAuto goes false the moment the planner
+// types over the box, so a hand-set qty is never silently overwritten (a fresh
+// % change opts back in). See PLAN_BASIS_* in config.js.
+// Defaults to year supply: sizing from real demand is the point of the tab.
+// (planning_runs.plan_basis defaults to 'kit' in the DB instead — that is the
+// honest label for the runs that already existed.)
+export const planBasis        = ref('year_supply');   // 'kit' | 'year_supply'
+export const planPctAdjust    = ref(0);       // signed whole percent
+export const planBaseSold     = ref(null);    // { total, byPart, window } | null
+export const planBaseSoldLoading = ref(false);
+export const planQtyIsAuto    = ref(true);
+
+// 12-month demand for every OPTION part in the selected kit, so each choice can
+// be sized from its own history instead of hand-allocating the plan qty across
+// them. { PART_NORM: demand }; empty until the fetch lands.
+export const planOptionDemand        = ref({});
+export const planOptionDemandLoading = ref(false);
+
+// The plan qty the option steps were last auto-filled at. Lets applyDefaultSplits
+// tell an untouched auto-fill (which should follow the qty) from a hand-made
+// split (which must never be overwritten).
+export const planSplitQtyApplied = ref(0);
+
+// planAutoQty — what Qty to Plan would be from sales alone, at the current %.
+// null until the sold lookup lands (the caption renders "—", never a stale 0).
+export const planAutoQty = computed(() => {
+    const sold = planBaseSold.value?.total;
+    if (!(Number(sold) > 0)) return null;
+    return applyPctAdjust(sold, planPctAdjust.value);
+});
+
 // ── Review tab ────────────────────────────────────────────────
 export const planningRuns       = ref([]);
 export const planningRunsLoading = ref(false);
@@ -87,6 +121,21 @@ export const qtyCascadeOpen    = ref(false);
 export const qtyCascadeSaving  = ref(false);
 export const qtyCascadePreview = ref(null);   // { part, from, to, delta, changes, skipped }
 export const releaseDueLines    = ref([]);
+
+// Release-due lines split by destination pipeline: Make → WO requests,
+// Buy → PO requests. Review lines (unclassified) are excluded from approve,
+// so they never reach here. Empty groups are dropped.
+export const releaseDueGroups = computed(() => {
+    const mk = [], by = [];
+    releaseDueLines.value.forEach(l => {
+        if (l.action === 'buy') by.push(l);
+        else if (l.action === 'make') mk.push(l);
+    });
+    const out = [];
+    if (mk.length) out.push({ key: 'make', label: 'Make → WO Requests', lines: mk });
+    if (by.length) out.push({ key: 'buy',  label: 'Buy → PO Requests',  lines: by });
+    return out;
+});
 export const releasingLineId    = ref(null);
 export const runApproving       = ref(false);
 
@@ -131,8 +180,13 @@ export const planSplitStatus = computed(() => {
         };
     });
 });
+// Steps must total the plan qty only when they are an ALLOCATION of it — that
+// is the kit basis. On year supply each choice carries its own demand, so the
+// totals legitimately land anywhere and the rule would block every run.
 export const planSplitsValid = computed(() =>
-    planMode.value === 'base_only' || planSplitStatus.value.every(s => s.ok));
+    planMode.value === 'base_only'
+    || planBasis.value === PLAN_BASIS_YEAR_SUPPLY
+    || planSplitStatus.value.every(s => s.ok));
 
 // Review grid rows filtered by the quick filter box
 export const filteredRunLines = computed(() => {
@@ -143,6 +197,30 @@ export const filteredRunLines = computed(() => {
         || (l.action || '').toUpperCase().includes(f)
         || (runLineDescrips.value[l.part_number_normalized] || '').toUpperCase().includes(f));
 });
+
+// Selectable rows in the current filtered view — mirrors the row checkbox's
+// :disabled rule (only proposed lines can be checked).
+export const selectableRunLines = computed(() =>
+    filteredRunLines.value.filter(l => l.line_status === 'proposed'));
+
+// True only when every selectable row in view is checked (false when none are
+// selectable) — drives the Select All / Clear All button label.
+export const runLinesAllChecked = computed(() =>
+    selectableRunLines.value.length > 0 && selectableRunLines.value.every(l => l.checked));
+
+// True when some but not all selectable rows are checked — header checkbox dash.
+export const runLinesSomeChecked = computed(() =>
+    selectableRunLines.value.some(l => l.checked) && !runLinesAllChecked.value);
+
+// Lines a year-supply run sized to 0 because it found no 12-month demand.
+// Surfaced as a count chip: these will not get built unless someone looks.
+export const runNoHistoryCount = computed(() =>
+    runLines.value.filter(l => l.flag === 'no_history').length);
+
+// Proposed lines still unclassified (make/buy unknown) — blocked from release
+// until a planner picks Make or Buy. Surfaced as a count chip.
+export const runReviewCount = computed(() =>
+    runLines.value.filter(l => l.line_status === 'proposed' && l.action === 'review').length);
 
 // Queue rows for the active dept chip, ranked worst-coverage first
 export const filteredQueueRows = computed(() => {
@@ -203,12 +281,16 @@ export const partDataPipelineQty = computed(() => partDataWip.value?.total || 0)
 export const partDataEstInStock = computed(() => {
     const d = partData.value;
     if (!d) return null;
-    const sold   = Number(d.usage12.qty_sold_used_12mo) || 0;
-    const parent = Number(d.parentDemand12)             || 0;
-    const mfg    = Number(d.usage12.qty_used_in_mfg)    || 0;
-    const made   = Number(d.usage12.qty_made_past_12mo) || 0;
-    if (sold === 0 && parent === 0 && mfg === 0 && made === 0) return null;
-    return mfg - (sold + parent) + (made - mfg);
+    const sold   = Number(d.usage12.qty_sold_used_12mo)  || 0;
+    const parent = Number(d.parentDemand12)              || 0;
+    const mfg    = Number(d.usage12.qty_used_in_mfg)     || 0;
+    const made   = Number(d.usage12.qty_made_past_12mo)  || 0;
+    const purch  = Number(d.usage12.qty_purchased_12mo)  || 0;
+    if (sold === 0 && parent === 0 && mfg === 0 && made === 0 && purch === 0) return null;
+    // Everything that came IN (made + purchased) minus what went OUT (sold +
+    // consumed in parents). Purchased was previously ignored — the bug that
+    // made purchased parts look like they had negative stock.
+    return made + purch - (sold + parent);
 });
 
 export const partDataSuggestedQty = computed(() => {

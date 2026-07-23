@@ -158,8 +158,9 @@ export async function openWoRequestDetail(req) {
             logError('openWoRequestDetail:history', error, { part: req.part_number });
             return;
         }
-        store.woRequestDetailForm.value.qty_used_in_mfg    = data.qty_used_in_mfg;
-        store.woRequestDetailForm.value.qty_made_past_12mo = data.qty_made_past_12mo;
+        store.woRequestDetailForm.value.qty_used_in_mfg     = data.qty_used_in_mfg;
+        store.woRequestDetailForm.value.qty_made_past_12mo  = data.qty_made_past_12mo;
+        store.woRequestDetailForm.value.qty_purchased_12mo  = data.qty_purchased_12mo;
     });
 
     // 1yr: qty_sold from sales_analysis_lines (rolling 12mo, summed over the chain)
@@ -186,6 +187,7 @@ export async function openWoRequestDetail(req) {
         if (error) { logError('openWoRequestDetail:history3yr', error, { part: req.part_number }); return; }
         store.woRequestDetailForm.value.qty_used_in_mfg_36mo = data.qty_used_in_mfg_36mo;
         store.woRequestDetailForm.value.qty_made_36mo        = data.qty_made_past_36mo;
+        store.woRequestDetailForm.value.qty_purchased_36mo   = data.qty_purchased_36mo;
     });
 
     // 3yr: qty_sold from sales_analysis_lines (since 1/1/23, summed over the chain)
@@ -235,6 +237,33 @@ export async function openWoRequestDetail(req) {
         .catch(err => logError('openWoRequestDetail:onHand', err, { part: req.part_number }))
         .finally(() => {
             if (gen === store.woRequestDetailGen.value) store.woRequestOnHandLoading.value = false;
+        });
+
+    // On order — qty still owed on the live Open Orders board, for this part and
+    // for the BOM ancestors it goes into. Rides the same 1yr demand promise as
+    // the on-hand panel (its pathDetails carry ancestor × multiplier), so this
+    // costs one extra query and no second BOM walk. Display-only: it is NOT
+    // subtracted from Suggested Qty. Gen-guarded; flag cleared in finally.
+    store.woRequestOnOrder.value        = null;
+    store.woRequestOnOrderParents.value = null;
+    store.woRequestOnOrderLoading.value = true;
+    demand1yrP
+        .then(async ({ data: demand }) => {
+            const paths     = demand?.pathDetails || [];
+            const ancestors = [...new Set(paths.map(p => p.topParent))];
+            const { data: ooMap, error } = await db.fetchOpenOrderQtyForParts([norm, ...ancestors]);
+            if (gen !== store.woRequestDetailGen.value) return;   // stale: a newer detail opened
+            if (error) { logError('openWoRequestDetail:onOrder', error, { part: req.part_number }); return; }
+            store.woRequestOnOrder.value = ooMap[norm] || 0;
+            // Each path is a distinct physical usage chain, so paths through the
+            // same ancestor contribute separately — matching the on-units math.
+            let parentQty = 0;
+            paths.forEach(p => { parentQty += (ooMap[p.topParent] || 0) * p.multiplier; });
+            store.woRequestOnOrderParents.value = parentQty;
+        })
+        .catch(err => logError('openWoRequestDetail:onOrder', err, { part: req.part_number }))
+        .finally(() => {
+            if (gen === store.woRequestDetailGen.value) store.woRequestOnOrderLoading.value = false;
         });
 
     // Pipeline (WIP) — requested / on the floor / finished-not-received /

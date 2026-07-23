@@ -21,6 +21,11 @@ export async function insertPlanningRun(run, lines) {
             required_date: run.required_date || null,
             notes: run.notes || null,
             created_by: run.created_by || null,
+            // Year-supply sizing. Defaults keep pre-existing callers on the
+            // kit basis, which is what they were doing.
+            plan_basis: run.plan_basis === 'year_supply' ? 'year_supply' : 'kit',
+            pct_adjust: Number(run.pct_adjust) || 0,
+            base_sold_12mo: run.base_sold_12mo ?? null,
         })
         .select()
         .single();
@@ -32,9 +37,16 @@ export async function insertPlanningRun(run, lines) {
         gross: l.gross, on_hand_snap: l.on_hand, open_wo_snap: l.open_wo,
         in_flight_snap: l.in_flight, requested_snap: l.requested,
         open_po_snap: l.open_po, min_stock_snap: l.min_stock,
+        basis_snap: l.basis_snap ?? null,
         net: l.net, recommended: l.recommended,
         action: l.action, flag: l.flag || null,
+        action_source: l.action_source ?? null,
+        qty_made_12mo: l.qty_made_12mo ?? null,
+        qty_purchased_12mo: l.qty_purchased_12mo ?? null,
         required_date: run.required_date || null,
+        // NULL on kit-basis runs — the grid renders those as an em dash, not 0.
+        demand_12mo: l.demand_12mo ?? null,
+        kit_gross:   l.kit_gross   ?? null,
     }));
     for (let i = 0; i < rows.length; i += 200) {
         const { error } = await supabase.from('planning_run_lines').insert(rows.slice(i, i + 200));

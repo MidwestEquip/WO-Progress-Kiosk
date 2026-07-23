@@ -24,11 +24,14 @@ import {
 } from './pages/planning-base-unit-edit.js';
 import {
     selectPlanBaseUnit, applyDefaultSplits, runPlanningCalc, togglePlanChoice,
+    setPlanBasis, setPlanPctAdjust, onPlanQtyInput, applyAutoPlanQty,
+    applyOptionDemandQtys,
 } from './pages/planning-run.js';
 import {
     loadPlanningRuns, selectRun, saveLineEdit, approveSelected, skipLine,
-    loadReleaseDue, releaseLine, releaseAllDue, closeRun, cancelRun,
-    saveLineQty, applyQtyCascade, closeQtyCascade,
+    loadReleaseDue, releaseLine, releaseAllDue, releaseAllDueGroup, closeRun, cancelRun,
+    saveLineQty, applyQtyCascade, closeQtyCascade, setLineMakeBuy, lineMakeBuyTooltip,
+    toggleSelectAllRunLines,
 } from './pages/planning-review.js';
 import { openPartData, closePartData } from './pages/planning-part-data.js';
 import {
@@ -96,7 +99,17 @@ export function buildPlanningExpose() {
         planRunning:       store.planRunning,
         planSplitStatus:   store.planSplitStatus,
         planSplitsValid:   store.planSplitsValid,
+        planBasis:         store.planBasis,
+        planPctAdjust:     store.planPctAdjust,
+        planBaseSold:      store.planBaseSold,
+        planBaseSoldLoading: store.planBaseSoldLoading,
+        planQtyIsAuto:     store.planQtyIsAuto,
+        planOptionDemand:  store.planOptionDemand,
+        planOptionDemandLoading: store.planOptionDemandLoading,
+        planAutoQty:       store.planAutoQty,
         selectPlanBaseUnit, applyDefaultSplits, runPlanningCalc, togglePlanChoice,
+        setPlanBasis, setPlanPctAdjust, onPlanQtyInput, applyAutoPlanQty,
+        applyOptionDemandQtys,
 
         // ── Review tab ───────────────────────────────────────
         planningRuns:        store.planningRuns,
@@ -109,12 +122,18 @@ export function buildPlanningExpose() {
         runWhereUsed:        store.runWhereUsed,
         runRefsLoading:      store.runRefsLoading,
         filteredRunLines:    store.filteredRunLines,
+        runLinesAllChecked:  store.runLinesAllChecked,
+        runLinesSomeChecked: store.runLinesSomeChecked,
+        runNoHistoryCount:   store.runNoHistoryCount,
+        runReviewCount:      store.runReviewCount,
         releaseDueLines:     store.releaseDueLines,
+        releaseDueGroups:    store.releaseDueGroups,
         releasingLineId:     store.releasingLineId,
         runApproving:        store.runApproving,
         loadPlanningRuns, selectRun, saveLineEdit, approveSelected, skipLine,
-        loadReleaseDue, releaseLine, releaseAllDue, closeRun, cancelRun,
-        saveLineQty, applyQtyCascade, closeQtyCascade,
+        loadReleaseDue, releaseLine, releaseAllDue, releaseAllDueGroup, closeRun, cancelRun,
+        saveLineQty, applyQtyCascade, closeQtyCascade, setLineMakeBuy, lineMakeBuyTooltip,
+        toggleSelectAllRunLines,
         runChildIndex:      store.runChildIndex,
         qtyCascadeOpen:     store.qtyCascadeOpen,
         qtyCascadeSaving:   store.qtyCascadeSaving,

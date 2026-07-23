@@ -47,7 +47,7 @@
                             </div>
                             <div v-if="woRequestWipLoading" class="text-sm text-violet-400 italic">Loading…</div>
                             <div v-else-if="!woRequestWipHasAny" class="text-sm text-violet-400">Nothing in flight for this part.</div>
-                            <div v-else class="grid grid-cols-5 gap-2">
+                            <div v-else class="grid grid-cols-5 gap-1.5">
                                 <div>
                                     <label class="block text-xs font-semibold text-violet-500 uppercase tracking-wide mb-1">Requested</label>
                                     <div class="w-full px-2 py-1.5 border border-violet-200 bg-white rounded-lg text-violet-800 font-bold text-sm">{{ woRequestWip.requested }}</div>
@@ -85,7 +85,7 @@
                                 </svg>
                             </div>
                             <p class="text-xs text-gray-400 italic mb-2">Auto-filled — saved as approval snapshot. You may override.</p>
-                            <div class="grid grid-cols-4 gap-2">
+                            <div :class="woRequestDataGridClass">
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Sold</label>
                                     <input v-model="woRequestDetailForm.qty_sold_used_12mo" type="number" min="0" :readonly="woRequestReadOnly"
@@ -112,6 +112,10 @@
                                         :class="woRequestDetailForm.qty_made_past_12mo !== '' && woRequestDetailForm.qty_made_past_12mo != null ? 'border-green-400 bg-green-50' : 'border-gray-300'">
                                 </div>
                                 <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Purchased</label>
+                                    <div class="w-full px-2 py-1.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-800 font-bold text-sm">{{ woRequestDetailForm.qty_purchased_12mo != null && woRequestDetailForm.qty_purchased_12mo !== '' ? woRequestDetailForm.qty_purchased_12mo : '—' }}</div>
+                                </div>
+                                <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Est. Qty in Stock</label>
                                     <div v-if="woRequestHistoryLoading || woRequestParentUsageLoading"
                                         class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Calculating…</div>
@@ -121,16 +125,43 @@
                                         {{ woRequestEstQtyInStock }}<span class="font-normal text-xs ml-1">{{ woRequestEstQtyInStock >= 0 ? 'in stock' : 'deficit' }}</span>
                                     </div>
                                     <div v-else class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm">—</div>
+                                    <p v-if="woRequestEstQtyInStockFormula" class="text-[10px] text-gray-400 leading-tight mt-0.5"
+                                        :title="woRequestEstQtyInStockFormula.title">{{ woRequestEstQtyInStockFormula.text }}</p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">In Stock (Software)</label>
                                     <div v-if="woRequestOnHandLoading"
                                         class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Loading…</div>
-                                    <div v-else class="w-full px-2 py-1.5 border rounded-lg font-bold text-sm"
-                                        :class="woRequestOnHandDisplay !== null ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-400'">
-                                        {{ woRequestOnHandDisplay ?? '—' }}
+                                    <div v-else class="w-full px-2 py-1.5 border rounded-lg font-bold text-sm flex items-center justify-between gap-2"
+                                        :class="woRequestOnHandToneClass">
+                                        <span>{{ woRequestOnHandDisplay ?? '—' }}</span>
+                                        <span v-if="woRequestOnHandBasis === 'estimate'"
+                                            class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5">est</span>
+                                        <span v-else-if="woRequestOnHandBasis === 'count'"
+                                            class="text-[10px] font-bold uppercase bg-sky-100 text-sky-700 rounded-full px-1.5 py-0.5">counted</span>
                                     </div>
                                     <p v-if="woRequestOnHandSubLabel" class="text-xs text-sky-700 mt-0.5">{{ woRequestOnHandSubLabel }}</p>
+                                    <p v-if="woRequestOnHandFormula" class="text-[10px] text-gray-400 leading-tight mt-0.5"
+                                        :title="woRequestOnHandFormula.title">{{ woRequestOnHandFormula.text }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
+                                        title="Qty of this exact part # still owed on the Open Orders board (New, WO/PO Requested, On Hold)">Qty On Order</label>
+                                    <div v-if="woRequestOnOrderLoading"
+                                        class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Loading…</div>
+                                    <div v-else class="w-full px-2 py-1.5 border rounded-lg font-bold text-sm"
+                                        :class="woRequestOnOrder ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-gray-200 bg-gray-50 text-gray-400'">
+                                        {{ woRequestOnOrder ?? '—' }}</div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
+                                        title="Qty of this part consumed by parent assemblies still owed on the Open Orders board (parent qty × BOM qty per assembly)">Qty On Order (parents)</label>
+                                    <div v-if="woRequestOnOrderLoading"
+                                        class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Loading…</div>
+                                    <div v-else class="w-full px-2 py-1.5 border rounded-lg font-bold text-sm"
+                                        :class="woRequestOnOrderParents ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-gray-200 bg-gray-50 text-gray-400'">
+                                        {{ woRequestOnOrderParents ?? '—' }}</div>
+                                    <p v-if="woRequestOnOrderTotal" class="text-xs text-teal-700 mt-0.5">{{ woRequestOnOrderTotal }} total on order</p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">In Stock (requester)</label>
@@ -160,7 +191,7 @@
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                                 </svg>
                             </div>
-                            <div class="grid grid-cols-4 gap-2">
+                            <div :class="woRequestDataGridClass">
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Sold</label>
                                     <div class="w-full px-2 py-1.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-800 font-bold text-sm">{{ woRequestDetailForm.qty_sold_36mo !== '' ? woRequestDetailForm.qty_sold_36mo : '—' }}</div>
@@ -180,6 +211,10 @@
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Made</label>
                                     <div class="w-full px-2 py-1.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-800 font-bold text-sm">{{ woRequestDetailForm.qty_made_36mo !== '' ? woRequestDetailForm.qty_made_36mo : '—' }}</div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Qty Purchased</label>
+                                    <div class="w-full px-2 py-1.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-800 font-bold text-sm">{{ woRequestDetailForm.qty_purchased_36mo != null && woRequestDetailForm.qty_purchased_36mo !== '' ? woRequestDetailForm.qty_purchased_36mo : '—' }}</div>
                                     <p v-if="woRequestYearlyAvg36mo.made !== null" class="text-xs text-gray-400 mt-0.5">Yearly avg: <span class="font-semibold text-gray-600">{{ woRequestYearlyAvg36mo.made }}</span></p>
                                 </div>
                                 <div>
@@ -191,16 +226,43 @@
                                         {{ woRequestEstQtyInStock36mo }}<span class="font-normal text-xs ml-1">{{ woRequestEstQtyInStock36mo >= 0 ? 'in stock' : 'deficit' }}</span>
                                     </div>
                                     <div v-else class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm">—</div>
+                                    <p v-if="woRequestEstQtyInStockFormula36mo" class="text-[10px] text-gray-400 leading-tight mt-0.5"
+                                        :title="woRequestEstQtyInStockFormula36mo.title">{{ woRequestEstQtyInStockFormula36mo.text }}</p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">In Stock (Software)</label>
                                     <div v-if="woRequestOnHandLoading"
                                         class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Loading…</div>
-                                    <div v-else class="w-full px-2 py-1.5 border rounded-lg font-bold text-sm"
-                                        :class="woRequestOnHandDisplay !== null ? 'border-sky-300 bg-sky-50 text-sky-800' : 'border-gray-200 text-gray-400'">
-                                        {{ woRequestOnHandDisplay ?? '—' }}
+                                    <div v-else class="w-full px-2 py-1.5 border rounded-lg font-bold text-sm flex items-center justify-between gap-2"
+                                        :class="woRequestOnHandToneClass">
+                                        <span>{{ woRequestOnHandDisplay ?? '—' }}</span>
+                                        <span v-if="woRequestOnHandBasis === 'estimate'"
+                                            class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5">est</span>
+                                        <span v-else-if="woRequestOnHandBasis === 'count'"
+                                            class="text-[10px] font-bold uppercase bg-sky-100 text-sky-700 rounded-full px-1.5 py-0.5">counted</span>
                                     </div>
                                     <p v-if="woRequestOnHandSubLabel" class="text-xs text-sky-700 mt-0.5">{{ woRequestOnHandSubLabel }}</p>
+                                    <p v-if="woRequestOnHandFormula" class="text-[10px] text-gray-400 leading-tight mt-0.5"
+                                        :title="woRequestOnHandFormula.title">{{ woRequestOnHandFormula.text }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
+                                        title="Qty of this exact part # still owed on the Open Orders board (New, WO/PO Requested, On Hold)">Qty On Order</label>
+                                    <div v-if="woRequestOnOrderLoading"
+                                        class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Loading…</div>
+                                    <div v-else class="w-full px-2 py-1.5 border rounded-lg font-bold text-sm"
+                                        :class="woRequestOnOrder ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-gray-200 bg-gray-50 text-gray-400'">
+                                        {{ woRequestOnOrder ?? '—' }}</div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1"
+                                        title="Qty of this part consumed by parent assemblies still owed on the Open Orders board (parent qty × BOM qty per assembly)">Qty On Order (parents)</label>
+                                    <div v-if="woRequestOnOrderLoading"
+                                        class="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-gray-400 text-sm italic">Loading…</div>
+                                    <div v-else class="w-full px-2 py-1.5 border rounded-lg font-bold text-sm"
+                                        :class="woRequestOnOrderParents ? 'border-teal-300 bg-teal-50 text-teal-800' : 'border-gray-200 bg-gray-50 text-gray-400'">
+                                        {{ woRequestOnOrderParents ?? '—' }}</div>
+                                    <p v-if="woRequestOnOrderTotal" class="text-xs text-teal-700 mt-0.5">{{ woRequestOnOrderTotal }} total on order</p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">In Stock (requester)</label>

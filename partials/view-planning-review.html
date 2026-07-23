@@ -6,32 +6,39 @@
 <Teleport to="#pp-tab-body" v-if="currentView === 'production_planning'">
 <div v-if="planningTab === 'review'" class="absolute inset-0 overflow-y-auto p-6">
 
-    <!-- Release-due panel -->
-    <div v-if="releaseDueLines.length" class="bg-emerald-50 border border-emerald-300 rounded-xl p-4 mb-4">
-        <div class="flex items-center gap-3 mb-2">
-            <span class="font-bold text-emerald-800">Due for release — {{ releaseDueLines.length }} line(s)</span>
-            <button @click="releaseAllDue" :disabled="releasingLineId"
-                class="ml-auto px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg disabled:opacity-50">
-                Release All Due</button>
+    <!-- Release-due panel — split by destination pipeline (Make / Buy) -->
+    <div v-if="releaseDueLines.length" class="space-y-3 mb-4">
+        <div v-for="grp in releaseDueGroups" :key="grp.key"
+            class="rounded-xl border p-4"
+            :class="grp.key === 'buy' ? 'bg-sky-50 border-sky-300' : 'bg-indigo-50 border-indigo-300'">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="font-bold" :class="grp.key === 'buy' ? 'text-sky-800' : 'text-indigo-800'">
+                    {{ grp.label }} — {{ grp.lines.length }} line(s)</span>
+                <button @click="releaseAllDueGroup(grp.lines)" :disabled="releasingLineId"
+                    class="ml-auto px-4 py-1.5 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                    :class="grp.key === 'buy' ? 'bg-sky-600 hover:bg-sky-500' : 'bg-indigo-600 hover:bg-indigo-500'">
+                    Release All {{ grp.key === 'buy' ? 'Buy' : 'Make' }}</button>
+            </div>
+            <div v-for="l in grp.lines" :key="l.id"
+                class="flex items-center gap-3 text-sm py-1 border-t"
+                :class="grp.key === 'buy' ? 'border-sky-100' : 'border-indigo-100'">
+                <span class="font-mono font-semibold">{{ l.part_number }}</span>
+                <span class="text-xs text-gray-500">{{ l.family_name }}</span>
+                <span class="font-mono">qty {{ l.override_qty ?? l.recommended }}</span>
+                <span v-if="l.material" class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
+                    :class="{ 'bg-emerald-100 text-emerald-700': l.material === 'ready',
+                              'bg-amber-100 text-amber-700':     l.material === 'partial',
+                              'bg-red-100 text-red-700':         l.material === 'waiting' }">
+                    material {{ l.material }}</span>
+                <span class="text-xs text-gray-400">release {{ l.planned_release_date }}</span>
+                <button @click="releaseLine(l)" :disabled="releasingLineId"
+                    class="ml-auto px-3 py-1 text-white text-xs font-bold rounded disabled:opacity-50"
+                    :class="grp.key === 'buy' ? 'bg-sky-600 hover:bg-sky-500' : 'bg-indigo-600 hover:bg-indigo-500'">
+                    {{ releasingLineId === l.id ? 'Releasing…' : 'Release' }}</button>
+            </div>
+            <p class="text-[11px] mt-2" :class="grp.key === 'buy' ? 'text-sky-700' : 'text-indigo-700'">
+                Releasing re-checks live stock and supply first — lines no longer needed are skipped, not created.</p>
         </div>
-        <div v-for="l in releaseDueLines" :key="l.id"
-            class="flex items-center gap-3 text-sm py-1 border-t border-emerald-100">
-            <span class="font-mono font-semibold">{{ l.part_number }}</span>
-            <span class="text-xs text-gray-500">{{ l.family_name }}</span>
-            <span class="text-xs font-bold uppercase px-2 py-0.5 rounded-full"
-                :class="l.action === 'buy' ? 'bg-sky-100 text-sky-700' : 'bg-indigo-100 text-indigo-700'">{{ l.action }}</span>
-            <span class="font-mono">qty {{ l.override_qty ?? l.recommended }}</span>
-            <span v-if="l.material" class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
-                :class="{ 'bg-emerald-100 text-emerald-700': l.material === 'ready',
-                          'bg-amber-100 text-amber-700':     l.material === 'partial',
-                          'bg-red-100 text-red-700':         l.material === 'waiting' }">
-                material {{ l.material }}</span>
-            <span class="text-xs text-gray-400">release {{ l.planned_release_date }}</span>
-            <button @click="releaseLine(l)" :disabled="releasingLineId"
-                class="ml-auto px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded disabled:opacity-50">
-                {{ releasingLineId === l.id ? 'Releasing…' : 'Release' }}</button>
-        </div>
-        <p class="text-[11px] text-emerald-700 mt-2">Releasing re-checks live stock and supply first — lines no longer needed are skipped, not created.</p>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -47,6 +54,10 @@
                     <span class="font-mono text-sm">× {{ r.plan_qty }}</span>
                 </div>
                 <div class="text-[11px] text-gray-400">{{ r.mode === 'base_only' ? 'Base only' : 'Full kit' }} · {{ (r.created_at || '').slice(0, 10) }}</div>
+                <div v-if="r.plan_basis === 'year_supply'" class="text-[10px] font-bold text-indigo-600 uppercase">
+                    Year supply<span v-if="r.pct_adjust"> {{ r.pct_adjust > 0 ? '+' : '' }}{{ r.pct_adjust }}%</span><span
+                        v-if="r.base_sold_12mo != null" class="text-gray-400 font-normal normal-case"> · sold {{ r.base_sold_12mo }}/yr</span>
+                </div>
                 <div class="flex gap-2 mt-1">
                     <button @click.stop="closeRun(r)" class="text-[11px] text-gray-500 hover:text-gray-700 underline">Close</button>
                     <button @click.stop="cancelRun(r)" class="text-[11px] text-red-400 hover:text-red-600 underline">Cancel</button>
@@ -59,21 +70,38 @@
         <div class="lg:col-span-3">
             <div v-if="selectedRun" class="flex items-center gap-3 mb-2">
                 <h3 class="text-sm font-bold text-gray-700">{{ selectedRun.family_name }} × {{ selectedRun.plan_qty }} — {{ filteredRunLines.length }} lines</h3>
+                <span v-if="runNoHistoryCount"
+                    class="text-[10px] font-bold uppercase bg-red-100 text-red-700 rounded-full px-2 py-0.5 whitespace-nowrap"
+                    title="Sized 0 because no 12-month demand was found — filter for them and check each one">
+                    {{ runNoHistoryCount }} no history</span>
+                <span v-if="runReviewCount"
+                    class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 whitespace-nowrap"
+                    title="Unclassified — no clear make/buy history. Pick Make or Buy in the Action column before release.">
+                    {{ runReviewCount }} to classify</span>
                 <input v-model="runLineFilter" placeholder="Filter part / action…"
                     class="border border-gray-300 rounded-lg px-3 py-1.5 text-xs w-48" />
+                <button @click="toggleSelectAllRunLines" :disabled="runApproving"
+                    class="ml-auto px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-lg disabled:opacity-50"
+                    title="Check every selectable line currently shown, then uncheck the ones you don't want">
+                    {{ runLinesAllChecked ? 'Clear All' : 'Select All' }}</button>
                 <button @click="approveSelected" :disabled="runApproving"
-                    class="ml-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg disabled:opacity-50">
-                    {{ runApproving ? 'Approving…' : 'Approve Checked (or all)' }}</button>
+                    class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg disabled:opacity-50">
+                    {{ runApproving ? 'Approving…' : 'Approve Checked' }}</button>
             </div>
             <div v-if="selectedRun" class="bg-white rounded-xl border border-gray-200 overflow-x-auto">
                 <table class="w-full text-xs">
                     <thead class="bg-gray-50 text-gray-500 uppercase text-[10px]">
                         <tr>
-                            <th class="px-2 py-2"></th>
+                            <th class="px-2 py-2">
+                                <input type="checkbox" :checked="runLinesAllChecked"
+                                    :indeterminate="runLinesSomeChecked"
+                                    @change="toggleSelectAllRunLines"
+                                    title="Select all / clear all" /></th>
                             <th class="px-2 py-2 text-left">Part</th>
                             <th class="px-2 py-2 text-left">Description</th>
                             <th class="px-2 py-2 text-left">Used In</th>
                             <th class="px-2 py-2 text-right">Lv</th>
+                            <th class="px-2 py-2 text-right" title="Rolling 12-month demand: qty sold + qty used on parents. Blank on kit-basis runs.">Demand</th>
                             <th class="px-2 py-2 text-right">Need</th>
                             <th class="px-2 py-2 text-right">Stock</th>
                             <th class="px-2 py-2 text-right">In Flight</th>
@@ -90,12 +118,17 @@
                     <tbody>
                         <tr v-for="l in filteredRunLines" :key="l.id"
                             class="border-t border-gray-100"
-                            :class="{ 'opacity-40': l.line_status === 'skipped', 'bg-amber-50': l.flag }">
+                            :class="{ 'opacity-40': l.line_status === 'skipped',
+                                      'bg-red-50': l.flag === 'no_history',
+                                      'bg-amber-50': l.flag && l.flag !== 'no_history' }">
                             <td class="px-2 py-1.5">
                                 <input type="checkbox" v-model="l.checked" :disabled="l.line_status !== 'proposed'" /></td>
                             <td class="px-2 py-1.5 font-mono font-semibold whitespace-nowrap"
                                 :style="{ paddingLeft: (8 + l.level * 14) + 'px' }">{{ l.part_number }}
-                                <span v-if="l.flag" class="text-red-600">⚠</span></td>
+                                <span v-if="l.flag" class="text-red-600"
+                                    :title="l.flag === 'no_history'
+                                        ? 'No 12-month demand found — sized 0. Check for a missing BOM link or a parent that sells under another part number.'
+                                        : 'Unusually large quantity — check the BOM qty per assembly.'">⚠</span></td>
                             <td class="px-2 py-1.5 text-gray-500 max-w-[16rem] truncate"
                                 :title="runLineDescrips[l.part_number_normalized] || ''">
                                 {{ runLineDescrips[l.part_number_normalized] || '—' }}</td>
@@ -106,8 +139,22 @@
                                     v-if="(runWhereUsed[l.part_number_normalized] || []).length > 1"
                                     class="text-indigo-500 font-bold"> +{{ (runWhereUsed[l.part_number_normalized] || []).length - 1 }}</span></span></td>
                             <td class="px-2 py-1.5 text-right text-gray-400">{{ l.level }}</td>
-                            <td class="px-2 py-1.5 text-right font-mono">{{ l.gross }}</td>
-                            <td class="px-2 py-1.5 text-right font-mono">{{ l.on_hand_snap }}</td>
+                            <td class="px-2 py-1.5 text-right font-mono"
+                                :class="l.flag === 'no_history' ? 'text-red-600 font-bold' : 'text-gray-500'"
+                                title="12-month demand (sold + used on parents), before the % adjustment">
+                                {{ l.demand_12mo == null ? '—' : l.demand_12mo }}</td>
+                            <td class="px-2 py-1.5 text-right font-mono"
+                                :title="l.kit_gross == null ? ''
+                                    : 'Kit explosion would have called for ' + l.kit_gross">
+                                {{ l.gross }}<span v-if="l.kit_gross != null && l.kit_gross !== l.gross"
+                                    class="text-gray-300 text-[10px]"> /{{ l.kit_gross }}</span></td>
+                            <td class="px-2 py-1.5 text-right font-mono whitespace-nowrap">{{ l.on_hand_snap }}<span
+                                    v-if="l.basis_snap === 'estimate'"
+                                    class="ml-1 text-[9px] font-bold uppercase bg-amber-100 text-amber-700 rounded px-1"
+                                    title="On-hand was an estimate at calc time (part not physically counted)">est</span><span
+                                    v-else-if="l.basis_snap === 'count'"
+                                    class="ml-1 text-[9px] font-bold uppercase bg-sky-100 text-sky-700 rounded px-1"
+                                    title="On-hand was a physical count at calc time">cnt</span></td>
                             <td class="px-2 py-1.5 text-right font-mono"
                                 :title="l.in_flight_snap == null ? 'Run predates in-flight netting — open WOs only'
                                     : 'In production + done-not-received + received-not-closed'">
@@ -124,8 +171,19 @@
                                     @change="saveLineQty(l, $event.target.value)"
                                     class="w-16 border border-gray-200 rounded px-1 py-0.5 text-right font-mono"
                                     :class="l.override_qty != null && l.override_qty !== l.recommended ? 'bg-amber-50 border-amber-300' : ''" /></td>
-                            <td class="px-2 py-1.5">
-                                <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                            <td class="px-2 py-1.5" :title="lineMakeBuyTooltip(l)">
+                                <select v-if="l.line_status === 'proposed'"
+                                    :value="l.action === 'make' || l.action === 'buy' ? l.action : ''"
+                                    @change="setLineMakeBuy(l, $event.target.value)"
+                                    class="text-[10px] font-bold uppercase rounded border px-1 py-0.5"
+                                    :class="l.action === 'buy' ? 'bg-sky-50 border-sky-300 text-sky-700'
+                                        : l.action === 'make' ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                        : 'bg-red-50 border-red-300 text-red-600'">
+                                    <option value="" disabled>review…</option>
+                                    <option value="make">make</option>
+                                    <option value="buy">buy</option>
+                                </select>
+                                <span v-else class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full"
                                     :class="l.action === 'buy' ? 'bg-sky-100 text-sky-700'
                                         : l.action === 'make' ? 'bg-indigo-100 text-indigo-700'
                                         : 'bg-gray-100 text-gray-500'">{{ l.action }}</span></td>

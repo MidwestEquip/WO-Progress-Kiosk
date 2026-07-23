@@ -15,14 +15,27 @@
 // ============================================================
 
 import { PURCHASING_3YR_START } from './config.js';
+import { supabase, withRetry }  from './db-shared.js';
 import { resolvePartCalcChain } from './db-part-changes.js';
 import { fetchOnHandForParts }  from './db-onhand.js';
 import { fetchPartWip }         from './db-wip.js';
 import {
     fetchPartUsageSummary12Mo, fetchPartUsageSummary36Mo,
     fetchQtySoldFromSalesAnalysis, calculateRecursiveParentUsageDemand,
-    fetchBomParentsForChild, fetchBinAndDescForParts, fetchPartLastMade,
+    fetchBomParentsForChild, fetchBinAndDescForParts,
 } from './db-part-defaults.js';
+
+// fetchPartLastMadeOrPurchased — recent MO/I + PO/I rows for a part, tagged
+// by kind ('made' | 'purchased'), newest first. SECURITY DEFINER RPC.
+// Local to the bundle (db-part-defaults.js is at its 500-line cap).
+// Returns { data: [{ txn_date, qty, kind }], error }.
+async function fetchPartLastMadeOrPurchased(partNumber) {
+    const norm = (partNumber || '').trim().toUpperCase();
+    if (!norm) return { data: [], error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.rpc('get_part_last_made_or_purchased', { p_part: norm }));
+    return { data: data || [], error };
+}
 
 // _settled — run a leg, never let it reject the bundle. A part-data panel is
 // reference material: one dead leg should blank one figure, not the screen.
@@ -84,7 +97,7 @@ export async function fetchPartDataBundle(partNumber, opts = {}) {
                 { totalDemand: 0, pathDetails: [] }, errors),
             _settled('pipeline', fetchPartWip(part), null, errors),
             _settled('used on', fetchBomParentsForChild(part), [], errors),
-            _settled('last made', fetchPartLastMade(part), [], errors),
+            _settled('last made/purchased', fetchPartLastMadeOrPurchased(part), [], errors),
         ]);
 
     // Sales come from sales_analysis_lines summed over the chain — the RPC sums

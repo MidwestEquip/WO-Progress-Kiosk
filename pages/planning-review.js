@@ -153,14 +153,22 @@ export async function saveLineEdit(line, fields) {
     }
 }
 
-// approveSelected — proposed → approved for checked (or all unchecked-none)
-// lines with a positive quantity; default release date = today.
+// toggleSelectAllRunLines — check every selectable row in the CURRENT filtered
+// view, or clear them all when they are already checked. Rows hidden by the
+// filter are left alone. No args, no return.
+export function toggleSelectAllRunLines() {
+    const next = !store.runLinesAllChecked.value;
+    store.selectableRunLines.value.forEach(l => { l.checked = next; });
+}
+
+// approveSelected — proposed → approved for the CHECKED lines only (use Select
+// All to take the whole list), skipping held/unclassified/zero-qty rows;
+// default release date = today.
 export async function approveSelected() {
-    const lines = store.runLines.value.filter(l => l.line_status === 'proposed' && !l.hold);
-    const checked = lines.filter(l => l.checked);
-    const targets = (checked.length ? checked : lines)
-        .filter(l => Number(l.override_qty ?? l.recommended) > 0);
-    if (!targets.length) { store.showToast('Nothing to approve.'); return; }
+    const targets = store.runLines.value.filter(l =>
+        l.checked && l.line_status === 'proposed' && !l.hold && l.action !== 'review'
+        && Number(l.override_qty ?? l.recommended) > 0);
+    if (!targets.length) { store.showToast('Nothing checked to approve (unclassified lines need a Make/Buy pick first).'); return; }
     store.runApproving.value = true;
     try {
         for (const l of targets) {
@@ -185,6 +193,35 @@ export async function approveSelected() {
 // skipLine — mark one proposed line skipped (not needed).
 export async function skipLine(line) {
     await saveLineEdit(line, { line_status: 'skipped' });
+}
+
+// setLineMakeBuy — planner override of the make/buy classification. Persists
+// make_buy_override on part_planning (so every future run agrees), then
+// reflects it on the line locally: action + source 'override'. This is the
+// only way to clear a 'review' line so it can be released.
+export async function setLineMakeBuy(line, value) {
+    if (value !== 'make' && value !== 'buy') return;
+    try {
+        const { error } = await db.upsertPartPlanning({
+            part_number: line.part_number,
+            make_buy_override: value,
+            updated_by: store.sessionRole.value || null,
+        });
+        if (error) throw error;
+        Object.assign(line, { action: value, action_source: 'override' });
+        store.showToast(`${line.part_number}: set to ${value}.`, 'success');
+    } catch (err) {
+        store.showToast('Make/Buy change failed: ' + err.message);
+        logError('setLineMakeBuy', err, { id: line.id });
+    }
+}
+
+// lineMakeBuyTooltip — the classification evidence for a line's Action cell.
+export function lineMakeBuyTooltip(line) {
+    const made = line.qty_made_12mo == null ? '—' : line.qty_made_12mo;
+    const pur  = line.qty_purchased_12mo == null ? '—' : line.qty_purchased_12mo;
+    const src  = line.action_source ? ` · via ${line.action_source}` : '';
+    return `12mo made ${made} · purchased ${pur}${src}`;
 }
 
 // loadReleaseDue — approved lines whose release date has arrived, each MAKE
@@ -226,6 +263,12 @@ export async function loadReleaseDue() {
 // learned routing prefilled; buy → purchasing part request.
 export async function releaseLine(line) {
     if (store.releasingLineId.value) return;
+    // Unclassified lines have no destination — a WO request and a PO request are
+    // different pipelines. Force a Make/Buy choice before anything is created.
+    if (line.action !== 'make' && line.action !== 'buy') {
+        store.showToast(`${line.part_number}: classify as Make or Buy before releasing.`);
+        return;
+    }
     store.releasingLineId.value = line.id;
     try {
         const part = line.part_number_normalized;
@@ -289,6 +332,12 @@ export async function releaseLine(line) {
 export async function releaseAllDue() {
     const due = [...store.releaseDueLines.value];
     for (const line of due) await releaseLine(line);
+}
+
+// releaseAllDueGroup — release one action group (Make or Buy) from the split
+// release-due panel. Same per-line gate as releaseLine (live re-net, skip).
+export async function releaseAllDueGroup(lines) {
+    for (const line of [...(lines || [])]) await releaseLine(line);
 }
 
 // closeRun / cancelRun — run lifecycle.

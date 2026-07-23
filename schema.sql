@@ -289,6 +289,24 @@ CREATE FUNCTION public.get_part_last_made(p_part text) RETURNS TABLE(txn_date te
 
 
 --
+-- Name: get_part_last_made_or_purchased(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_part_last_made_or_purchased(p_part text) RETURNS TABLE(txn_date text, qty numeric, kind text)
+    LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+    SELECT txn_date::text, qty,
+           CASE WHEN doctype = 'PO' THEN 'purchased' ELSE 'made' END AS kind
+    FROM issues_receipts
+    WHERE part_number_normalized = p_part
+      AND ((doctype = 'MO' AND trantype = 'I') OR (doctype = 'PO' AND trantype = 'I'))
+    ORDER BY txn_date DESC
+    LIMIT 5;
+  $$;
+
+
+--
 -- Name: get_part_purchased_12mo(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -326,28 +344,22 @@ CREATE FUNCTION public.get_part_purchased_36mo(p_part text) RETURNS TABLE(txn_da
 -- Name: get_part_usage_summary_12mo(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_part_usage_summary_12mo(p_part text) RETURNS TABLE(qty_sold_12mo numeric, qty_used_mfg_12mo numeric, qty_made_12mo numeric)
+CREATE FUNCTION public.get_part_usage_summary_12mo(p_part text) RETURNS TABLE(qty_sold_12mo numeric, qty_used_mfg_12mo numeric, qty_made_12mo numeric, qty_purchased_12mo numeric)
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
     WITH sold AS (
       SELECT COALESCE(SUM(qty), 0) AS qty FROM (
-        SELECT qty
-        FROM sales_analysis_lines
-        WHERE item_normalized = p_part
-          AND doctype = 'SO' AND trantype = 'O'
+        SELECT qty FROM sales_analysis_lines
+        WHERE item_normalized = p_part AND doctype = 'SO' AND trantype = 'O'
           AND sale_date >= CURRENT_DATE - INTERVAL '12 months'
-          AND sale_date <= CURRENT_DATE
-          AND sale_date < public.native_cutover()
+          AND sale_date <= CURRENT_DATE AND sale_date < public.native_cutover()
         UNION ALL
-        SELECT qty
-        FROM issues_receipts
-        WHERE part_number_normalized = p_part
-          AND source = 'native'
+        SELECT qty FROM issues_receipts
+        WHERE part_number_normalized = p_part AND source = 'native'
           AND doctype = 'SO' AND trantype = 'O'
           AND txn_date >= CURRENT_DATE - INTERVAL '12 months'
-          AND txn_date <= CURRENT_DATE
-          AND txn_date >= public.native_cutover()
+          AND txn_date <= CURRENT_DATE AND txn_date >= public.native_cutover()
       ) s
     ),
     mfg AS (
@@ -355,12 +367,16 @@ CREATE FUNCTION public.get_part_usage_summary_12mo(p_part text) RETURNS TABLE(qt
         COALESCE(SUM(CASE WHEN trantype = 'O' THEN qty ELSE 0 END), 0) AS qty_used,
         COALESCE(SUM(CASE WHEN trantype = 'I' THEN qty ELSE 0 END), 0) AS qty_made
       FROM issues_receipts
-      WHERE part_number_normalized = p_part
-        AND doctype = 'MO'
-        AND txn_date >= CURRENT_DATE - INTERVAL '12 months'
-        AND txn_date <= CURRENT_DATE
+      WHERE part_number_normalized = p_part AND doctype = 'MO'
+        AND txn_date >= CURRENT_DATE - INTERVAL '12 months' AND txn_date <= CURRENT_DATE
+    ),
+    purch AS (
+      SELECT COALESCE(SUM(qty), 0) AS qty
+      FROM issues_receipts
+      WHERE part_number_normalized = p_part AND doctype = 'PO' AND trantype = 'I'
+        AND txn_date >= CURRENT_DATE - INTERVAL '12 months' AND txn_date <= CURRENT_DATE
     )
-    SELECT sold.qty, mfg.qty_used, mfg.qty_made FROM sold, mfg;
+    SELECT sold.qty, mfg.qty_used, mfg.qty_made, purch.qty FROM sold, mfg, purch;
   $$;
 
 
@@ -368,27 +384,21 @@ CREATE FUNCTION public.get_part_usage_summary_12mo(p_part text) RETURNS TABLE(qt
 -- Name: get_part_usage_summary_36mo(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_part_usage_summary_36mo(p_part text) RETURNS TABLE(qty_sold_36mo numeric, qty_used_mfg_36mo numeric, qty_made_36mo numeric)
+CREATE FUNCTION public.get_part_usage_summary_36mo(p_part text) RETURNS TABLE(qty_sold_36mo numeric, qty_used_mfg_36mo numeric, qty_made_36mo numeric, qty_purchased_36mo numeric)
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
     WITH sold AS (
       SELECT COALESCE(SUM(qty), 0) AS qty FROM (
-        SELECT qty
-        FROM sales_analysis_lines
-        WHERE item_normalized = p_part
-          AND doctype = 'SO' AND trantype = 'O'
+        SELECT qty FROM sales_analysis_lines
+        WHERE item_normalized = p_part AND doctype = 'SO' AND trantype = 'O'
           AND sale_date >= '2023-01-01'
-          AND sale_date <= CURRENT_DATE
-          AND sale_date < public.native_cutover()
+          AND sale_date <= CURRENT_DATE AND sale_date < public.native_cutover()
         UNION ALL
-        SELECT qty
-        FROM issues_receipts
-        WHERE part_number_normalized = p_part
-          AND source = 'native'
+        SELECT qty FROM issues_receipts
+        WHERE part_number_normalized = p_part AND source = 'native'
           AND doctype = 'SO' AND trantype = 'O'
-          AND txn_date >= public.native_cutover()
-          AND txn_date <= CURRENT_DATE
+          AND txn_date >= public.native_cutover() AND txn_date <= CURRENT_DATE
       ) s
     ),
     mfg AS (
@@ -396,12 +406,16 @@ CREATE FUNCTION public.get_part_usage_summary_36mo(p_part text) RETURNS TABLE(qt
         COALESCE(SUM(CASE WHEN trantype = 'O' THEN qty ELSE 0 END), 0) AS qty_used,
         COALESCE(SUM(CASE WHEN trantype = 'I' THEN qty ELSE 0 END), 0) AS qty_made
       FROM issues_receipts
-      WHERE part_number_normalized = p_part
-        AND doctype = 'MO'
-        AND txn_date >= '2023-01-01'
-        AND txn_date <= CURRENT_DATE
+      WHERE part_number_normalized = p_part AND doctype = 'MO'
+        AND txn_date >= '2023-01-01' AND txn_date <= CURRENT_DATE
+    ),
+    purch AS (
+      SELECT COALESCE(SUM(qty), 0) AS qty
+      FROM issues_receipts
+      WHERE part_number_normalized = p_part AND doctype = 'PO' AND trantype = 'I'
+        AND txn_date >= '2023-01-01' AND txn_date <= CURRENT_DATE
     )
-    SELECT sold.qty, mfg.qty_used, mfg.qty_made FROM sold, mfg;
+    SELECT sold.qty, mfg.qty_used, mfg.qty_made, purch.qty FROM sold, mfg, purch;
   $$;
 
 
@@ -489,6 +503,76 @@ CREATE FUNCTION public.get_parts_made_all_time(p_parts text[]) RETURNS TABLE(par
 
 
 --
+-- Name: get_parts_parent_demand(text[], date, date); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_parts_parent_demand(p_parts text[], p_start date, p_end date) RETURNS TABLE(part_normalized text, parent_demand numeric)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+    WITH RECURSIVE seeds AS (
+      SELECT DISTINCT upper(btrim(p)) AS seed
+      FROM unnest(coalesce(p_parts, '{}'::text[])) AS p
+      WHERE btrim(coalesce(p, '')) <> ''
+    ),
+    walk AS (
+      SELECT s.seed,
+             s.seed              AS node,
+             1::numeric          AS mult,
+             ARRAY[s.seed]       AS path,
+             0                   AS depth
+      FROM seeds s
+      UNION ALL
+      -- A missing, zero or negative qty_per_assy is treated as 1, matching
+      -- the JS `Number(row.qty_per_assy) || 1` fallback.
+      SELECT w.seed,
+             b.item_parent_normalized,
+             w.mult * CASE WHEN coalesce(b.qty_per_assy, 0) > 0
+                           THEN b.qty_per_assy ELSE 1 END,
+             w.path || b.item_parent_normalized,
+             w.depth + 1
+      FROM walk w
+      JOIN all_boms b ON b.item_child_normalized = w.node
+      WHERE w.depth < 10
+        AND b.item_parent_normalized IS NOT NULL
+        AND b.item_parent_normalized <> w.node
+        AND NOT (b.item_parent_normalized = ANY(w.path))
+    ),
+    ancestors AS (
+      SELECT DISTINCT node FROM walk WHERE depth > 0
+    ),
+    sold AS (
+      SELECT item_normalized, COALESCE(SUM(qty), 0) AS qty_sold
+      FROM (
+        SELECT item_normalized, qty
+        FROM sales_analysis_lines
+        WHERE item_normalized IN (SELECT node FROM ancestors)
+          AND doctype  = 'SO'
+          AND trantype = 'O'
+          AND sale_date BETWEEN p_start AND p_end
+          AND sale_date < public.native_cutover()
+        UNION ALL
+        SELECT part_number_normalized AS item_normalized, qty
+        FROM issues_receipts
+        WHERE part_number_normalized IN (SELECT node FROM ancestors)
+          AND source   = 'native'
+          AND doctype  = 'SO'
+          AND trantype = 'O'
+          AND txn_date BETWEEN p_start AND p_end
+          AND txn_date >= public.native_cutover()
+      ) s
+      GROUP BY item_normalized
+    )
+    SELECT s.seed AS part_normalized,
+           COALESCE(SUM(w.mult * sl.qty_sold), 0) AS parent_demand
+    FROM seeds s
+    LEFT JOIN walk w  ON w.seed = s.seed AND w.depth > 0
+    LEFT JOIN sold sl ON sl.item_normalized = w.node
+    GROUP BY s.seed;
+  $$;
+
+
+--
 -- Name: get_parts_sold_in_period(text[], date, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -511,14 +595,16 @@ CREATE FUNCTION public.get_parts_sold_in_period(p_parts text[], p_start date, p_
 -- Name: get_parts_usage_summary_batch(text[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_parts_usage_summary_batch(p_parts text[]) RETURNS TABLE(part_normalized text, qty_made_12mo numeric, qty_used_mfg_12mo numeric, qty_sold_12mo numeric)
+CREATE FUNCTION public.get_parts_usage_summary_batch(p_parts text[]) RETURNS TABLE(part_normalized text, qty_made_12mo numeric, qty_used_mfg_12mo numeric, qty_sold_12mo numeric, qty_purchased_12mo numeric)
     LANGUAGE sql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
     SELECT
       part_number_normalized,
       COALESCE(SUM(CASE WHEN doctype='MO' AND trantype='I' THEN qty ELSE 0 END), 0),
       COALESCE(SUM(CASE WHEN doctype='MO' AND trantype='O' THEN qty ELSE 0 END), 0),
-      COALESCE(SUM(CASE WHEN doctype='SO' AND trantype='O' THEN qty ELSE 0 END), 0)
+      COALESCE(SUM(CASE WHEN doctype='SO' AND trantype='O' THEN qty ELSE 0 END), 0),
+      COALESCE(SUM(CASE WHEN doctype='PO' AND trantype='I' THEN qty ELSE 0 END), 0)
     FROM issues_receipts
     WHERE part_number_normalized = ANY(p_parts)
       AND txn_date >= NOW() - INTERVAL '12 months'
@@ -1386,8 +1472,16 @@ CREATE TABLE public.part_on_hand (
     part_number_normalized text NOT NULL,
     on_hand numeric DEFAULT 0 NOT NULL,
     counted_at timestamp with time zone,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    baseline_estimate numeric
 );
+
+
+--
+-- Name: COLUMN part_on_hand.baseline_estimate; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.part_on_hand.baseline_estimate IS 'Frozen pre-cutover estimate of on-hand at cutover (made+purchased-consumed-shipped, floored at 0 in reads). Effective on-hand for uncounted parts = max(0, baseline_estimate) + on_hand. Ignored once counted_at is set. NULL for parts never seeded.';
 
 
 --
@@ -1460,8 +1554,28 @@ CREATE TABLE public.planning_run_lines (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     in_flight_snap numeric,
-    requested_snap numeric
+    requested_snap numeric,
+    demand_12mo numeric,
+    kit_gross numeric,
+    basis_snap text,
+    qty_made_12mo numeric,
+    qty_purchased_12mo numeric,
+    action_source text
 );
+
+
+--
+-- Name: COLUMN planning_run_lines.basis_snap; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.planning_run_lines.basis_snap IS 'On-hand basis at calc time: ''count'' | ''estimate'' | NULL (pre-4b runs). Mirrors fetchOnHandForParts basis for on_hand_snap; display-only.';
+
+
+--
+-- Name: COLUMN planning_run_lines.action_source; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.planning_run_lines.action_source IS 'Why action was chosen: ''override'' | ''history'' | ''attr'' | ''review'' | NULL (pre-Phase-B runs). Display-only evidence.';
 
 
 --
@@ -1480,7 +1594,10 @@ CREATE TABLE public.planning_runs (
     notes text,
     created_by text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    plan_basis text DEFAULT 'kit'::text NOT NULL,
+    pct_adjust numeric DEFAULT 0 NOT NULL,
+    base_sold_12mo numeric
 );
 
 
@@ -3761,6 +3878,15 @@ GRANT ALL ON FUNCTION public.get_part_last_made(p_part text) TO service_role;
 
 
 --
+-- Name: FUNCTION get_part_last_made_or_purchased(p_part text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_part_last_made_or_purchased(p_part text) TO anon;
+GRANT ALL ON FUNCTION public.get_part_last_made_or_purchased(p_part text) TO authenticated;
+GRANT ALL ON FUNCTION public.get_part_last_made_or_purchased(p_part text) TO service_role;
+
+
+--
 -- Name: FUNCTION get_part_purchased_12mo(p_part text); Type: ACL; Schema: public; Owner: -
 --
 
@@ -3812,6 +3938,15 @@ GRANT ALL ON FUNCTION public.get_part_wip(p_part text) TO service_role;
 GRANT ALL ON FUNCTION public.get_parts_made_all_time(p_parts text[]) TO anon;
 GRANT ALL ON FUNCTION public.get_parts_made_all_time(p_parts text[]) TO authenticated;
 GRANT ALL ON FUNCTION public.get_parts_made_all_time(p_parts text[]) TO service_role;
+
+
+--
+-- Name: FUNCTION get_parts_parent_demand(p_parts text[], p_start date, p_end date); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.get_parts_parent_demand(p_parts text[], p_start date, p_end date) TO anon;
+GRANT ALL ON FUNCTION public.get_parts_parent_demand(p_parts text[], p_start date, p_end date) TO authenticated;
+GRANT ALL ON FUNCTION public.get_parts_parent_demand(p_parts text[], p_start date, p_end date) TO service_role;
 
 
 --
