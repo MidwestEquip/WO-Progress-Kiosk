@@ -28,6 +28,7 @@ export * from './store-purchasing.js';
 export * from './store-messages.js';
 export * from './store-stock.js';
 export * from './store-planning.js';
+export * from './store-inventory-count.js';
 
 // ── Version update banner ─────────────────────────────────────
 export const versionUpdateAvailable = ref(false);

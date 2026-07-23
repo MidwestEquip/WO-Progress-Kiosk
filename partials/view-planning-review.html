@@ -84,6 +84,10 @@
                     class="ml-auto px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-lg disabled:opacity-50"
                     title="Check every selectable line currently shown, then uncheck the ones you don't want">
                     {{ runLinesAllChecked ? 'Clear All' : 'Select All' }}</button>
+                <button @click="exportSelectedToCount" :disabled="runExportingCount"
+                    class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                    title="Send the checked parts to the Inventory Count sheet (Inventory → Inventory Count) for a physical count">
+                    {{ runExportingCount ? 'Exporting…' : 'Export to Count' }}</button>
                 <button @click="approveSelected" :disabled="runApproving"
                     class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg disabled:opacity-50">
                     {{ runApproving ? 'Approving…' : 'Approve Checked' }}</button>

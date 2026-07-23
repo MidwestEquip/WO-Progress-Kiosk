@@ -1173,6 +1173,47 @@ CREATE TABLE public.engineering_followups (
 
 
 --
+-- Name: inventory_count_lines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.inventory_count_lines (
+    id bigint NOT NULL,
+    part_number text NOT NULL,
+    part_number_normalized text GENERATED ALWAYS AS (upper(TRIM(BOTH FROM part_number))) STORED,
+    source text,
+    source_run_id uuid,
+    qty_counted numeric,
+    counted_by text,
+    counted_at timestamp with time zone,
+    adjusted boolean DEFAULT false NOT NULL,
+    adjusted_qty numeric,
+    adjusted_by text,
+    adjusted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by text
+);
+
+
+--
+-- Name: inventory_count_lines_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.inventory_count_lines_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: inventory_count_lines_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.inventory_count_lines_id_seq OWNED BY public.inventory_count_lines.id;
+
+
+--
 -- Name: issues_receipts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2038,6 +2079,13 @@ ALTER TABLE ONLY public.app_pins ALTER COLUMN id SET DEFAULT nextval('public.app
 
 
 --
+-- Name: inventory_count_lines id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.inventory_count_lines ALTER COLUMN id SET DEFAULT nextval('public.inventory_count_lines_id_seq'::regclass);
+
+
+--
 -- Name: all_boms all_boms_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2147,6 +2195,14 @@ ALTER TABLE ONLY public.engineering_followup_events
 
 ALTER TABLE ONLY public.engineering_followups
     ADD CONSTRAINT engineering_followups_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: inventory_count_lines inventory_count_lines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.inventory_count_lines
+    ADD CONSTRAINT inventory_count_lines_pkey PRIMARY KEY (id);
 
 
 --
@@ -2477,6 +2533,20 @@ CREATE INDEX idx_cwo_part_number ON public.completed_work_orders USING btree (pa
 --
 
 CREATE INDEX idx_cwo_wo_number ON public.completed_work_orders USING btree (wo_number);
+
+
+--
+-- Name: idx_icl_open; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_icl_open ON public.inventory_count_lines USING btree (adjusted, created_at DESC);
+
+
+--
+-- Name: idx_icl_part; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_icl_part ON public.inventory_count_lines USING btree (part_number_normalized);
 
 
 --
@@ -3486,6 +3556,19 @@ ALTER TABLE public.engineering_followup_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.engineering_followups ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: inventory_count_lines; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.inventory_count_lines ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: inventory_count_lines inventory_count_lines_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY inventory_count_lines_all ON public.inventory_count_lines TO authenticated, anon USING (true) WITH CHECK (true);
+
+
+--
 -- Name: issues_receipts; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -4136,6 +4219,24 @@ GRANT ALL ON TABLE public.engineering_followup_events TO service_role;
 GRANT ALL ON TABLE public.engineering_followups TO anon;
 GRANT ALL ON TABLE public.engineering_followups TO authenticated;
 GRANT ALL ON TABLE public.engineering_followups TO service_role;
+
+
+--
+-- Name: TABLE inventory_count_lines; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.inventory_count_lines TO anon;
+GRANT ALL ON TABLE public.inventory_count_lines TO authenticated;
+GRANT ALL ON TABLE public.inventory_count_lines TO service_role;
+
+
+--
+-- Name: SEQUENCE inventory_count_lines_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.inventory_count_lines_id_seq TO anon;
+GRANT ALL ON SEQUENCE public.inventory_count_lines_id_seq TO authenticated;
+GRANT ALL ON SEQUENCE public.inventory_count_lines_id_seq TO service_role;
 
 
 --

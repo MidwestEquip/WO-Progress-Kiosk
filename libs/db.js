@@ -39,6 +39,7 @@ export * from './db-purchasing.js';
 export * from './db-planning.js';
 export * from './db-planning-runs.js';
 export * from './db-planning-demand.js';
+export * from './db-inventory-count.js';
 
 // ── Dashboard queries ─────────────────────────────────────────
 

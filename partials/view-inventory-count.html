@@ -1,0 +1,127 @@
+            <!-- ── INVENTORY COUNT (sheet exported from Production Planning) ── -->
+            <div v-if="currentView === 'inventory_count'"
+                class="h-full w-full bg-gray-50 absolute inset-0 flex flex-col overflow-hidden">
+
+                <!-- Top bar -->
+                <div class="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 shrink-0 flex-wrap">
+                    <h2 class="text-lg font-bold text-gray-800">Inventory Count</h2>
+                    <span v-if="invCountOpenCount"
+                        class="text-[10px] font-bold uppercase bg-gray-100 text-gray-600 rounded-full px-2 py-0.5"
+                        title="Exported but not counted yet">{{ invCountOpenCount }} to count</span>
+                    <span v-if="invCountCountedCount"
+                        class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded-full px-2 py-0.5"
+                        title="Counted, but inventory has not been adjusted">{{ invCountCountedCount }} counted</span>
+                    <span v-if="invCountAdjustedCount"
+                        class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">
+                        {{ invCountAdjustedCount }} adjusted</span>
+
+                    <input v-model="invCountFilter" placeholder="Filter part / description / bin…"
+                        class="border border-gray-300 rounded-lg px-3 py-1.5 text-xs w-64 ml-2" />
+
+                    <button @click="toggleInvCountAdjusted"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold border"
+                        :class="invCountShowAdjusted ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'">
+                        Show Adjusted</button>
+                    <button @click="loadInventoryCountLines" :disabled="invCountLoading"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+                        {{ invCountLoading ? 'Loading…' : 'Refresh' }}</button>
+                    <button @click="goBack"
+                        class="ml-auto px-4 py-1.5 rounded-lg text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white">
+                        Back</button>
+                </div>
+
+                <!-- Body -->
+                <div class="flex-1 overflow-y-auto p-6">
+                    <div class="max-w-6xl mx-auto">
+
+                        <div v-if="invCountLoading" class="text-center text-gray-400 py-16">Loading…</div>
+
+                        <div v-else-if="filteredInvCountLines.length === 0"
+                            class="text-center text-gray-400 py-16">
+                            <p class="text-lg font-bold text-gray-500">Nothing to count</p>
+                            <p class="text-sm mt-1">
+                                {{ invCountFilter
+                                    ? 'No lines match your filter.'
+                                    : 'Check lines in Production Planning → Review and click "Export to Count".' }}</p>
+                        </div>
+
+                        <div v-else class="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+                            <table class="w-full text-xs">
+                                <thead class="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left">Part #</th>
+                                        <th class="px-3 py-2 text-left">Description</th>
+                                        <th class="px-3 py-2 text-left">Bin</th>
+                                        <th class="px-3 py-2 text-right" title="Alere system on-hand estimate">System</th>
+                                        <th class="px-3 py-2 text-right">Qty Counted</th>
+                                        <th class="px-3 py-2 text-left">Status</th>
+                                        <th class="px-3 py-2"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="l in filteredInvCountLines" :key="l.id"
+                                        class="border-t border-gray-100"
+                                        :class="l.adjusted ? 'bg-emerald-50/60' : ''">
+
+                                        <td class="px-3 py-2 font-mono font-semibold whitespace-nowrap text-gray-800">
+                                            {{ l.part_number }}</td>
+
+                                        <td class="px-3 py-2 text-gray-500 max-w-[18rem] truncate"
+                                            :title="(invCountRefs[l.part_number_normalized] || {}).descrip || ''">
+                                            {{ (invCountRefs[l.part_number_normalized] || {}).descrip || '—' }}</td>
+
+                                        <td class="px-3 py-2 font-mono font-bold text-indigo-700 whitespace-nowrap">
+                                            {{ (invCountRefs[l.part_number_normalized] || {}).bin || '—' }}</td>
+
+                                        <td class="px-3 py-2 text-right text-gray-500">
+                                            {{ (invCountRefs[l.part_number_normalized] || {}).lonhand ?? '—' }}</td>
+
+                                        <td class="px-3 py-2 text-right">
+                                            <span v-if="l.adjusted" class="font-bold text-emerald-700">{{ l.qty_counted ?? '—' }}</span>
+                                            <input v-else type="number" min="0" step="any"
+                                                :value="l.qty_counted"
+                                                @change="saveCountQty(l, $event.target.value)"
+                                                @keyup.enter="$event.target.blur()"
+                                                :disabled="invCountSavingId === l.id"
+                                                placeholder="—"
+                                                class="w-24 border border-gray-300 rounded-lg px-2 py-1 text-right font-bold text-gray-800 focus:outline-none focus:border-green-500 disabled:opacity-50" /></td>
+
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <span v-if="l.adjusted" class="inline-flex items-center gap-1 font-bold text-emerald-700">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                                                </svg>
+                                                Inventory Adjusted
+                                                <span class="font-normal text-emerald-600/80">
+                                                    ({{ l.adjusted_qty }}<span v-if="l.adjusted_by"> · {{ l.adjusted_by }}</span><span v-if="l.adjusted_at"> · {{ l.adjusted_at.slice(0,10) }}</span>)</span>
+                                            </span>
+                                            <span v-else-if="l.qty_counted != null" class="font-bold text-amber-600">
+                                                Counted<span v-if="l.counted_at" class="font-normal text-amber-500/80"> · {{ l.counted_at.slice(0,10) }}</span></span>
+                                            <span v-else class="text-gray-400">Not counted</span></td>
+
+                                        <td class="px-3 py-2 text-right whitespace-nowrap">
+                                            <template v-if="!l.adjusted">
+                                                <button v-if="sessionRole === 'manager'"
+                                                    @click="openCountAdjust(l)" :disabled="l.qty_counted == null"
+                                                    class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold uppercase rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                                                    :title="l.qty_counted == null ? 'Enter a counted quantity first' : 'Adjust inventory to the counted quantity'">
+                                                    Adjust Inventory</button>
+                                                <span v-else class="text-[10px] uppercase text-gray-400 mr-1"
+                                                    title="Only a manager can adjust inventory">Manager only</span>
+                                                <button @click="removeCountLine(l)"
+                                                    class="ml-2 text-[10px] font-bold uppercase"
+                                                    :class="invCountRemoveId === l.id ? 'text-red-600' : 'text-gray-400 hover:text-gray-600'">
+                                                    {{ invCountRemoveId === l.id ? 'Confirm?' : 'Remove' }}</button>
+                                            </template></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <p v-if="!invCountLoading && filteredInvCountLines.length" class="text-[11px] text-gray-400 mt-3">
+                            Sorted by bin location. Entering a quantity only records the count —
+                            a manager must click Adjust Inventory to change stock.
+                        </p>
+                    </div>
+                </div>
+            </div>

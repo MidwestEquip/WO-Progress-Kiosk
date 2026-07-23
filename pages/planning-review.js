@@ -190,6 +190,45 @@ export async function approveSelected() {
     }
 }
 
+// exportSelectedToCount — send the CHECKED lines' parts to the Inventory Count
+// sheet so someone can physically count them. Parts already sitting unadjusted
+// on the sheet are skipped rather than duplicated (one open line per part).
+// Does NOT change line_status — exporting is not approving or releasing.
+export async function exportSelectedToCount() {
+    const targets = store.runLines.value.filter(l => l.checked);
+    if (!targets.length) { store.showToast('Check the lines you want to count first.'); return; }
+    store.runExportingCount.value = true;
+    try {
+        const parts = [...new Set(targets.map(l => l.part_number_normalized || l.part_number))];
+        const { data: onSheet, error: dupErr } = await db.fetchOpenCountParts(parts);
+        if (dupErr) throw dupErr;
+        const rows = targets
+            .filter(l => !onSheet.has(l.part_number_normalized || (l.part_number || '').trim().toUpperCase()))
+            .filter((l, i, arr) => arr.findIndex(o =>
+                (o.part_number_normalized || o.part_number) === (l.part_number_normalized || l.part_number)) === i)
+            .map(l => ({
+                part_number:   l.part_number,
+                source:        'planning_run',
+                source_run_id: l.run_id ?? store.selectedRun.value?.id ?? null,
+                created_by:    store.sessionRole.value || null,
+            }));
+        const skipped = targets.length - rows.length;
+        if (rows.length) {
+            const { error } = await db.insertInventoryCountLines(rows);
+            if (error) throw error;
+        }
+        store.runLines.value.forEach(l => { if (l.checked) l.checked = false; });
+        store.showToast(
+            `${rows.length} part(s) sent to Inventory Count` + (skipped ? ` · ${skipped} already on the sheet.` : '.'),
+            rows.length ? 'success' : 'info');
+    } catch (err) {
+        store.showToast('Export to count failed: ' + err.message);
+        logError('exportSelectedToCount', err, { runId: store.selectedRun.value?.id });
+    } finally {
+        store.runExportingCount.value = false;
+    }
+}
+
 // skipLine — mark one proposed line skipped (not needed).
 export async function skipLine(line) {
     await saveLineEdit(line, { line_status: 'skipped' });

@@ -138,6 +138,7 @@ export const releaseDueGroups = computed(() => {
 });
 export const releasingLineId    = ref(null);
 export const runApproving       = ref(false);
+export const runExportingCount  = ref(false);   // Export to Count in flight
 
 // ── Part Data modal (read-only, opened from the Review grid) ──
 export const partDataOpen    = ref(false);

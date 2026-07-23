@@ -31,7 +31,7 @@ import {
     loadPlanningRuns, selectRun, saveLineEdit, approveSelected, skipLine,
     loadReleaseDue, releaseLine, releaseAllDue, releaseAllDueGroup, closeRun, cancelRun,
     saveLineQty, applyQtyCascade, closeQtyCascade, setLineMakeBuy, lineMakeBuyTooltip,
-    toggleSelectAllRunLines,
+    toggleSelectAllRunLines, exportSelectedToCount,
 } from './pages/planning-review.js';
 import { openPartData, closePartData } from './pages/planning-part-data.js';
 import {
@@ -130,6 +130,8 @@ export function buildPlanningExpose() {
         releaseDueGroups:    store.releaseDueGroups,
         releasingLineId:     store.releasingLineId,
         runApproving:        store.runApproving,
+        runExportingCount:   store.runExportingCount,
+        exportSelectedToCount,
         loadPlanningRuns, selectRun, saveLineEdit, approveSelected, skipLine,
         loadReleaseDue, releaseLine, releaseAllDue, releaseAllDueGroup, closeRun, cancelRun,
         saveLineQty, applyQtyCascade, closeQtyCascade, setLineMakeBuy, lineMakeBuyTooltip,

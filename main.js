@@ -23,6 +23,7 @@ import { loadManagerAlerts } from './pages/manager-view.js';
 import { loadManagerPendingWoRequests } from './pages/wo-manager-approval.js';
 import { loadReceivingEligible } from './pages/wo-status-view.js';
 import { loadPoReceiveOrders } from './pages/inventory-view.js';
+import { loadInventoryCountLines } from './pages/inventory-count-view.js';
 import { loadWoRequests, loadWoRequestCarriedNotes } from './pages/wo-request-view.js';
 import { loadForecastedItems } from './pages/wo-forecasting-view.js';
 import { loadCreateWoItems } from './pages/create-wo-view.js';
@@ -52,6 +53,7 @@ import { buildOpsExpose } from './expose-ops.js';
 import { buildEngExpose } from './expose-eng.js';
 import { buildShippingExpose } from './expose-shipping.js';
 import { buildPlanningExpose } from './expose-planning.js';
+import { buildInventoryExpose } from './expose-inventory.js';
 
 // ── Load HTML partials into #app before Vue mounts ───────────
 async function loadPartials() {
@@ -233,6 +235,7 @@ try {
                 if (v === 'manager')         { loadManagerAlerts(); loadManagerPendingWoRequests(); }
                 if (v === 'wo_approval')     loadManagerPendingWoRequests();
                 if (v === 'inventory' && store.inventoryMode.value === 'po_receive') loadPoReceiveOrders();
+                if (v === 'inventory_count') loadInventoryCountLines();
                 if (v === 'wo_request')      loadWoRequests();
                 if (v === 'wo_forecasting')  loadForecastedItems();
                 if (v === 'create_wo')       loadCreateWoItems();
@@ -269,7 +272,7 @@ try {
                 if (v) setTimeout(() => location.reload(), 10_000);
             });
 
-            return { ...buildCoreExpose(), ...buildOpsExpose(), ...buildEngExpose(), ...buildShippingExpose(), ...buildPlanningExpose() };
+            return { ...buildCoreExpose(), ...buildOpsExpose(), ...buildEngExpose(), ...buildShippingExpose(), ...buildPlanningExpose(), ...buildInventoryExpose() };
         }
     });
 

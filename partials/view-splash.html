@@ -208,7 +208,7 @@
                 <!-- ── Level 1: Inventory sub-menu ─────────────── -->
                 <div v-else-if="splashLevel === 1 && splashCategory === 'inventory'"
                     class="w-full max-w-7xl px-4 flex flex-col items-center gap-8">
-                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+                    <div class="grid grid-cols-2 lg:grid-cols-5 gap-6 w-full">
                         <!-- WO Receive & Close Out -->
                         <button @click="selectDept('WO Status')"
                             class="bg-white hover:bg-green-50 text-gray-800 rounded-2xl shadow-md p-8 flex flex-col items-center gap-3 border-2 border-green-400 active:scale-95 transition-transform">
@@ -228,6 +228,12 @@
                             class="bg-white hover:bg-green-50 text-gray-800 rounded-2xl shadow-md p-8 flex flex-col items-center gap-3 border-2 border-green-300 active:scale-95 transition-transform">
                             <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
                             <span class="text-2xl font-bold uppercase">Inventory Adjustment</span>
+                        </button>
+                        <!-- Inventory Count (sheet exported from Production Planning) -->
+                        <button @click="enterInventoryCountView()"
+                            class="bg-white hover:bg-emerald-50 text-gray-800 rounded-2xl shadow-md p-8 flex flex-col items-center gap-3 border-2 border-emerald-400 active:scale-95 transition-transform">
+                            <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                            <span class="text-2xl font-bold uppercase">Inventory Count</span>
                         </button>
                         <!-- Subassy Setup (temporary) -->
                         <button @click="enterSubassySetup()"

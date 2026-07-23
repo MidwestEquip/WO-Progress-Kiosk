@@ -226,7 +226,7 @@ export const PARTIAL_NAMES = [
     'view-manager-home', 'view-manager-kpi', 'view-manager-priorities',
     'view-manager-ai', 'view-manager-problems', 'view-manager-problems-resolved', 'view-manager-delayed',
     'view-manager-wo-approval',
-    'view-cs', 'view-inventory', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-open-orders-topbar', 'view-open-orders-actionbar', 'view-completed-orders',
+    'view-cs', 'view-inventory', 'view-inventory-count', 'view-wo-request', 'view-wo-forecasting', 'view-create-wo', 'view-open-orders', 'view-open-orders-topbar', 'view-open-orders-actionbar', 'view-completed-orders',
     'view-engineering-inquiries', 'view-engineering-followup', 'view-engineering-completed',
     'view-engineering-prints', 'view-part-changes', 'view-part-changes-bom',
     'view-purchasing',
@@ -265,7 +265,7 @@ export const PARTIAL_NAMES = [
     'modal-new-part',
     'modal-base-unit-edit',
     'modal-planning-part-data',
-    'modal-planning-qty-cascade'
+    'modal-planning-qty-cascade', 'modal-inventory-count-adjust'
 ];
 
 export const OPEN_ORDER_SORT_FIELDS = [
