@@ -98,6 +98,12 @@ export const DEPT_NAMES = ["Fab", "Weld", "Trac Vac Assy", "Tru Cut Assy", "WO S
 // which moves them into their brand section. Kept distinct from 'New/Picking'
 // (a picker has started) so the inbox is a true untriaged-only list.
 export const OPEN_ORDER_STATUS_NEW = 'New';
+// Where the paste auto-attach and the manager create-WO sync land a row once a
+// WO covers it. In OPEN_ORDER_WO_SYNC_SKIP_STATUSES (already tied — a later WO
+// request must not walk it backwards) and deliberately NOT in
+// OPEN_ORDER_DEMAND_STATUSES (already covered — counting it would re-order).
+// _syncOpenOrdersForWoReceive flips rows in this status to 'WO/PO Complete'.
+export const OPEN_ORDER_STATUS_WO_CREATED = 'WO Created';
 // 'Label Printed' rests in the Boxed/Ship tab (a box waiting on its label).
 // 'Labelled' is a transient trigger: selecting it ships the row to
 // open_orders_completed with status 'Shipped' (see open-orders-view.js).
@@ -239,8 +245,10 @@ export const PARTIAL_NAMES = [
     'view-planning-base-units',
     'view-planning-plan',
     'view-planning-review',
+    'view-planning-schedule',
     'view-planning-queues',
     'view-planning-workload',
+    'view-planning-production-load',
     'view-po-request',
     'view-messages',
     'view-subassy-setup',
@@ -265,7 +273,7 @@ export const PARTIAL_NAMES = [
     'modal-new-part',
     'modal-base-unit-edit',
     'modal-planning-part-data',
-    'modal-planning-qty-cascade', 'modal-inventory-count-adjust'
+    'modal-planning-qty-cascade', 'modal-planning-split', 'modal-inventory-count-adjust'
 ];
 
 export const OPEN_ORDER_SORT_FIELDS = [
