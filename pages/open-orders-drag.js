@@ -55,10 +55,14 @@ export function onScrollAreaDragOver(event) {
 
 // onRowMouseDown — starts paint-select from this row.
 // Skips if the click landed on an interactive control, an already-selected row,
-// or a "WO Created" row (those open the WO detail panel via @click instead).
-export function onRowMouseDown(event, orderId, status) {
+// or a "WO Created" row OUTSIDE the New Orders inbox (those open the WO detail
+// panel via @click instead). The inbox carve-out matters because the paste
+// auto-attach now stamps 'WO Created' on rows still awaiting triage; blocking
+// them killed every selection-driven action (backorder, bulk status, drag to
+// another section) with no other way to reach it.
+export function onRowMouseDown(event, orderId, status, sectionType) {
     if (event.target.closest('button, select, input, a')) return;
-    if (status === 'WO Created') return;
+    if (status === 'WO Created' && sectionType !== 'new') return;
     if (store.openOrderSelectedIds.value.includes(orderId)) return;
     event.preventDefault(); // block browser text-selection drag
     _isPainting = true;

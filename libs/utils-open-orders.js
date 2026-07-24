@@ -376,14 +376,19 @@ export function getStaleInfo(order) {
 // Started test: a WO counts as started once it leaves 'not_started' OR any
 // qty has been completed.
 //
+// attachStatus — status for rows that DO get a WO# attached (caller supplies the
+// vocabulary; this file stays zero-import). Defaults to 'New' for safety.
+// The no-attach scenarios stay 'New' on purpose: nothing covers the line, so it
+// must stay eligible for a later WO-request/create sync and keep counting as demand.
+//
 // Output: { scenario, status, wo_po_number, shortfall, reason }
 //   no_wo         (c) → no active WO, or nothing to cover → New, no WO#.
-//   covered       (d) → toShip ≤ headroom → attach WO#, stays New (WO# shown).
-//   short_new     (e) → short AND WO not started → attach WO#, stays New,
+//   covered       (d) → toShip ≤ headroom → attach WO# + attachStatus.
+//   short_new     (e) → short AND WO not started → attach WO# + attachStatus,
 //                       shortfall = how many more to make (caller notifies prod).
-//   short_started (f) → short AND WO already started → no attach, New
-//                       (a fresh WO is needed).
-export function decideOpenOrderWoAttach(toShip, activeWos, committedByWo = {}) {
+//   short_started (f) → short AND WO already started → no attach, New.
+export function decideOpenOrderWoAttach(toShip, activeWos, committedByWo = {},
+                                        attachStatus = 'New') {
     const q = Number(toShip) || 0;
     const wos = Array.isArray(activeWos) ? activeWos : [];
     if (!wos.length || q <= 0) {
@@ -404,8 +409,8 @@ export function decideOpenOrderWoAttach(toShip, activeWos, committedByWo = {}) {
                          .sort((a, b) => b.headroom - a.headroom);
     if (covering.length) {
         const woNum = covering[0].wo.wo_number;
-        return { scenario: 'covered', status: 'New', wo_po_number: woNum, shortfall: 0,
-                 reason: `Covered by WO #${woNum} — WO# attached, stays in New Orders` };
+        return { scenario: 'covered', status: attachStatus, wo_po_number: woNum, shortfall: 0,
+                 reason: `Covered by WO #${woNum} — WO# attached, set to ${attachStatus}` };
     }
 
     // None covers. Prefer a not-started WO so production can just make more;
@@ -416,8 +421,8 @@ export function decideOpenOrderWoAttach(toShip, activeWos, committedByWo = {}) {
         const c = notStarted[0];
         const shortfall = q - Math.max(0, c.headroom);
         const woNum = c.wo.wo_number;
-        return { scenario: 'short_new', status: 'New', wo_po_number: woNum, shortfall,
-                 reason: `WO #${woNum} short by ${shortfall} — WO# attached (stays in New), production notified` };
+        return { scenario: 'short_new', status: attachStatus, wo_po_number: woNum, shortfall,
+                 reason: `WO #${woNum} short by ${shortfall} — WO# attached (${attachStatus}), production notified` };
     }
 
     const started = cand.sort((a, b) => b.headroom - a.headroom)[0];

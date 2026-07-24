@@ -19,8 +19,9 @@ import { loadOpenOrders, setSectionSort, openOrderSortIcon,
          requestToShipEdit, confirmToShipEdit, cancelToShipEdit,
          toggleOpenOrderExpand,
          canRequestFromOpenOrder, requestWoFromOpenOrder, requestPoFromOpenOrder,
-         moveSalesOrderToFreight,
-         openWoDetailPanel, closeWoDetailPanel, goToActiveWo } from './pages/open-orders-view.js';
+         moveSalesOrderToFreight } from './pages/open-orders-view.js';
+import { openWoDetailPanel, closeWoDetailPanel, openWoWorkPanel,
+         onWoCellClick, cancelWoCellClick } from './pages/open-orders-wo-panel.js';
 import { openOrderColorDotClass, openOrderStatusClass, chuteStatusClass,
          woDeptBadgeClass, woStatusBadgeClass } from './libs/utils.js';
 import { cancelAddModal, parsePasteRows, saveOpenOrderRow,
@@ -133,7 +134,9 @@ export function buildShippingExpose() {
         openOrderWoPanel:        store.openOrderWoPanel,
         openOrderWoPanelOrders:  store.openOrderWoPanelOrders,
         openOrderWoPanelLoading: store.openOrderWoPanelLoading,
-        openWoDetailPanel, closeWoDetailPanel, goToActiveWo,
+        openOrderWoOverlay:      store.openOrderWoOverlay,
+        openWoDetailPanel, closeWoDetailPanel, openWoWorkPanel,
+        onWoCellClick, cancelWoCellClick,
         woDeptBadgeClass, woStatusBadgeClass,
 
         // Task reminder email settings

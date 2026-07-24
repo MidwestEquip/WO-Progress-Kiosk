@@ -273,6 +273,14 @@ try {
             watch(store.purchasingDetailOpen, (open) => {
                 if (open) loadPurchasingCarriedNote(store.purchasingDetailOrder.value);
             });
+            // A WO work screen launched from Open Orders renders as an 85% overlay.
+            // Clear that flag once every work screen is closed again, so the next
+            // one opened from a dashboard is full screen. Watching the flags (rather
+            // than editing each screen's close button) keeps a stale true impossible.
+            watch([store.actionPanelOpen, store.tcAssyUnitOpen, store.tcAssyStockOpen,
+                   store.tvAssyUnitOpen, store.tvAssyStockOpen], (flags) => {
+                if (!flags.some(Boolean)) store.openOrderWoOverlay.value = false;
+            });
             watch(store.versionUpdateAvailable, (v) => {
                 if (v) setTimeout(() => location.reload(), 10_000);
             });

@@ -34,12 +34,12 @@
                             <!-- Section header + sort bar -->
                             <div :class="[section.hdr, openOrderDragOverSection === section.type ? 'ring-4 ring-inset ring-white/60' : '']"
                                  class="px-3 py-2 flex items-center gap-3 flex-wrap transition-all rounded-t-xl">
-                                <h3 class="text-white font-extrabold text-lg tracking-widest drop-shadow">{{ section.label }}</h3>
-                                <span class="bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                <h3 class="font-extrabold text-lg tracking-widest">{{ section.label }}</h3>
+                                <span :class="section.chip" class="text-xs font-bold px-2 py-0.5 rounded-full">
                                     {{ section.orders.length }}
                                 </span>
                                 <span v-if="openOrderDragOverSection === section.type"
-                                      class="text-white/80 text-xs font-semibold animate-pulse">
+                                      class="opacity-80 text-xs font-semibold animate-pulse">
                                     ↓ Drop here
                                 </span>
                                 <div class="flex-1"></div>
@@ -105,7 +105,7 @@
                                         <div :class="[openOrderRowClass(effectiveRowColor(order), openOrderSelectedIds.includes(order.id)), openOrderGroupClass(order, section.orders[idx-1], section.orders[idx+1])]"
                                              :draggable="openOrderSelectedIds.includes(order.id)"
                                              class="flex flex-col border-b border-slate-100 last:border-0 select-none"
-                                             @mousedown="onRowMouseDown($event, order.id, order.status)"
+                                             @mousedown="onRowMouseDown($event, order.id, order.status, section.type)"
                                              @mouseenter="onRowMouseEnter(order.id)"
                                              @dragstart="onRowDragStart($event, order.id)"
                                              @dragend="onRowDragEnd()">
@@ -115,7 +115,7 @@
                                                  :class="section.type === 'new' ? 'min-w-[1456px]' : 'min-w-[1800px]'"
                                                  :style="'grid-template-columns:' + (section.type === 'new' ? ooGridColsNew : ooGridColsFull)">
 
-                                                <!-- Col 1: Row actions — print ticket (New) / ship (Boxed) / move-to-Freight (brand) -->
+                                                <!-- Col 1: Row actions — print ticket (New) / ship (Boxed) / move-to-Freight (everything but Boxed) -->
                                                 <div class="flex flex-col items-stretch gap-1 pt-0.5" @click.stop @mousedown.stop>
                                                     <button v-if="section.type === 'new'" @click.stop="printPickingTicket(order)" @mousedown.stop
                                                             class="text-[9px] leading-tight font-bold text-white bg-slate-700 hover:bg-slate-600 rounded px-0.5 py-1 transition-colors"
@@ -123,7 +123,7 @@
                                                     <button v-else-if="section.type === 'boxed'" @click.stop="markShipped(order)" @mousedown.stop
                                                             class="text-[9px] leading-tight font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded px-0.5 py-1 transition-colors"
                                                             title="Ship this row (moves to Completed Orders)">Ship</button>
-                                                    <button v-else @click.stop="moveSalesOrderToFreight(order)" @mousedown.stop
+                                                    <button v-if="section.type !== 'boxed'" @click.stop="moveSalesOrderToFreight(order)" @mousedown.stop
                                                             class="text-[9px] leading-tight font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded px-0.5 py-1 transition-colors"
                                                             title="Move all rows with this SO# to Freight Orders">FRT</button>
                                                 </div>
@@ -541,7 +541,7 @@
                                                             <span class="text-[14px] font-semibold text-slate-900 whitespace-nowrap">{{ w.part_number || '—' }}</span>
                                                             <template v-if="subpartWoNumber(w)">
                                                                 <span :class="subpartStatusClass(w)" class="inline-block px-1.5 py-0.5 rounded text-[12px] font-semibold whitespace-nowrap">{{ subpartStatusLabel(w) }}</span>
-                                                                <span @click.stop="goToActiveWo({ wo_po_number: subpartWoNumber(w) })" @mousedown.stop title="Go to this WO"
+                                                                <span @click.stop="onWoCellClick({ wo_po_number: subpartWoNumber(w) })" @mousedown.stop title="Go to this WO"
                                                                       class="text-[13px] font-bold text-indigo-600 hover:underline cursor-pointer whitespace-nowrap">{{ subpartWoIsPending(w) ? 'Job' : 'WO' }} #{{ subpartWoNumber(w) }}</span>
                                                             </template>
                                                             <span v-else-if="w.requested" class="text-[13px] font-bold text-slate-900 whitespace-nowrap">WO Requested</span>
@@ -592,7 +592,7 @@
                                                         <div v-for="(w, wi) in order.waiting_on" :key="wi" class="flex items-center flex-wrap gap-1 mb-0.5">
                                                             <span class="font-semibold text-slate-900 truncate">{{ w.part_number || '—' }}</span>
                                                             <template v-if="subpartWoNumber(w)">
-                                                                <span @click.stop="goToActiveWo({ wo_po_number: subpartWoNumber(w) })" @mousedown.stop
+                                                                <span @click.stop="onWoCellClick({ wo_po_number: subpartWoNumber(w) })" @mousedown.stop
                                                                       title="Go to this WO"
                                                                       class="text-indigo-600 hover:underline cursor-pointer whitespace-nowrap">{{ subpartWoIsPending(w) ? 'Job' : 'WO' }} #{{ subpartWoNumber(w) }}</span>
                                                                 <span :class="subpartStatusClass(w)"
@@ -609,7 +609,7 @@
                                                             class="mt-0.5 text-[9px] font-semibold text-slate-400 hover:text-amber-700 italic">+ waiting on</button>
                                                 </div>
 
-                                                <!-- Col 13: WO / PO # — click a value for Edit / Go to WO menu (shown in New Orders too: displays the auto-attached WO#) -->
+                                                <!-- Col 13: WO / PO # — single click drills into the WO, double click edits it (shown in New Orders too: displays the auto-attached WO#) -->
                                                 <div class="min-w-0 text-xs relative" @mousedown.stop>
                                                     <input v-if="openOrderEditingCell.id===order.id && openOrderEditingCell.field==='wo_po_number'"
                                                            v-model="openOrderEditingValue"
@@ -619,9 +619,11 @@
                                                            @keydown.escape.prevent="cancelCellEdit()"
                                                            @click.stop @mousedown.stop
                                                            class="w-full border border-indigo-400 rounded px-1 text-xs focus:outline-none" />
-                                                    <!-- Has a WO/PO #: click opens the action menu -->
+                                                    <!-- Has a WO/PO #: single click = go to the WO, double click = edit it -->
                                                     <span v-else-if="order.wo_po_number"
-                                                          @click.stop="openOrderWoMenuRow = (openOrderWoMenuRow === order.id ? null : order.id)"
+                                                          @click.stop="onWoCellClick(order)"
+                                                          @dblclick.stop="cancelWoCellClick(); startCellEdit(order.id,'wo_po_number',order.wo_po_number)"
+                                                          title="Click to open this WO · double-click to edit the number"
                                                           class="truncate block cursor-pointer text-slate-900 font-medium hover:bg-black/[0.04] rounded px-0.5 -mx-0.5">
                                                         {{ order.wo_po_number }}
                                                     </span>
@@ -629,15 +631,6 @@
                                                     <span v-else
                                                           @click.stop="startCellEdit(order.id,'wo_po_number',order.wo_po_number)"
                                                           class="truncate block cursor-text text-slate-300 italic hover:bg-black/[0.04] rounded px-0.5 -mx-0.5">—</span>
-                                                    <!-- Action menu -->
-                                                    <div v-if="openOrderWoMenuRow === order.id"
-                                                         class="absolute left-0 top-5 z-30 bg-white rounded-lg shadow-2xl border border-slate-200 py-1 flex flex-col min-w-[120px]"
-                                                         @click.stop @mousedown.stop>
-                                                        <button @click="openOrderWoMenuRow=null; startCellEdit(order.id,'wo_po_number',order.wo_po_number)"
-                                                                class="text-left px-3 py-1.5 text-xs text-slate-900 hover:bg-slate-100">Edit WO #</button>
-                                                        <button @click="goToActiveWo(order)"
-                                                                class="text-left px-3 py-1.5 text-xs text-indigo-700 font-medium hover:bg-indigo-50">Go to WO</button>
-                                                    </div>
                                                 </div>
 
                                                 <!-- Col 14: Est. Leadtime (hidden for New Orders) -->

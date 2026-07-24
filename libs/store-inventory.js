@@ -313,6 +313,11 @@ export const openOrderExpandedCols    = ref({});
 export const openOrderWoPanel        = ref(null);
 export const openOrderWoPanelOrders  = ref([]);
 export const openOrderWoPanelLoading = ref(false);
+// True while a WO work screen (action panel / TC / TV) was launched FROM the Open
+// Orders board — the screen then renders as an 85% overlay instead of full screen,
+// so the board stays visible behind it. Cleared by the watch in main.js when every
+// work-screen flag is closed again.
+export const openOrderWoOverlay      = ref(false);
 
 export const openOrdersSort = ref({
     new:       { field: 'sales_order', dir: 'asc' },
@@ -438,25 +443,34 @@ export const boxedUpsOrders = computed(() =>
 // 4 brand boards. All
 // render through the one grid (view-open-orders.html) — so New/Boxed inherit
 // SO# grouping and the full row layout for free.
+// hdr carries the banner background AND its text colour, so the <h3> can simply
+// inherit; chip is the matching count-pill. Light-backed sections need dark text
+// and a dark pill or the label/count disappear (the markup used to hardcode
+// text-white + bg-white/20, which only worked on the dark banners).
+const _HDR_DARK  = 'text-white';
+const _CHIP_DARK = 'bg-white/20 text-white';
+// Light banner: a border keeps the section readable as a block against the board.
+const _HDR_LIGHT  = 'bg-white text-slate-900 border-b border-slate-300';
+const _CHIP_LIGHT = 'bg-slate-900/10 text-slate-900';
 export const openOrderSections = computed(() => {
     if (shippingTab.value === 'boxed') {
         // Both keep type 'boxed' so grid layout, sort, and drag rules are shared.
         return [
-            { type: 'boxed', label: 'UPS, READY TO SHIP',     orders: boxedUpsOrders.value,     hdr: 'bg-emerald-700' },
-            { type: 'boxed', label: 'FREIGHT, READY TO SHIP', orders: boxedFreightOrders.value, hdr: 'bg-amber-700'   },
+            { type: 'boxed', label: 'UPS, READY TO SHIP',     orders: boxedUpsOrders.value,     hdr: 'bg-emerald-700 ' + _HDR_DARK, chip: _CHIP_DARK },
+            { type: 'boxed', label: 'FREIGHT, READY TO SHIP', orders: boxedFreightOrders.value, hdr: 'bg-amber-700 '   + _HDR_DARK, chip: _CHIP_DARK },
         ];
     }
     return [
-        { type: 'new',       label: 'NEW ORDERS',       orders: newOrders.value,       hdr: 'bg-sky-700'    },
+        { type: 'new',       label: 'NEW ORDERS',       orders: newOrders.value,       hdr: _HDR_LIGHT, chip: _CHIP_LIGHT },
         // Same type ('new') so the inbox layout/sort/drag rules apply unchanged;
         // section only appears while old-dated inbox rows remain.
         ...(oldNewOrders.value.length
-            ? [{ type: 'new', label: 'OLD, NEW ORDERS', orders: oldNewOrders.value, hdr: 'bg-sky-900' }]
+            ? [{ type: 'new', label: 'Old Orders, Need Action', orders: oldNewOrders.value, hdr: _HDR_LIGHT, chip: _CHIP_LIGHT }]
             : []),
-        { type: 'emergency', label: 'EMERGENCY ORDERS', orders: emergencyOrders.value, hdr: 'bg-green-700'  },
-        { type: 'freight',   label: 'FREIGHT ORDERS',   orders: freightOrders.value,   hdr: 'bg-amber-700'  },
-        { type: 'trac_vac',  label: 'TRAC VAC ORDERS',  orders: tracVacOrders.value,   hdr: 'bg-slate-900'  },
-        { type: 'tru_cut',   label: 'TRU CUT ORDERS',   orders: truCutOrders.value,    hdr: 'bg-red-700'    },
+        { type: 'emergency', label: 'EMERGENCY ORDERS', orders: emergencyOrders.value, hdr: 'bg-green-700 ' + _HDR_DARK, chip: _CHIP_DARK },
+        { type: 'freight',   label: 'FREIGHT ORDERS',   orders: freightOrders.value,   hdr: 'bg-amber-700 ' + _HDR_DARK, chip: _CHIP_DARK },
+        { type: 'trac_vac',  label: 'TRAC VAC ORDERS',  orders: tracVacOrders.value,   hdr: 'bg-slate-900 ' + _HDR_DARK, chip: _CHIP_DARK },
+        { type: 'tru_cut',   label: 'TRU CUT ORDERS',   orders: truCutOrders.value,    hdr: 'bg-red-700 '   + _HDR_DARK, chip: _CHIP_DARK },
     ];
 });
 

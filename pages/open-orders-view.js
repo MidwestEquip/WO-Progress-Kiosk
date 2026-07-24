@@ -403,81 +403,9 @@ export function requestPoFromOpenOrder(order) {
     store.currentView.value    = 'po_request';
 }
 
-// openWoDetailPanel — fetch active WOs for a row's WO/PO # and open the detail modal.
-// Silently returns if wo_po_number is missing (nothing to look up).
-export async function openWoDetailPanel(order) {
-    if (!order.wo_po_number) return;
-    store.openOrderWoPanel.value = order;
-    store.openOrderWoPanelOrders.value = [];
-    store.openOrderWoPanelLoading.value = true;
-    try {
-        const { data, error } = await db.fetchWorkOrdersByWoNumber(order.wo_po_number);
-        if (error) throw error;
-        let wos = data || [];
-        // Pending WO (approved, awaiting official Alere WO#): the shown number is the
-        // internal job_number, so fall back to a job_number lookup (active rows only).
-        if (!wos.length) {
-            const jr = await db.fetchAllWorkOrdersByJobNumber(order.wo_po_number);
-            if (jr.error) throw jr.error;
-            wos = (jr.data || []).filter(w => w.status !== 'completed');
-        }
-        store.openOrderWoPanelOrders.value = wos;
-    } catch (err) {
-        store.showToast('Failed to load WO details: ' + err.message);
-        logError('openWoDetailPanel', err);
-    } finally {
-        store.openOrderWoPanelLoading.value = false;
-    }
-}
-
-// closeWoDetailPanel — dismiss the WO detail modal and clear its data.
-export function closeWoDetailPanel() {
-    store.openOrderWoPanel.value = null;
-    store.openOrderWoPanelOrders.value = [];
-}
-
-// goToActiveWo — jump from an open-order row to the live, editable WO on its
-// department dashboard. Looks up the active WO by wo_po_number to learn its
-// department, then loads that dept's Active WOs (full field set) filtered to the
-// WO# so the operator can open it and edit. order: the clicked open_orders row.
-export async function goToActiveWo(order) {
-    store.openOrderWoMenuRow.value = null;
-    const woNum = (order.wo_po_number || '').trim();
-    if (!woNum) return;
-    try {
-        const { data, error } = await db.fetchWorkOrdersByWoNumber(woNum);
-        if (error) throw error;
-        let wos = data || [];
-        // Pending WO (created, awaiting official Alere WO#): the shown number is the
-        // internal job_number, so fall back to a job_number lookup (active rows only).
-        if (!wos.length) {
-            const jr = await db.fetchAllWorkOrdersByJobNumber(woNum);
-            if (jr.error) throw jr.error;
-            wos = (jr.data || []).filter(w => w.status !== 'completed');
-        }
-        if (!wos.length) { store.showToast(`No active WO found for #${woNum} — it may be completed or not started.`); return; }
-        const dept = wos[0].department;
-        if (!dept) { store.showToast('That WO has no department set.'); return; }
-
-        // Navigate to the department dashboard, filtered to this WO#.
-        store.selectedDept.value = dept;
-        store.dashSearch.value   = woNum;
-        store.currentView.value  = 'dashboard';
-        store.loading.value      = true;
-        const [ordRes, partsSet] = await Promise.all([
-            db.fetchDeptOrders(dept),
-            db.fetchPartsWithFiles()
-        ]);
-        if (ordRes.error) throw ordRes.error;
-        store.orders.value         = ordRes.data || [];
-        store.partsWithFiles.value = partsSet;
-    } catch (err) {
-        store.showToast('Failed to open WO: ' + err.message);
-        logError('goToActiveWo', err);
-    } finally {
-        store.loading.value = false;
-    }
-}
+// The WO drill-down (cell click handlers, detail picker, in-place work-screen
+// launcher) lives in pages/open-orders-wo-panel.js — moved there for the 500-line
+// cap. expose-shipping.js imports those bindings from that file now.
 
 // loadReminderEmail — read saved reminder email from app_settings into store on view enter.
 export async function loadReminderEmail() {

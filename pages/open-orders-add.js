@@ -13,7 +13,8 @@ import { detectOpenOrderSection, isChutePart,
          normalizePasteDate, matchOpenOrderStatus,
          parseClipboardTable, detectPasteColumns,
          decideOpenOrderWoAttach, buildOpenOrderSoldTxns } from '../libs/utils.js';
-import { OPEN_ORDER_STATUSES, OPEN_ORDER_STATUS_NEW, PART_NOTE_KIND,
+import { OPEN_ORDER_STATUSES, OPEN_ORDER_STATUS_NEW, OPEN_ORDER_STATUS_WO_CREATED,
+         PART_NOTE_KIND,
          OPEN_ORDER_PASTE_FIELD_ORDER, OPEN_ORDER_PASTE_HEADER_SYNONYMS } from '../libs/config.js';
 import { logError } from '../libs/db-shared.js';
 
@@ -232,7 +233,8 @@ export async function enrichPasteRowsWithWoAttach() {
         // honored (skips auto-attach).
         if (r._dupe || (r.status && r.status !== OPEN_ORDER_STATUS_NEW)) return next;
         const wos = byPart.get((r.part_number || '').trim().toUpperCase()) || [];
-        const decision = decideOpenOrderWoAttach(r.to_ship, wos, committedByWo);
+        const decision = decideOpenOrderWoAttach(r.to_ship, wos, committedByWo,
+                                                 OPEN_ORDER_STATUS_WO_CREATED);
         next._scenario  = decision.scenario;
         next._shortfall = decision.shortfall;
         next._wo_reason = decision.reason;
