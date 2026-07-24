@@ -13,6 +13,8 @@ export * from './utils-open-orders.js';
 export * from './utils-ledger.js';
 export * from './utils-planning.js';
 export * from './utils-planning-year.js';
+export * from './utils-planning-schedule.js';
+export * from './utils-planning-gantt.js';
 
 // subassyDepthBorder â€” Subassy Setup tree level aid. Returns a Tailwind
 // left-border color class, cycling by depth so each level reads as a distinct

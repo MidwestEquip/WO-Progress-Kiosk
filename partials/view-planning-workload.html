@@ -93,5 +93,53 @@
                 <span class="font-bold">{{ routingSuggestion.hours_per_part ?? '—' }} h/pc</span></p>
         </div>
     </div>
+
+    <!-- Estimated shop days per dept: overrides the Schedule timeline defaults -->
+    <div class="bg-white rounded-xl border border-gray-200 p-4 mt-4">
+        <div class="text-xs font-bold text-gray-500 uppercase mb-1">Estimated days by dept (Schedule timeline)</div>
+        <p class="text-[11px] text-gray-400 mb-3">
+            Used for parts with no measured routing, and always for Paint. Defaults:
+            <span class="font-mono">Fab {{ deptDefaultDays.Fab }} · Weld {{ deptDefaultDays.Weld }} ·
+            Paint {{ deptDefaultDays.Paint }} · Assy {{ deptDefaultDays.Assy }}</span>.
+            Set 0 to skip a dept for that part.</p>
+
+        <div class="flex flex-wrap gap-2 items-center mb-3">
+            <input v-model="deptEstForm.part_number" placeholder="Part #"
+                class="border border-gray-300 rounded px-2 py-1.5 text-sm font-mono uppercase w-32" />
+            <select v-model="deptEstForm.dept" class="border border-gray-300 rounded px-2 py-1.5 text-sm">
+                <option value="">Dept…</option>
+                <option>Fab</option><option>Weld</option><option>Paint</option><option>Assy</option>
+            </select>
+            <input v-model.number="deptEstForm.est_days" type="number" min="0" step="1"
+                :placeholder="deptEstForm.dept ? 'default ' + deptDefaultDays[deptEstForm.dept] : 'Days'"
+                class="border border-gray-300 rounded px-2 py-1.5 text-sm w-28 font-mono" />
+            <button @click="saveDeptEstimate" :disabled="deptEstSaving"
+                class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg disabled:opacity-50">
+                {{ deptEstSaving ? 'Saving…' : 'Save' }}</button>
+        </div>
+
+        <div v-if="!deptEstimateRows.length" class="text-xs text-gray-400">
+            No overrides yet — every part uses the defaults above.</div>
+        <table v-else class="w-full text-xs">
+            <thead class="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                <tr><th class="px-3 py-2 text-left">Part #</th><th class="px-3 py-2 text-left">Dept</th>
+                    <th class="px-3 py-2 text-right">Days</th><th class="px-3 py-2 text-right">Default</th>
+                    <th class="px-3 py-2"></th></tr>
+            </thead>
+            <tbody>
+                <tr v-for="r in deptEstimateRows" :key="r.id" class="border-t border-gray-100">
+                    <td class="px-3 py-1.5 font-mono font-semibold">{{ r.part_number }}</td>
+                    <td class="px-3 py-1.5 text-gray-500">{{ r.dept }}</td>
+                    <td class="px-3 py-1.5 text-right font-mono font-bold"
+                        :class="Number(r.est_days) === 0 ? 'text-gray-400' : 'text-indigo-600'">
+                        {{ r.est_days }}<span v-if="Number(r.est_days) === 0" class="text-[10px] font-normal"> (skip)</span></td>
+                    <td class="px-3 py-1.5 text-right font-mono text-gray-400">{{ deptDefaultDays[r.dept] ?? '—' }}</td>
+                    <td class="px-3 py-1.5 text-right">
+                        <button @click="removeDeptEstimate(r.id)"
+                            class="text-[10px] text-red-400 hover:text-red-600 underline">Remove</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 </Teleport>

@@ -1,0 +1,66 @@
+<!-- ============================================================
+     modal-planning-split.html — split an approved planning line into
+     timed batches. Standalone overlay; state in store-planning.js,
+     logic in pages/planning-split.js.
+     ============================================================ -->
+<div v-if="planSplitOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+        <div class="flex items-center justify-between mb-1">
+            <h3 class="text-lg font-bold text-gray-800">Split into timed batches</h3>
+            <button @click="closePlanSplit" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+        <div class="text-sm text-gray-500 font-mono mb-4">{{ planSplitLine?.part_number }}</div>
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <label class="text-[11px] font-bold text-gray-500 uppercase">Total qty
+                <input type="number" min="1" v-model.number="planSplitForm.total"
+                    class="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm font-mono" /></label>
+            <label class="text-[11px] font-bold text-gray-500 uppercase"># Batches
+                <input type="number" min="2" v-model.number="planSplitForm.count"
+                    class="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm font-mono" /></label>
+            <label class="text-[11px] font-bold text-gray-500 uppercase">Every
+                <input type="number" min="1" v-model.number="planSplitForm.intervalValue"
+                    class="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm font-mono" /></label>
+            <label class="text-[11px] font-bold text-gray-500 uppercase">Interval
+                <select v-model="planSplitForm.intervalUnit"
+                    class="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <option value="days">Days</option>
+                    <option value="weeks">Weeks</option>
+                    <option value="months">Months</option>
+                </select></label>
+            <label class="text-[11px] font-bold text-gray-500 uppercase col-span-2">First release
+                <input type="date" v-model="planSplitForm.startDate"
+                    class="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm" /></label>
+        </div>
+
+        <div class="border border-gray-200 rounded-lg overflow-hidden mb-4">
+            <table class="w-full text-xs">
+                <thead class="bg-gray-50 text-gray-500 uppercase text-[10px]">
+                    <tr>
+                        <th class="px-3 py-1.5 text-left">Batch</th>
+                        <th class="px-3 py-1.5 text-right">Qty</th>
+                        <th class="px-3 py-1.5 text-left">Release</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="b in planSplitPreview" :key="b.seq" class="border-t border-gray-100">
+                        <td class="px-3 py-1.5">{{ b.seq }} / {{ planSplitPreview.length }}</td>
+                        <td class="px-3 py-1.5 text-right font-mono">{{ b.qty }}</td>
+                        <td class="px-3 py-1.5">{{ b.date }}</td>
+                    </tr>
+                    <tr v-if="!planSplitPreview.length">
+                        <td colspan="3" class="px-3 py-3 text-center text-gray-400">Enter a total and batch count.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="flex justify-end gap-2">
+            <button @click="closePlanSplit"
+                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold rounded-lg">Cancel</button>
+            <button @click="submitPlanSplit" :disabled="planSplitSaving || planSplitPreview.length < 2"
+                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-lg disabled:opacity-50">
+                {{ planSplitSaving ? 'Splitting…' : 'Split' }}</button>
+        </div>
+    </div>
+</div>

@@ -147,6 +147,30 @@ export async function fetchManagerPendingWoRequests() {
     );
 }
 
+// fetchLastMadeRoutingForPart — the routing a part was ACTUALLY made with last
+// time: the newest wo_requests row for that part that reached production
+// (job_number is assigned only at manager Final Approve, so it is the crispest
+// "this was really built" signal). Used to prefill a new request rather than
+// making the manager retype known fields.
+// Match is case-insensitive on the normalized part # (.ilike with no wildcards)
+// so legacy untrimmed/lowercase rows still hit.
+// Output: { data: row|null, error } — a miss returns data:null, never an error.
+export async function fetchLastMadeRoutingForPart(partNumber) {
+    const normalized = normalizePartNumber(partNumber);
+    if (!normalized) return { data: null, error: null };
+    const { data, error } = await withRetry(() =>
+        supabase.from('wo_requests')
+            .select('fab, fab_print, weld, weld_print, assy_wo, color, bent_rolled_part, ' +
+                    'set_up_time, estimated_lead_time, staging_area')
+            .ilike('part_number', normalized)
+            .not('job_number', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+    );
+    if (error) return { data: null, error };
+    return { data: (data && data[0]) || null, error: null };
+}
+
 // promoteDueForecasts — auto-promote forecasted requests whose start date has arrived.
 // Flips forecasted=false for any row where forecasted=true AND forecast_date <= today,
 // so the item drops out of WO Forecasting and reappears in the main WO Request list.

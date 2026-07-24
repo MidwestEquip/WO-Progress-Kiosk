@@ -6,7 +6,8 @@
 // ============================================================
 
 import { ref, computed } from 'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.esm-browser.prod.js';
-import { applyPctAdjust } from './utils.js';
+import { applyPctAdjust, computeSplitBatches, weekStartMonday, buildGanttBars,
+    buildGanttLayout, GANTT_ZOOMS, GANTT_DEPT_DEFAULT_DAYS } from './utils.js';
 import { PLAN_BASIS_YEAR_SUPPLY } from './config-planning.js';
 
 // ── View / tabs ───────────────────────────────────────────────
@@ -135,6 +136,115 @@ export const releaseDueGroups = computed(() => {
     if (mk.length) out.push({ key: 'make', label: 'Make → WO Requests', lines: mk });
     if (by.length) out.push({ key: 'buy',  label: 'Buy → PO Requests',  lines: by });
     return out;
+});
+// How many approved lines are due to send today (date today-or-earlier) —
+// drives the "Send / Release All Due" button label + disabled state.
+export const scheduleDueCount = computed(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return releaseDueLines.value.filter(l => l.planned_release_date && l.planned_release_date <= today).length;
+});
+// ── Scheduling view (committed future lines, grouped by week) ──
+export const scheduledLines   = ref([]);
+export const scheduledLoading = ref(false);
+// Scheduled lines whose date has arrived (drives the "Release due now" button).
+export const scheduledDueCount = computed(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return scheduledLines.value.filter(l => l.planned_release_date && l.planned_release_date <= today).length;
+});
+export const scheduledByWeek  = computed(() => {
+    const groups = {};
+    scheduledLines.value.forEach(l => {
+        const wk = weekStartMonday(l.planned_release_date) || 'unscheduled';
+        (groups[wk] = groups[wk] || []).push(l);
+    });
+    return Object.keys(groups).sort().map(wk => ({
+        weekStart: wk,
+        lines: groups[wk].slice().sort((a, b) =>
+            (a.planned_release_date || '').localeCompare(b.planned_release_date || '')),
+    }));
+});
+// ── Schedule tab: plan tiles → shop timeline ──────────────────
+// The tab opens on tiles (one per plan + one combined); picking one loads that
+// plan's timeline. 'list' is the original week-grouped editable list.
+export const schedView            = ref('tiles');   // 'tiles' | 'list' | 'gantt'
+export const ganttRunSummaries    = ref([]);        // [{ ...run, lineCount, partCount, firstDate, lastDate }]
+export const ganttSummariesLoading = ref(false);
+export const ganttRunId           = ref(null);      // planning_runs.id | 'all'
+export const ganttLoading         = ref(false);
+// Raw loader output, fed straight to the pure builder. Kept whole (not spread
+// into four refs) so one assignment recomputes the timeline exactly once.
+export const ganttSource = ref({ lines: [], workCenters: [], routings: {}, deptFlags: {}, deptEstimates: {} });
+
+// Plans worth a tile: only those carrying committed, dated lines — a tile that
+// opens an empty timeline is noise.
+export const ganttTiles = computed(() =>
+    ganttRunSummaries.value.filter(r => r.lineCount > 0));
+
+// The combined tile's numbers. partCount is deliberately a SUM of each plan's
+// distinct parts, not a global distinct — a part in two plans is two jobs to
+// schedule, which is what the timeline draws.
+export const ganttCombinedTile = computed(() => {
+    const t = ganttTiles.value;
+    let lineCount = 0, partCount = 0, first = null, last = null;
+    t.forEach(r => {
+        lineCount += r.lineCount;
+        partCount += r.partCount;
+        if (r.firstDate && (!first || r.firstDate < first)) first = r.firstDate;
+        if (r.lastDate  && (!last  || r.lastDate  > last))  last  = r.lastDate;
+    });
+    return { planCount: t.length, lineCount, partCount, firstDate: first, lastDate: last };
+});
+
+// The timeline itself — rows, bars, span. Pure; recomputed only when a new
+// load lands in ganttSource.
+export const ganttPlan = computed(() => buildGanttBars(ganttSource.value));
+
+// ── Workload tab: per-part, per-dept day overrides ────────────
+// The Gantt's estimated steps use these when set, else GANTT_DEPT_DEFAULT_DAYS.
+export const deptEstimateRows = ref([]);
+export const deptEstForm      = ref({ part_number: '', dept: '', est_days: null });
+export const deptEstSaving    = ref(false);
+// Dept defaults, for the form placeholder and the "vs default" hint.
+export const deptDefaultDays  = GANTT_DEPT_DEFAULT_DAYS;
+
+// Zoom + the pixel geometry the timeline template binds to. All the layout
+// math happens once here, never per-render in the template.
+export const ganttZoom    = ref('week');
+export const ganttZooms   = GANTT_ZOOMS;
+export const ganttLayout  = computed(() =>
+    buildGanttLayout({ plan: ganttPlan.value, zoom: ganttZoom.value }));
+
+// Bar the user clicked — drives the detail strip under the chart.
+export const ganttSelectedBar = ref(null);
+
+// Heading for whichever tile is open.
+export const ganttTitle = computed(() => {
+    if (ganttRunId.value === 'all') return 'All Plans Combined';
+    const r = ganttRunSummaries.value.find(x => x.id === ganttRunId.value);
+    return r ? r.family_name : 'Timeline';
+});
+
+// ── Production Load view (live work_orders by dept × week of due_date) ──
+export const prodLoadRows    = ref([]);
+export const prodLoadLoading = ref(false);
+export const prodLoadByDept  = computed(() => {
+    const depts = {};
+    prodLoadRows.value.forEach(l => {
+        const dept = l.department || '—';
+        const wk   = weekStartMonday(l.due_date) || 'no date';
+        depts[dept] = depts[dept] || {};
+        (depts[dept][wk] = depts[dept][wk] || []).push(l);
+    });
+    return Object.keys(depts).sort().map(dept => ({
+        dept,
+        jobCount: Object.values(depts[dept]).reduce((s, arr) => s + arr.length, 0),
+        weeks: Object.keys(depts[dept]).sort().map(wk => ({
+            weekStart: wk,
+            qty:   depts[dept][wk].reduce((s, l) => s + (Number(l.qty_required) || 0), 0),
+            lines: depts[dept][wk].slice().sort((a, b) =>
+                (a.due_date || '').localeCompare(b.due_date || '')),
+        })),
+    }));
 });
 export const releasingLineId    = ref(null);
 export const runApproving       = ref(false);
@@ -311,3 +421,17 @@ export const buFlagCount = computed(() => {
     kit.steps.forEach(s => s.choices.forEach(c => { n += c.parts.filter(p => p.flag).length; }));
     return n;
 });
+
+// ── Split (timed batches) modal ───────────────────────────────
+export const planSplitOpen   = ref(false);
+export const planSplitSaving = ref(false);
+export const planSplitLine   = ref(null);   // the approved line being split
+export const planSplitForm    = ref({ total: 0, count: 2, intervalValue: 2, intervalUnit: 'months', startDate: '' });
+// Live batch preview — pure computeSplitBatches over the form.
+export const planSplitPreview = computed(() => computeSplitBatches({
+    total:         planSplitForm.value.total,
+    count:         planSplitForm.value.count,
+    startDate:     planSplitForm.value.startDate,
+    intervalValue: planSplitForm.value.intervalValue,
+    intervalUnit:  planSplitForm.value.intervalUnit,
+}));

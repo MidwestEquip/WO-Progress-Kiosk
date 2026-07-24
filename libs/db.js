@@ -38,7 +38,9 @@ export * from './db-part-notes.js';
 export * from './db-purchasing.js';
 export * from './db-planning.js';
 export * from './db-planning-runs.js';
+export * from './db-production-load.js';
 export * from './db-planning-demand.js';
+export * from './db-planning-gantt.js';
 export * from './db-inventory-count.js';
 
 // ── Dashboard queries ─────────────────────────────────────────

@@ -595,19 +595,25 @@ CREATE FUNCTION public.get_parts_sold_in_period(p_parts text[], p_start date, p_
 -- Name: get_parts_usage_summary_batch(text[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_parts_usage_summary_batch(p_parts text[]) RETURNS TABLE(part_normalized text, qty_made_12mo numeric, qty_used_mfg_12mo numeric, qty_sold_12mo numeric, qty_purchased_12mo numeric)
+CREATE FUNCTION public.get_parts_usage_summary_batch(p_parts text[]) RETURNS TABLE(part_normalized text, qty_made_12mo numeric, qty_used_mfg_12mo numeric, qty_sold_12mo numeric, qty_purchased_12mo numeric, qty_made_36mo numeric, qty_purchased_36mo numeric)
     LANGUAGE sql SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
     SELECT
       part_number_normalized,
+      -- Existing 12-month legs (unchanged): inner-guarded to 12 months so the
+      -- wider 36-month scan below does not alter their values.
+      COALESCE(SUM(CASE WHEN doctype='MO' AND trantype='I' AND txn_date >= NOW() - INTERVAL '12 months' THEN qty ELSE 0 END), 0),
+      COALESCE(SUM(CASE WHEN doctype='MO' AND trantype='O' AND txn_date >= NOW() - INTERVAL '12 months' THEN qty ELSE 0 END), 0),
+      COALESCE(SUM(CASE WHEN doctype='SO' AND trantype='O' AND txn_date >= NOW() - INTERVAL '12 months' THEN qty ELSE 0 END), 0),
+      COALESCE(SUM(CASE WHEN doctype='PO' AND trantype='I' AND txn_date >= NOW() - INTERVAL '12 months' THEN qty ELSE 0 END), 0),
+      -- New 36-month legs: made (MO/I) vs purchased (PO/I) over the full scan
+      -- window. These feed the make/buy classifier only.
       COALESCE(SUM(CASE WHEN doctype='MO' AND trantype='I' THEN qty ELSE 0 END), 0),
-      COALESCE(SUM(CASE WHEN doctype='MO' AND trantype='O' THEN qty ELSE 0 END), 0),
-      COALESCE(SUM(CASE WHEN doctype='SO' AND trantype='O' THEN qty ELSE 0 END), 0),
       COALESCE(SUM(CASE WHEN doctype='PO' AND trantype='I' THEN qty ELSE 0 END), 0)
     FROM issues_receipts
     WHERE part_number_normalized = ANY(p_parts)
-      AND txn_date >= NOW() - INTERVAL '12 months'
+      AND txn_date >= NOW() - INTERVAL '36 months'
     GROUP BY part_number_normalized;
   $$;
 
@@ -1472,6 +1478,22 @@ CREATE TABLE public.part_changes (
 
 
 --
+-- Name: part_dept_estimates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.part_dept_estimates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    part_number text NOT NULL,
+    part_number_normalized text GENERATED ALWAYS AS (upper(TRIM(BOTH FROM part_number))) STORED,
+    dept text NOT NULL,
+    est_days numeric DEFAULT 1 NOT NULL,
+    updated_by text,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: part_manager_notes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1601,7 +1623,10 @@ CREATE TABLE public.planning_run_lines (
     basis_snap text,
     qty_made_12mo numeric,
     qty_purchased_12mo numeric,
-    action_source text
+    action_source text,
+    split_group uuid,
+    split_seq integer,
+    split_total integer
 );
 
 
@@ -1996,7 +2021,8 @@ CREATE TABLE public.work_centers (
     name text NOT NULL,
     dept text,
     available_hours_week numeric DEFAULT 40 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    sort_order integer
 );
 
 
@@ -2259,6 +2285,14 @@ ALTER TABLE ONLY public.part_approval_defaults
 
 ALTER TABLE ONLY public.part_changes
     ADD CONSTRAINT part_changes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: part_dept_estimates part_dept_estimates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.part_dept_estimates
+    ADD CONSTRAINT part_dept_estimates_pkey PRIMARY KEY (id);
 
 
 --
@@ -2760,6 +2794,20 @@ CREATE INDEX idx_work_orders_wo_request_id ON public.work_orders USING btree (wo
 
 
 --
+-- Name: part_dept_estimates_part_dept_uniq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX part_dept_estimates_part_dept_uniq ON public.part_dept_estimates USING btree (part_number_normalized, dept);
+
+
+--
+-- Name: part_dept_estimates_part_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX part_dept_estimates_part_idx ON public.part_dept_estimates USING btree (part_number_normalized);
+
+
+--
 -- Name: part_planning_part_uniq; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2792,6 +2840,13 @@ CREATE INDEX planning_run_lines_release_idx ON public.planning_run_lines USING b
 --
 
 CREATE INDEX planning_run_lines_run_idx ON public.planning_run_lines USING btree (run_id, level, part_number_normalized);
+
+
+--
+-- Name: planning_run_lines_split_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX planning_run_lines_split_idx ON public.planning_run_lines USING btree (split_group, split_seq);
 
 
 --
@@ -3653,6 +3708,19 @@ CREATE POLICY part_changes_anon_all ON public.part_changes TO authenticated, ano
 
 
 --
+-- Name: part_dept_estimates; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.part_dept_estimates ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: part_dept_estimates part_dept_estimates_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY part_dept_estimates_all ON public.part_dept_estimates USING (true) WITH CHECK (true);
+
+
+--
 -- Name: part_manager_notes; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -4317,6 +4385,15 @@ GRANT ALL ON TABLE public.part_approval_defaults TO service_role;
 GRANT ALL ON TABLE public.part_changes TO anon;
 GRANT ALL ON TABLE public.part_changes TO authenticated;
 GRANT ALL ON TABLE public.part_changes TO service_role;
+
+
+--
+-- Name: TABLE part_dept_estimates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.part_dept_estimates TO anon;
+GRANT ALL ON TABLE public.part_dept_estimates TO authenticated;
+GRANT ALL ON TABLE public.part_dept_estimates TO service_role;
 
 
 --

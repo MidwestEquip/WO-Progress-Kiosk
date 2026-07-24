@@ -6,32 +6,61 @@
 <Teleport to="#pp-tab-body" v-if="currentView === 'production_planning'">
 <div v-if="planningTab === 'review'" class="absolute inset-0 overflow-y-auto p-6">
 
-    <!-- Release-due panel — split by destination pipeline (Make / Buy) -->
+    <!-- Send schedule panel — all approved lines; only due (today) ones go out -->
     <div v-if="releaseDueLines.length" class="space-y-3 mb-4">
+        <div class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-2.5">
+            <span class="font-bold text-gray-800">Send Schedule</span>
+            <span class="text-xs text-gray-500">{{ releaseDueLines.length }} line(s) · {{ scheduleDueCount }} due today · {{ releaseDueLines.length - scheduleDueCount }} scheduled</span>
+            <button @click="releaseAllDue" :disabled="releasingLineId || !releaseDueLines.length"
+                class="ml-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg disabled:opacity-40"
+                title="Send today's lines to the shop and commit future-dated lines to the scheduling calendar">
+                Send All ({{ scheduleDueCount }} now, {{ releaseDueLines.length - scheduleDueCount }} scheduled)</button>
+        </div>
         <div v-for="grp in releaseDueGroups" :key="grp.key"
             class="rounded-xl border p-4"
             :class="grp.key === 'buy' ? 'bg-sky-50 border-sky-300' : 'bg-indigo-50 border-indigo-300'">
             <div class="flex items-center gap-3 mb-2">
                 <span class="font-bold" :class="grp.key === 'buy' ? 'text-sky-800' : 'text-indigo-800'">
                     {{ grp.label }} — {{ grp.lines.length }} line(s)</span>
+                <button @click="toggleSelectAllDue(grp.lines)"
+                    class="ml-auto px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-lg">
+                    Select All</button>
+                <button @click="deleteCheckedDue(grp.lines)" :disabled="!dueGroupCheckedCount(grp.lines)"
+                    class="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg disabled:opacity-40">
+                    Delete Checked ({{ dueGroupCheckedCount(grp.lines) }})</button>
                 <button @click="releaseAllDueGroup(grp.lines)" :disabled="releasingLineId"
-                    class="ml-auto px-4 py-1.5 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                    class="px-4 py-1.5 text-white text-xs font-bold rounded-lg disabled:opacity-50"
                     :class="grp.key === 'buy' ? 'bg-sky-600 hover:bg-sky-500' : 'bg-indigo-600 hover:bg-indigo-500'">
                     Release All {{ grp.key === 'buy' ? 'Buy' : 'Make' }}</button>
             </div>
             <div v-for="l in grp.lines" :key="l.id"
                 class="flex items-center gap-3 text-sm py-1 border-t"
                 :class="grp.key === 'buy' ? 'border-sky-100' : 'border-indigo-100'">
+                <input type="checkbox" v-model="l.checked" />
                 <span class="font-mono font-semibold">{{ l.part_number }}</span>
+                <span v-if="l.split_total" class="text-[9px] font-bold uppercase bg-indigo-100 text-indigo-700 rounded px-1"
+                    :title="'Batch ' + l.split_seq + ' of ' + l.split_total">{{ l.split_seq }}/{{ l.split_total }}</span>
                 <span class="text-xs text-gray-500">{{ l.family_name }}</span>
-                <span class="font-mono">qty {{ l.override_qty ?? l.recommended }}</span>
+                <label class="font-mono text-xs text-gray-500 flex items-center gap-1">qty
+                    <input type="number" min="0" :value="l.override_qty ?? l.recommended"
+                        @change="saveLineQty(l, $event.target.value)"
+                        class="w-20 border border-gray-200 rounded px-1 py-0.5 text-right font-mono text-xs"
+                        :class="l.override_qty != null && l.override_qty !== l.recommended ? 'bg-amber-50 border-amber-300' : ''" /></label>
                 <span v-if="l.material" class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
                     :class="{ 'bg-emerald-100 text-emerald-700': l.material === 'ready',
                               'bg-amber-100 text-amber-700':     l.material === 'partial',
                               'bg-red-100 text-red-700':         l.material === 'waiting' }">
                     material {{ l.material }}</span>
-                <span class="text-xs text-gray-400">release {{ l.planned_release_date }}</span>
-                <button @click="releaseLine(l)" :disabled="releasingLineId"
+                <label class="text-xs text-gray-400 flex items-center gap-1">release
+                    <input type="date" :value="l.planned_release_date || ''"
+                        @change="saveLineEdit(l, { planned_release_date: $event.target.value || null })"
+                        class="border border-gray-200 rounded px-1 py-0.5 text-[11px]" /></label>
+                <button v-if="!l.split_group || l.split_seq === 1" @click="openPlanSplit(l)"
+                    class="text-[10px] font-bold uppercase text-indigo-600 hover:text-indigo-800">{{ l.split_group ? 'Re-split' : 'Split' }}</button>
+                <span v-if="!isPlanLineDue(l)"
+                    class="ml-auto text-[10px] font-bold uppercase bg-gray-100 text-gray-500 rounded-full px-2 py-0.5"
+                    title="Scheduled for a future date — change the date to today to send it now">scheduled</span>
+                <button v-else @click="releaseLine(l)" :disabled="releasingLineId"
                     class="ml-auto px-3 py-1 text-white text-xs font-bold rounded disabled:opacity-50"
                     :class="grp.key === 'buy' ? 'bg-sky-600 hover:bg-sky-500' : 'bg-indigo-600 hover:bg-indigo-500'">
                     {{ releasingLineId === l.id ? 'Releasing…' : 'Release' }}</button>
@@ -171,7 +200,7 @@
                             <td class="px-2 py-1.5 text-right font-mono">{{ l.net }}</td>
                             <td class="px-2 py-1.5 text-right">
                                 <input type="number" min="0" :value="l.override_qty ?? l.recommended"
-                                    :disabled="l.line_status !== 'proposed'"
+                                    :disabled="!['proposed','approved'].includes(l.line_status)"
                                     @change="saveLineQty(l, $event.target.value)"
                                     class="w-16 border border-gray-200 rounded px-1 py-0.5 text-right font-mono"
                                     :class="l.override_qty != null && l.override_qty !== l.recommended ? 'bg-amber-50 border-amber-300' : ''" /></td>
@@ -201,10 +230,15 @@
                                     :class="{ 'text-gray-400': l.line_status === 'proposed',
                                               'text-amber-600': l.line_status === 'approved',
                                               'text-emerald-600': l.line_status === 'released',
-                                              'text-gray-300': l.line_status === 'skipped' }">{{ l.line_status }}</span></td>
+                                              'text-gray-300': l.line_status === 'skipped' }">{{ l.line_status }}</span>
+                                <span v-if="l.split_total" class="ml-1 text-[9px] font-bold uppercase bg-indigo-100 text-indigo-700 rounded px-1"
+                                    :title="'Batch ' + l.split_seq + ' of ' + l.split_total">{{ l.split_seq }}/{{ l.split_total }}</span></td>
                             <td class="px-2 py-1.5 whitespace-nowrap">
                                 <button @click="openPartData(l.part_number)"
                                     class="text-[10px] font-bold uppercase text-indigo-600 hover:text-indigo-800 mr-1">Data</button>
+                                <button v-if="l.line_status === 'approved' && (!l.split_group || l.split_seq === 1)"
+                                    @click="openPlanSplit(l)"
+                                    class="text-[10px] font-bold uppercase text-indigo-600 hover:text-indigo-800 mr-1">{{ l.split_group ? 'Re-split' : 'Split' }}</button>
                                 <button v-if="l.line_status === 'proposed'"
                                     @click="saveLineEdit(l, { hold: !l.hold })"
                                     class="text-[10px] font-bold uppercase mr-1"

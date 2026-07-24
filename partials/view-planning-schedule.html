@@ -1,0 +1,179 @@
+<!-- ============================================================
+     view-planning-schedule.html — Scheduling tab (Teleport into
+     #pp-tab-body): committed future lines grouped by week, editable
+     qty/date + Split. Populated after Send All on Review & Release.
+     ============================================================ -->
+<Teleport to="#pp-tab-body" v-if="currentView === 'production_planning'">
+<div v-if="planningTab === 'schedule'" class="absolute inset-0 overflow-y-auto p-6">
+
+    <div class="flex items-center gap-3 mb-4">
+        <button v-if="schedView === 'gantt'" @click="closeGantt"
+            class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-lg">‹ Plans</button>
+        <h2 class="text-lg font-bold text-gray-800">
+            {{ schedView === 'gantt' ? ganttTitle : 'Scheduling' }}</h2>
+        <span v-if="schedView !== 'gantt'" class="text-xs text-gray-400">{{ scheduledLines.length }} scheduled line(s)</span>
+
+        <div v-if="schedView !== 'gantt'" class="flex rounded-lg overflow-hidden border border-gray-200">
+            <button @click="schedView = 'tiles'"
+                :class="schedView === 'tiles' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+                class="px-3 py-1 text-xs font-bold">Plans</button>
+            <button @click="schedView = 'list'"
+                :class="schedView === 'list' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+                class="px-3 py-1 text-xs font-bold border-l border-gray-200">List</button>
+        </div>
+
+        <button @click="schedView === 'gantt' ? openGanttFor(ganttRunId) : (loadScheduled(), loadGanttSummaries())"
+            :disabled="scheduledLoading || ganttLoading"
+            class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-lg disabled:opacity-50">
+            {{ (scheduledLoading || ganttLoading) ? 'Loading…' : 'Refresh' }}</button>
+        <button v-if="scheduledDueCount" @click="releaseScheduledDue"
+            class="ml-auto px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg"
+            title="Release every scheduled line whose date has arrived into production now">
+            Release due now ({{ scheduledDueCount }})</button>
+    </div>
+
+    <!-- Plan tiles: one per plan carrying committed dated lines, plus combined -->
+    <div v-if="schedView === 'tiles'">
+        <div v-if="!ganttTiles.length && !ganttSummariesLoading"
+            class="text-center text-gray-400 text-sm py-12">
+            No plans with scheduled work yet — approve lines on the Review &amp; Release tab first.</div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <button v-if="ganttTiles.length" @click="openGanttFor('all')"
+                class="sm:col-span-2 lg:col-span-3 text-left bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 text-white rounded-xl p-4 shadow">
+                <div class="text-sm font-bold uppercase tracking-wide opacity-80">All Plans Combined</div>
+                <div class="text-2xl font-bold mt-1">{{ ganttCombinedTile.lineCount }} jobs</div>
+                <div class="text-xs opacity-90 mt-1">
+                    {{ ganttCombinedTile.planCount }} plan(s) · {{ ganttCombinedTile.partCount }} part(s)
+                    <span v-if="ganttCombinedTile.firstDate">· {{ ganttCombinedTile.firstDate }} → {{ ganttCombinedTile.lastDate }}</span>
+                </div>
+            </button>
+
+            <button v-for="t in ganttTiles" :key="t.id" @click="openGanttFor(t.id)"
+                class="text-left bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-xl p-4 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-gray-800 truncate">{{ t.family_name }}</span>
+                    <span v-if="t.plan_basis === 'year_supply'"
+                        class="text-[9px] font-bold uppercase bg-emerald-100 text-emerald-700 rounded px-1">yr supply</span>
+                </div>
+                <div class="text-2xl font-bold text-indigo-600 mt-1">{{ t.lineCount }} jobs</div>
+                <div class="text-xs text-gray-500 mt-1">
+                    plan qty {{ t.plan_qty }} · {{ t.partCount }} part(s)</div>
+                <div class="text-xs text-gray-400 mt-0.5" v-if="t.firstDate">
+                    {{ t.firstDate }} → {{ t.lastDate }}</div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Timeline: work centers (Y) × dates (X), horizontally scrollable -->
+    <div v-if="schedView === 'gantt'">
+        <div class="flex items-center gap-3 mb-3 text-xs text-gray-500">
+            <span><span class="font-bold text-gray-700">{{ ganttPlan.bars.length }}</span> job step(s)
+                on <span class="font-bold text-gray-700">{{ ganttPlan.rows.length }}</span> work center(s)</span>
+            <span v-if="ganttPlan.unroutedParts"
+                class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded px-1.5 py-0.5"
+                title="These parts have no part_routings rows — their bars are 1-day estimates on dept rows">
+                {{ ganttPlan.unroutedParts }} part(s) not routed — estimated</span>
+            <div class="ml-auto flex rounded-lg overflow-hidden border border-gray-200">
+                <button v-for="z in ganttZooms" :key="z.key" @click="ganttZoom = z.key"
+                    :class="ganttZoom === z.key ? 'bg-gray-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'"
+                    class="px-3 py-1 text-xs font-bold border-l border-gray-200 first:border-l-0">{{ z.label }}</button>
+            </div>
+        </div>
+
+        <div v-if="ganttLoading" class="text-center text-gray-400 text-sm py-12">Building timeline…</div>
+        <div v-else-if="!ganttPlan.rows.length" class="text-center text-gray-400 text-sm py-12">
+            Nothing to schedule in this plan — approve lines on Review &amp; Release, or add work centers on the Workload tab.</div>
+
+        <div v-else class="bg-white rounded-xl border border-gray-200 overflow-hidden flex">
+            <!-- Sticky left rail: work center names -->
+            <div class="flex-shrink-0 w-44 border-r border-gray-200 bg-gray-50">
+                <div class="h-8 border-b border-gray-200"></div>
+                <div v-for="r in ganttLayout.rows" :key="r.id" :style="'height:' + r.height + 'px'"
+                    class="px-2 flex items-center border-b border-gray-100 text-xs">
+                    <span :class="r.isFallback ? 'text-amber-700 italic' : 'text-gray-700 font-semibold'"
+                        class="truncate" :title="r.label">{{ r.label }}</span>
+                    <span v-if="r.dept && !r.isFallback"
+                        class="ml-auto text-[9px] uppercase text-gray-400">{{ r.dept }}</span>
+                </div>
+            </div>
+
+            <!-- Scrolling timeline -->
+            <div class="flex-1 overflow-x-auto">
+                <div :style="'width:' + ganttLayout.width + 'px'" class="relative">
+                    <div class="h-8 border-b border-gray-200 relative bg-gray-50">
+                        <div v-for="b in ganttLayout.bands" :key="b.key"
+                            :style="'left:' + b.left + 'px;width:' + b.width + 'px'"
+                            class="absolute top-0 h-8 border-l border-gray-200 px-1 text-[10px] text-gray-500 flex items-center">
+                            {{ b.label }}</div>
+                    </div>
+                    <div v-if="ganttLayout.todayLeft !== null" :style="'left:' + ganttLayout.todayLeft + 'px'"
+                        class="absolute top-8 bottom-0 w-0.5 bg-rose-400 z-10 pointer-events-none"
+                        title="Today"></div>
+                    <div v-for="r in ganttLayout.rows" :key="r.id" :style="'height:' + r.height + 'px'"
+                        class="relative border-b border-gray-100"
+                        :class="r.isFallback ? 'bg-amber-50/40' : ''">
+                        <button v-for="b in r.bars" :key="b.key" @click="ganttSelectedBar = b"
+                            :style="b.style" :title="b.title"
+                            :class="[b.estimated ? 'bg-amber-300 hover:bg-amber-400 text-amber-900'
+                                                 : 'bg-indigo-500 hover:bg-indigo-600 text-white',
+                                     ganttSelectedBar && ganttSelectedBar.key === b.key ? 'ring-2 ring-rose-500' : '']"
+                            class="absolute rounded text-[9px] font-bold px-1 truncate text-left">
+                            <span v-if="b.showLabel">{{ b.part }}</span></button>
+                        <template v-for="b in r.bars" :key="b.key + ':lbl'">
+                            <span v-if="b.outsideLabel" :style="b.labelStyle"
+                                class="absolute text-[9px] font-bold text-gray-500 pointer-events-none whitespace-nowrap"
+                                >{{ b.part }}</span>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clicked bar detail -->
+        <div v-if="ganttSelectedBar" class="mt-3 bg-white rounded-xl border border-indigo-200 px-4 py-3 flex items-center gap-4 text-sm">
+            <span class="font-mono font-bold">{{ ganttSelectedBar.part }}</span>
+            <span class="text-gray-500">qty {{ ganttSelectedBar.qty }}</span>
+            <span class="text-gray-500">op {{ ganttSelectedBar.seq }} · {{ ganttSelectedBar.wcName }}</span>
+            <span class="text-gray-500">{{ ganttSelectedBar.start }} → {{ ganttSelectedBar.end }}
+                ({{ ganttSelectedBar.days }}d)</span>
+            <span v-if="ganttSelectedBar.estimated" class="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded px-1.5 py-0.5">
+                estimated — no routing</span>
+            <span v-else class="text-gray-500">{{ ganttSelectedBar.hours }}h</span>
+            <button @click="ganttSelectedBar = null" class="ml-auto text-xs font-bold text-gray-400 hover:text-gray-600">Close</button>
+        </div>
+    </div>
+
+    <div v-if="schedView === 'list' && !scheduledLines.length && !scheduledLoading"
+        class="text-center text-gray-400 text-sm py-12">
+        Nothing scheduled — future-dated lines land here after you Send All on the Review &amp; Release tab.</div>
+
+    <template v-if="schedView === 'list'">
+    <div v-for="wk in scheduledByWeek" :key="wk.weekStart"
+        class="mb-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="bg-gray-50 px-4 py-2 text-sm font-bold text-gray-700 border-b border-gray-200">
+            Week of {{ wk.weekStart }}
+            <span class="text-gray-400 font-normal">· {{ wk.lines.length }} line(s)</span></div>
+        <div v-for="l in wk.lines" :key="l.id"
+            class="flex items-center gap-3 px-4 py-1.5 text-sm border-t border-gray-100">
+            <span class="font-mono font-semibold">{{ l.part_number }}</span>
+            <span v-if="l.split_total" class="text-[9px] font-bold uppercase bg-indigo-100 text-indigo-700 rounded px-1"
+                :title="'Batch ' + l.split_seq + ' of ' + l.split_total">{{ l.split_seq }}/{{ l.split_total }}</span>
+            <span class="text-xs text-gray-500">{{ l.family_name }}</span>
+            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
+                :class="l.action === 'buy' ? 'bg-sky-100 text-sky-700' : 'bg-indigo-100 text-indigo-700'">{{ l.action }}</span>
+            <label class="font-mono text-xs text-gray-500 flex items-center gap-1">qty
+                <input type="number" min="0" :value="l.override_qty ?? l.recommended"
+                    @change="saveLineQty(l, $event.target.value)"
+                    class="w-20 border border-gray-200 rounded px-1 py-0.5 text-right font-mono text-xs" /></label>
+            <label class="text-xs text-gray-400 flex items-center gap-1">release
+                <input type="date" :value="l.planned_release_date || ''"
+                    @change="saveLineEdit(l, { planned_release_date: $event.target.value || null })"
+                    class="border border-gray-200 rounded px-1 py-0.5 text-[11px]" /></label>
+            <button v-if="!l.split_group || l.split_seq === 1" @click="openPlanSplit(l)"
+                class="ml-auto text-[10px] font-bold uppercase text-indigo-600 hover:text-indigo-800">{{ l.split_group ? 'Re-split' : 'Split' }}</button>
+        </div>
+    </div>
+    </template>
+</div>
+</Teleport>

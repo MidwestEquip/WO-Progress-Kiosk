@@ -6,6 +6,7 @@
 
 import { supabase, withRetry } from './db-shared.js';
 import { normalizePartNumber } from './utils.js';
+import { WO_REQUEST_STATUS_MANAGER_REVIEW } from './config.js';
 
 // insertPlanningRun — save one run header + its lines (chunked bulk insert).
 // Rolls the header back if lines fail. Output: { data: { id }, error }.
@@ -90,6 +91,102 @@ export async function updateRunLine(id, fields) {
     return { data, error };
 }
 
+// deleteRunLines — hard-delete planning_run_lines rows by id (chunked so a
+// large selection stays within URL limits). Only safe for lines with no
+// created work order / PO — the release-due panel (approved, unreleased) fits.
+// Input: array of ids. Output: { error } (null on success or empty input).
+export async function deleteRunLines(ids) {
+    const list = [...new Set((ids || []).filter(id => id != null))];
+    if (!list.length) return { error: null };
+    for (let i = 0; i < list.length; i += 200) {
+        const { error } = await withRetry(() =>
+            supabase.from('planning_run_lines').delete().in('id', list.slice(i, i + 200)));
+        if (error) return { error };
+    }
+    return { error: null };
+}
+
+// deletePlanningRun — hard-delete a whole run: its lines first, then the
+// header. Used when a run is cancelled/closed (abandoned). A run is only kept
+// once fully executed. Output: { error } (null on success).
+export async function deletePlanningRun(runId) {
+    if (!runId) return { error: null };
+    const del = await withRetry(() =>
+        supabase.from('planning_run_lines').delete().eq('run_id', runId));
+    if (del.error) return { error: del.error };
+    const { error } = await withRetry(() =>
+        supabase.from('planning_runs').delete().eq('id', runId));
+    return { error };
+}
+
+// countRunPendingLines — how many of a run's lines still have work to do:
+// proposed, approved, or scheduled (committed but not yet released). A run is
+// only "executed" once none of these remain. Head count. Output: { count, error }.
+export async function countRunPendingLines(runId) {
+    const { count, error } = await withRetry(() =>
+        supabase.from('planning_run_lines')
+            .select('id', { count: 'exact', head: true })
+            .eq('run_id', runId)
+            .in('line_status', ['proposed', 'approved', 'scheduled']));
+    return { count: count || 0, error };
+}
+
+// countRunReleasedLines — how many of a run's lines have been released. Guards
+// against marking an all-skipped run "executed". Output: { count, error }.
+export async function countRunReleasedLines(runId) {
+    const { count, error } = await withRetry(() =>
+        supabase.from('planning_run_lines')
+            .select('id', { count: 'exact', head: true })
+            .eq('run_id', runId)
+            .eq('line_status', 'released'));
+    return { count: count || 0, error };
+}
+
+// splitRunLine — turn one approved line into a timed batch group. The original
+// row becomes batch 1 (its id preserved); N-1 sibling rows are inserted for the
+// rest. Every row keeps the part's snapshots and carries its own override_qty +
+// planned_release_date, all still 'approved', so each releases through the
+// normal due queue on its date. Input: the existing line row, the batches array
+// from computeSplitBatches, a split_group uuid, updatedBy.
+// Output: { data: { survivor, siblings }, error } — the updated batch-1 row and
+// the inserted rows, so callers can refresh their lists in place.
+export async function splitRunLine(line, batches, splitGroup, updatedBy = null) {
+    if (!line || !line.id || !Array.isArray(batches) || batches.length < 1) {
+        return { data: null, error: new Error('splitRunLine: nothing to split') };
+    }
+    const total = batches.length;
+    const first = batches[0];
+    const up = await withRetry(() => supabase.from('planning_run_lines').update({
+        override_qty: first.qty, planned_release_date: first.date,
+        split_group: splitGroup, split_seq: 1, split_total: total,
+        updated_by: updatedBy, updated_at: new Date().toISOString(),
+    }).eq('id', line.id).select().single());
+    if (up.error) return { data: null, error: up.error };
+
+    const clone = b => ({
+        run_id: line.run_id, part_number: line.part_number, level: line.level,
+        gross: line.gross, on_hand_snap: line.on_hand_snap, open_wo_snap: line.open_wo_snap,
+        in_flight_snap: line.in_flight_snap ?? null, requested_snap: line.requested_snap ?? null,
+        open_po_snap: line.open_po_snap, min_stock_snap: line.min_stock_snap,
+        basis_snap: line.basis_snap ?? null, net: line.net, recommended: line.recommended,
+        action: line.action, flag: line.flag ?? null, action_source: line.action_source ?? null,
+        qty_made_12mo: line.qty_made_12mo ?? null, qty_purchased_12mo: line.qty_purchased_12mo ?? null,
+        required_date: line.required_date ?? null,
+        demand_12mo: line.demand_12mo ?? null, kit_gross: line.kit_gross ?? null,
+        override_qty: b.qty, hold: false, line_status: line.line_status || 'approved',
+        planned_release_date: b.date,
+        split_group: splitGroup, split_seq: b.seq, split_total: total, updated_by: updatedBy,
+    });
+    const rest = batches.slice(1).map(clone);
+    let siblings = [];
+    if (rest.length) {
+        const ins = await withRetry(() => supabase.from('planning_run_lines').insert(rest).select());
+        if (ins.error) return { data: null, error: ins.error };
+        siblings = ins.data || [];
+    }
+    return { data: { survivor: up.data, siblings }, error: null };
+}
+
 // updatePlanningRun — patch run header (status, notes). Output: { data, error }.
 export async function updatePlanningRun(id, fields) {
     const patch = { updated_at: new Date().toISOString() };
@@ -122,10 +219,56 @@ export async function fetchReleaseDueLines(todayStr) {
     return { data: (lines || []).map(l => ({ ...l, family_name: runMap[l.run_id] || '' })), error: null };
 }
 
-// createWoRequestFromLine — release a MAKE line into the normal WO Request
-// pipeline as a status='pending' row, routing prefilled from learned
-// part_approval_defaults when available. NEVER creates work_orders directly —
-// the manager-approval flow stays the only gate (CLAUDE.md rule).
+// fetchApprovedLines — every approved line (the full send schedule), any date,
+// with its run's family name. The panel shows all of these; only lines dated
+// today-or-earlier actually release. Output: { data, error }.
+export async function fetchApprovedLines() {
+    const { data: lines, error } = await withRetry(() =>
+        supabase.from('planning_run_lines').select('*')
+            .eq('line_status', 'approved')
+            .order('planned_release_date', { ascending: true })
+            .limit(1000)
+    );
+    if (error) return { data: [], error };
+    const runIds = [...new Set((lines || []).map(l => l.run_id))];
+    let runMap = {};
+    if (runIds.length) {
+        const { data: runs } = await withRetry(() =>
+            supabase.from('planning_runs').select('id, family_name').in('id', runIds));
+        (runs || []).forEach(r => { runMap[r.id] = r.family_name; });
+    }
+    return { data: (lines || []).map(l => ({ ...l, family_name: runMap[l.run_id] || '' })), error: null };
+}
+
+// fetchScheduledLines — committed future lines (line_status='scheduled') that
+// live on the scheduling view until their date arrives, + run family name.
+// Output: { data, error }.
+export async function fetchScheduledLines() {
+    const { data: lines, error } = await withRetry(() =>
+        supabase.from('planning_run_lines').select('*')
+            .eq('line_status', 'scheduled')
+            .order('planned_release_date', { ascending: true })
+            .limit(1000)
+    );
+    if (error) return { data: [], error };
+    const runIds = [...new Set((lines || []).map(l => l.run_id))];
+    let runMap = {};
+    if (runIds.length) {
+        const { data: runs } = await withRetry(() =>
+            supabase.from('planning_runs').select('id, family_name').in('id', runIds));
+        (runs || []).forEach(r => { runMap[r.id] = r.family_name; });
+    }
+    return { data: (lines || []).map(l => ({ ...l, family_name: runMap[l.run_id] || '' })), error: null };
+}
+
+// createWoRequestFromLine — release a MAKE line into the WO Request pipeline
+// at status='manager_review', i.e. straight into the Approve WO Creation queue
+// (the planner step is skipped — Planning already sized and approved the line).
+// `defaults` is the already-merged routing prefill (last WO actually made +
+// learned part_approval_defaults — see _mergeReleaseRouting in planning-review.js);
+// the manager fills any field neither source knew.
+// NEVER assigns a job number and NEVER creates work_orders — managerFinalApproveWo
+// stays the only gate (CLAUDE.md rule).
 // Output: { data: wo_requests row, error }.
 export async function createWoRequestFromLine(line, qty, defaults, createdBy) {
     const d = defaults || {};
@@ -134,7 +277,7 @@ export async function createWoRequestFromLine(line, qty, defaults, createdBy) {
         .insert({
             part_number: line.part_number,
             qty_to_make: qty,
-            status: 'pending',
+            status: WO_REQUEST_STATUS_MANAGER_REVIEW,
             submitted_by: createdBy || 'Production Planning',
             request_date: new Date().toISOString().slice(0, 10),
             date_to_start: line.planned_release_date || null,
@@ -143,6 +286,9 @@ export async function createWoRequestFromLine(line, qty, defaults, createdBy) {
             weld: d.weld ?? null, weld_print: d.weld_print ?? null,
             assy_wo: d.assy_wo ?? null, color: d.color ?? null,
             bent_rolled_part: d.bent_rolled_part ?? null,
+            set_up_time: d.set_up_time ?? null,
+            estimated_lead_time: d.estimated_lead_time ?? null,
+            staging_area: d.staging_area ?? null,
         })
         .select()
         .single();
@@ -222,7 +368,11 @@ export async function upsertPartPlanning(fields) {
 // fetchWorkCenters — active work centers. Output: { data, error }.
 export async function fetchWorkCenters() {
     const { data, error } = await withRetry(() =>
-        supabase.from('work_centers').select('*').order('dept').order('name').limit(200));
+        // sort_order is the seeded shop-flow order (Saw → Laser → …); hand-added
+        // centers have none and fall to the end, then alphabetically by dept/name.
+        supabase.from('work_centers').select('*')
+            .order('sort_order', { ascending: true, nullsFirst: false })
+            .order('dept').order('name').limit(200));
     return { data: data || [], error };
 }
 

@@ -27,11 +27,63 @@ export async function loadWorkload() {
         if (rErr) throw rErr;
         store.workloadRoutings.value = routings;
         store.workloadLoadedAt.value = new Date();
+        loadDeptEstimates();   // non-blocking: the heatmap does not depend on it
     } catch (err) {
         store.showToast('Failed to load workload: ' + err.message);
         logError('loadWorkload', err);
     } finally {
         store.workloadLoading.value = false;
+    }
+}
+
+// loadDeptEstimates — the per-part, per-dept day overrides list.
+export async function loadDeptEstimates() {
+    try {
+        const { data, error } = await db.fetchDeptEstimates();
+        if (error) throw error;
+        store.deptEstimateRows.value = data;
+    } catch (err) {
+        store.showToast('Failed to load dept estimates: ' + err.message);
+        logError('loadDeptEstimates', err);
+    }
+}
+
+// saveDeptEstimate — save one part+dept override from the inline form.
+// 0 days is valid and means "this part skips that dept" on the timeline.
+export async function saveDeptEstimate() {
+    const f = store.deptEstForm.value;
+    const part = sanitizeText(f.part_number || '').toUpperCase();
+    const days = Number(f.est_days);
+    if (!part)          { store.showToast('Part number is required.'); return; }
+    if (!f.dept)        { store.showToast('Pick a department.'); return; }
+    if (!Number.isFinite(days) || days < 0) { store.showToast('Days must be 0 or more.'); return; }
+    store.deptEstSaving.value = true;
+    try {
+        const { error } = await db.upsertDeptEstimate({
+            part_number: part, dept: f.dept, est_days: days,
+            updated_by: store.sessionRole.value || null,
+        });
+        if (error) throw error;
+        store.deptEstForm.value = { part_number: '', dept: '', est_days: null };
+        store.showToast(`${part} ${f.dept}: ${days} day(s) saved.`, 'success');
+        loadDeptEstimates();
+    } catch (err) {
+        store.showToast('Save failed: ' + err.message);
+        logError('saveDeptEstimate', err, { part });
+    } finally {
+        store.deptEstSaving.value = false;
+    }
+}
+
+// removeDeptEstimate — drop one override; that part+dept goes back to the default.
+export async function removeDeptEstimate(id) {
+    try {
+        const { error } = await db.deleteDeptEstimate(id);
+        if (error) throw error;
+        store.deptEstimateRows.value = store.deptEstimateRows.value.filter(r => r.id !== id);
+    } catch (err) {
+        store.showToast('Delete failed: ' + err.message);
+        logError('removeDeptEstimate', err, { id });
     }
 }
 

@@ -1,0 +1,46 @@
+<!-- ============================================================
+     view-planning-production-load.html — Production Load tab (Teleport
+     into #pp-tab-body): active work_orders grouped by department × week
+     of due date, with inline reschedule. Read-mostly workload picture.
+     ============================================================ -->
+<Teleport to="#pp-tab-body" v-if="currentView === 'production_planning'">
+<div v-if="planningTab === 'production_load'" class="absolute inset-0 overflow-y-auto p-6">
+
+    <div class="flex items-center gap-3 mb-4">
+        <h2 class="text-lg font-bold text-gray-800">Production Load</h2>
+        <span class="text-xs text-gray-400">{{ prodLoadRows.length }} active job(s)</span>
+        <button @click="loadProductionLoad" :disabled="prodLoadLoading"
+            class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold rounded-lg disabled:opacity-50">
+            {{ prodLoadLoading ? 'Loading…' : 'Refresh' }}</button>
+    </div>
+
+    <div v-if="!prodLoadRows.length && !prodLoadLoading"
+        class="text-center text-gray-400 text-sm py-12">
+        No active work orders — nothing in production right now.</div>
+
+    <div v-for="d in prodLoadByDept" :key="d.dept"
+        class="mb-5 bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="bg-indigo-50 px-4 py-2 flex items-center gap-2 border-b border-indigo-100">
+            <span class="font-bold text-indigo-800">{{ d.dept }}</span>
+            <span class="text-xs text-indigo-500">{{ d.jobCount }} job(s)</span>
+        </div>
+
+        <div v-for="wk in d.weeks" :key="wk.weekStart">
+            <div class="bg-gray-50 px-4 py-1.5 text-xs font-bold text-gray-600 border-b border-gray-100">
+                {{ wk.weekStart === 'no date' ? 'No due date' : 'Week of ' + wk.weekStart }}
+                <span class="text-gray-400 font-normal">· {{ wk.lines.length }} job(s) · qty {{ wk.qty }}</span></div>
+            <div v-for="l in wk.lines" :key="l.id"
+                class="flex items-center gap-3 px-4 py-1.5 text-sm border-t border-gray-100">
+                <span class="font-mono font-semibold w-24">{{ l.wo_number || ('#' + (l.job_number ?? '—')) }}</span>
+                <span class="font-mono text-xs text-gray-600">{{ l.part_number }}</span>
+                <span class="text-[10px] font-bold uppercase bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">{{ l.status }}</span>
+                <span class="font-mono text-xs text-gray-500">{{ l.qty_completed || 0 }} / {{ l.qty_required || 0 }}</span>
+                <label class="ml-auto text-xs text-gray-400 flex items-center gap-1">due
+                    <input type="date" :value="(l.due_date || '').slice(0, 10)"
+                        @change="rescheduleWorkOrder(l, $event.target.value)"
+                        class="border border-gray-200 rounded px-1 py-0.5 text-[11px]" /></label>
+            </div>
+        </div>
+    </div>
+</div>
+</Teleport>

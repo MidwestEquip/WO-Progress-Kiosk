@@ -47,6 +47,9 @@ import { loadBaseUnits } from './pages/planning-view.js';
 import { loadPlanningRuns } from './pages/planning-review.js';
 import { loadPlanningQueues } from './pages/planning-queues.js';
 import { loadWorkload } from './pages/planning-workload.js';
+import { loadScheduled, loadGanttSummaries } from './pages/planning-schedule.js';
+import { releaseScheduledDue } from './pages/planning-review.js';
+import { loadProductionLoad } from './pages/planning-production-load.js';
 
 import { buildCoreExpose } from './expose-core.js';
 import { buildOpsExpose } from './expose-ops.js';
@@ -244,14 +247,16 @@ try {
                 if (v === 'purchasing')       { checkForecastRevisits(); loadPurchasingOrders(); }
                 if (v === 'po_request')       { checkForecastRevisits(); loadPurchasingOrders(); }
                 if (v === 'po_forecasting')   { checkForecastRevisits(); loadPoForecast(); }
-                if (v === 'production_planning') loadBaseUnits();
+                if (v === 'production_planning') { loadBaseUnits(); releaseScheduledDue(); }
             });
             // Production Planning tab loaders (tab switch = data load)
             watch(store.planningTab, (t) => {
                 if (store.currentView.value !== 'production_planning') return;
                 if (t === 'review')   loadPlanningRuns();
+                if (t === 'schedule') { loadScheduled(); loadGanttSummaries(); }
                 if (t === 'queues')   loadPlanningQueues();
                 if (t === 'workload') loadWorkload();
+                if (t === 'production_load') loadProductionLoad();
             });
             // Base unit editor closed → refresh the saved-unit list
             watch(store.loadBaseUnitsRequested, () => loadBaseUnits());

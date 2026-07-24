@@ -28,18 +28,28 @@ import {
     applyOptionDemandQtys,
 } from './pages/planning-run.js';
 import {
-    loadPlanningRuns, selectRun, saveLineEdit, approveSelected, skipLine,
+    loadPlanningRuns, selectRun, approveSelected,
     loadReleaseDue, releaseLine, releaseAllDue, releaseAllDueGroup, closeRun, cancelRun,
-    saveLineQty, applyQtyCascade, closeQtyCascade, setLineMakeBuy, lineMakeBuyTooltip,
-    toggleSelectAllRunLines, exportSelectedToCount,
+    setLineMakeBuy, lineMakeBuyTooltip, exportSelectedToCount,
+    dueGroupCheckedCount, toggleSelectAllDue, deleteCheckedDue, isPlanLineDue,
+    releaseScheduledDue,
 } from './pages/planning-review.js';
+import {
+    saveLineQty, applyQtyCascade, closeQtyCascade, saveLineEdit,
+    toggleSelectAllRunLines, skipLine,
+} from './pages/planning-grid.js';
+import { loadScheduled, loadGanttSummaries, openGanttFor, closeGantt }
+    from './pages/planning-schedule.js';
+import { loadProductionLoad, rescheduleWorkOrder } from './pages/planning-production-load.js';
 import { openPartData, closePartData } from './pages/planning-part-data.js';
+import { openPlanSplit, closePlanSplit, submitPlanSplit } from './pages/planning-split.js';
 import {
     loadPlanningQueues, proposeQueueBatch, openBandEditor, closeBandEditor, saveBand,
 } from './pages/planning-queues.js';
 import {
     loadWorkload, saveWorkCenter, removeWorkCenter,
     suggestRoutingHours, saveRouting, removeRouting, workloadCellState,
+    loadDeptEstimates, saveDeptEstimate, removeDeptEstimate,
 } from './pages/planning-workload.js';
 
 export function buildPlanningExpose() {
@@ -136,6 +146,37 @@ export function buildPlanningExpose() {
         loadReleaseDue, releaseLine, releaseAllDue, releaseAllDueGroup, closeRun, cancelRun,
         saveLineQty, applyQtyCascade, closeQtyCascade, setLineMakeBuy, lineMakeBuyTooltip,
         toggleSelectAllRunLines,
+        dueGroupCheckedCount, toggleSelectAllDue, deleteCheckedDue, isPlanLineDue,
+        scheduleDueCount:   store.scheduleDueCount,
+
+        // ── Scheduling view ──────────────────────────────────
+        scheduledLines:    store.scheduledLines,
+        scheduledLoading:  store.scheduledLoading,
+        scheduledByWeek:   store.scheduledByWeek,
+        scheduledDueCount: store.scheduledDueCount,
+        loadScheduled, releaseScheduledDue,
+
+        // ── Schedule tab: plan tiles → timeline ──────────────
+        schedView:             store.schedView,
+        ganttRunSummaries:     store.ganttRunSummaries,
+        ganttSummariesLoading: store.ganttSummariesLoading,
+        ganttTiles:            store.ganttTiles,
+        ganttCombinedTile:     store.ganttCombinedTile,
+        ganttRunId:            store.ganttRunId,
+        ganttLoading:          store.ganttLoading,
+        ganttPlan:             store.ganttPlan,
+        ganttTitle:            store.ganttTitle,
+        ganttZoom:             store.ganttZoom,
+        ganttZooms:            store.ganttZooms,
+        ganttLayout:           store.ganttLayout,
+        ganttSelectedBar:      store.ganttSelectedBar,
+        loadGanttSummaries, openGanttFor, closeGantt,
+
+        // ── Production Load view ─────────────────────────────
+        prodLoadRows:    store.prodLoadRows,
+        prodLoadLoading: store.prodLoadLoading,
+        prodLoadByDept:  store.prodLoadByDept,
+        loadProductionLoad, rescheduleWorkOrder,
         runChildIndex:      store.runChildIndex,
         qtyCascadeOpen:     store.qtyCascadeOpen,
         qtyCascadeSaving:   store.qtyCascadeSaving,
@@ -151,6 +192,14 @@ export function buildPlanningExpose() {
         partDataEstInStock:   store.partDataEstInStock,
         partDataSuggestedQty: store.partDataSuggestedQty,
         openPartData, closePartData,
+
+        // ── Split (timed batches) modal ──────────────────────
+        planSplitOpen:    store.planSplitOpen,
+        planSplitSaving:  store.planSplitSaving,
+        planSplitLine:    store.planSplitLine,
+        planSplitForm:    store.planSplitForm,
+        planSplitPreview: store.planSplitPreview,
+        openPlanSplit, closePlanSplit, submitPlanSplit,
 
         // ── Queues & Alerts tab ──────────────────────────────
         queueRows:         store.queueRows,
@@ -177,5 +226,12 @@ export function buildPlanningExpose() {
         routingSuggestion: store.routingSuggestion,
         loadWorkload, saveWorkCenter, removeWorkCenter,
         suggestRoutingHours, saveRouting, removeRouting, workloadCellState,
+
+        // ── Estimated days by dept (Schedule timeline overrides) ──
+        deptEstimateRows: store.deptEstimateRows,
+        deptEstForm:      store.deptEstForm,
+        deptEstSaving:    store.deptEstSaving,
+        deptDefaultDays:  store.deptDefaultDays,
+        loadDeptEstimates, saveDeptEstimate, removeDeptEstimate,
     };
 }

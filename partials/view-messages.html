@@ -133,36 +133,41 @@
                             No messages yet. Send the first one below.
                         </div>
                         <div v-else v-for="msg in threadMessages" :key="msg.id"
-                            class="flex items-start gap-3">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
+                            class="flex items-end gap-2 group"
+                            :class="msg.sender_role === sessionRole ? 'flex-row-reverse' : 'flex-row'">
+                            <!-- Avatar (other person only) -->
+                            <div v-if="msg.sender_role !== sessionRole"
+                                class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                                 :class="dmAvatarClass(msg.sender_role)">
                                 {{ (ROLE_DISPLAY_NAMES[msg.sender_role] || '?')[0] }}
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-baseline gap-2 mb-1">
-                                    <span class="font-semibold text-white text-sm">
-                                        {{ ROLE_DISPLAY_NAMES[msg.sender_role] || msg.sender_role }}
-                                    </span>
-                                    <span class="text-xs text-slate-500">{{ formatMsgTime(msg.created_at) }}</span>
-                                </div>
-                                <p v-if="msg.body" class="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap break-words bg-slate-800/60 rounded-xl px-4 py-2.5">
+                            <!-- Bubble column -->
+                            <div class="flex flex-col max-w-[75%] min-w-0"
+                                :class="msg.sender_role === sessionRole ? 'items-end' : 'items-start'">
+                                <p v-if="msg.body"
+                                    class="text-sm leading-relaxed whitespace-pre-wrap break-words px-4 py-2.5 shadow-sm"
+                                    :class="msg.sender_role === sessionRole
+                                        ? 'bg-blue-500 text-white rounded-2xl rounded-br-md'
+                                        : 'bg-slate-700 text-slate-100 rounded-2xl rounded-bl-md'">
                                     {{ msg.body }}
                                 </p>
                                 <!-- Inline attachment (private bucket → signed media_url) -->
                                 <a v-if="msg.media_url && msg.media_type === 'image'"
                                     :href="msg.media_url" target="_blank" rel="noopener"
-                                    class="block mt-1.5 w-fit">
+                                    class="block mt-1 w-fit">
                                     <img :src="msg.media_url" alt="attachment"
-                                        class="max-w-xs max-h-72 rounded-xl border border-slate-700 object-cover"/>
+                                        class="max-w-xs max-h-72 rounded-2xl border border-slate-700 object-cover"/>
                                 </a>
                                 <video v-else-if="msg.media_url && msg.media_type === 'video'"
                                     :src="msg.media_url" controls preload="metadata"
-                                    class="mt-1.5 max-w-xs max-h-72 rounded-xl border border-slate-700 bg-black"></video>
+                                    class="mt-1 max-w-xs max-h-72 rounded-2xl border border-slate-700 bg-black"></video>
+                                <!-- Timestamp -->
+                                <span class="text-[11px] text-slate-500 mt-1 px-1">{{ formatMsgTime(msg.created_at) }}</span>
                             </div>
                             <!-- Delete (manager login only) -->
                             <button v-if="canDeleteMessages" @click="openMsgDeleteConfirm(msg.id)"
                                 title="Delete message"
-                                class="shrink-0 mt-0.5 p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors active:scale-90">
+                                class="shrink-0 mb-6 p-1.5 rounded-lg text-slate-600 opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 transition-all active:scale-90">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>

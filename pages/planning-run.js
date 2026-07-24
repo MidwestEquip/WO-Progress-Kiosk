@@ -281,12 +281,14 @@ export async function runPlanningCalc() {
         ]);
         for (const r of [oh, wip, po, prm, mb, usage]) if (r.error) throw r.error;
 
-        // Make/buy history: rolling-12mo made vs purchased per part, the
-        // classifier's primary signal (override + attr are fallbacks).
+        // Make/buy history: rolling-36mo (3yr) made vs purchased per part, the
+        // classifier's primary signal (override + attr are fallbacks). The
+        // evidence columns explodeAndNet stamps from these are named _12mo but
+        // now hold the 3yr figures the decision was made on (see resolveMakeBuy).
         const mbHistory = {};
         partList.forEach(part => {
             const u = usage.data[part];
-            if (u) mbHistory[part] = { made: u.qty_made_12mo, purchased: u.qty_purchased_12mo };
+            if (u) mbHistory[part] = { made: u.qty_made_36mo, purchased: u.qty_purchased_36mo };
         });
 
         // In-flight supply. The WIP RPC keys on the strict normalization

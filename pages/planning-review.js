@@ -6,7 +6,8 @@
 
 import * as store from '../libs/store.js';
 import * as db    from '../libs/db.js';
-import { buildWhereUsedIndex, buildRunChildIndex, computeQtyCascade, bucketPartWip } from '../libs/utils.js';
+import { buildWhereUsedIndex, buildRunChildIndex, bucketPartWip,
+    computeUrgencyReleaseDates } from '../libs/utils.js';
 import { logError } from '../libs/db-shared.js';
 
 function _today() { return new Date().toISOString().slice(0, 10); }
@@ -81,89 +82,11 @@ async function _loadRunLineRefs(runId, lines) {
     }
 }
 
-// saveLineQty — a qty edit from the grid. Saves the line, then (if this part
-// has subparts in the run and the qty actually moved) offers to push the same
-// change down the subtree. The parent is saved either way — cancelling the
-// dialog leaves the parent changed and the children alone.
-export async function saveLineQty(line, newQty) {
-    const from = Number(line.override_qty ?? line.recommended) || 0;
-    const to   = Number(newQty);
-    if (!Number.isFinite(to) || to < 0) { store.showToast('Enter a quantity of 0 or more.'); return; }
-    await saveLineEdit(line, { override_qty: to });
-    if (to === from) return;
-
-    const part = line.part_number_normalized || line.part_number;
-    const linesByPart = {};
-    store.runLines.value.forEach(l => { linesByPart[l.part_number_normalized || l.part_number] = l; });
-    const { changes, skipped } = computeQtyCascade(
-        part, to - from, store.runChildIndex.value, linesByPart);
-    if (!changes.length && !skipped.length) return;   // no subparts in this run
-
-    store.qtyCascadePreview.value = { part, from, to, delta: to - from, changes, skipped };
-    store.qtyCascadeOpen.value = true;
-}
-
-// applyQtyCascade — write the previewed child quantities. Each line is saved
-// individually (no bulk endpoint); a failure stops the batch and reports how
-// far it got, so the grid is never silently half-applied without saying so.
-export async function applyQtyCascade() {
-    const preview = store.qtyCascadePreview.value;
-    if (!preview) return;
-    const byPart = {};
-    store.runLines.value.forEach(l => { byPart[l.part_number_normalized || l.part_number] = l; });
-    store.qtyCascadeSaving.value = true;
-    let done = 0;
-    try {
-        for (const c of preview.changes) {
-            const line = byPart[c.part];
-            if (!line) continue;
-            const { data, error } = await db.updateRunLine(line.id, {
-                override_qty: c.to, updated_by: store.sessionRole.value || null,
-            });
-            if (error) throw error;
-            Object.assign(line, data);
-            done++;
-        }
-        store.showToast(`Updated ${done} subpart line(s).`, 'success');
-        closeQtyCascade();
-    } catch (err) {
-        store.showToast(`Cascade stopped after ${done} of ${preview.changes.length}: ${err.message}`);
-        logError('applyQtyCascade', err, { part: preview.part, done });
-    } finally {
-        store.qtyCascadeSaving.value = false;
-    }
-}
-
-export function closeQtyCascade() {
-    store.qtyCascadeOpen.value = false;
-    store.qtyCascadePreview.value = null;
-}
-
-// saveLineEdit — persist an inline edit (override qty, hold, release date).
-export async function saveLineEdit(line, fields) {
-    try {
-        const { data, error } = await db.updateRunLine(line.id, {
-            ...fields, updated_by: store.sessionRole.value || null,
-        });
-        if (error) throw error;
-        Object.assign(line, data);
-    } catch (err) {
-        store.showToast('Save failed: ' + err.message);
-        logError('saveLineEdit', err, { id: line.id });
-    }
-}
-
-// toggleSelectAllRunLines — check every selectable row in the CURRENT filtered
-// view, or clear them all when they are already checked. Rows hidden by the
-// filter are left alone. No args, no return.
-export function toggleSelectAllRunLines() {
-    const next = !store.runLinesAllChecked.value;
-    store.selectableRunLines.value.forEach(l => { l.checked = next; });
-}
-
 // approveSelected — proposed → approved for the CHECKED lines only (use Select
-// All to take the whole list), skipping held/unclassified/zero-qty rows;
-// default release date = today.
+// All to take the whole list), skipping held/unclassified/zero-qty rows.
+// Release dates are auto-set by urgency: a part's runway (on_hand ÷ year
+// demand) minus a make buffer, so low-stock parts release first. Editable
+// afterward in the grid's date cell.
 export async function approveSelected() {
     const targets = store.runLines.value.filter(l =>
         l.checked && l.line_status === 'proposed' && !l.hold && l.action !== 'review'
@@ -171,16 +94,24 @@ export async function approveSelected() {
     if (!targets.length) { store.showToast('Nothing checked to approve (unclassified lines need a Make/Buy pick first).'); return; }
     store.runApproving.value = true;
     try {
+        // Open-order qty per part drives the priority tiebreak (and the daily
+        // cap scheduler) — non-fatal: on failure we date by pure runway order.
+        const parts = [...new Set(targets.map(l => l.part_number_normalized).filter(Boolean))];
+        const { data: openOrderQty, error: ooErr } = await db.fetchOpenOrderQtyForParts(parts);
+        if (ooErr) logError('approveSelected.openOrders', ooErr);
+        const dateMap = computeUrgencyReleaseDates(targets, {
+            today: new Date(), openOrderQty: openOrderQty || {},
+        });
         for (const l of targets) {
             const { data, error } = await db.updateRunLine(l.id, {
                 line_status: 'approved',
-                planned_release_date: l.planned_release_date || _today(),
+                planned_release_date: dateMap[l.id] || l.planned_release_date || _today(),
                 updated_by: store.sessionRole.value || null,
             });
             if (error) throw error;
             Object.assign(l, data, { checked: false });
         }
-        store.showToast(`${targets.length} line(s) approved.`, 'success');
+        store.showToast(`${targets.length} line(s) approved · release dates set by urgency.`, 'success');
         loadReleaseDue();
     } catch (err) {
         store.showToast('Approve failed: ' + err.message);
@@ -229,11 +160,6 @@ export async function exportSelectedToCount() {
     }
 }
 
-// skipLine — mark one proposed line skipped (not needed).
-export async function skipLine(line) {
-    await saveLineEdit(line, { line_status: 'skipped' });
-}
-
 // setLineMakeBuy — planner override of the make/buy classification. Persists
 // make_buy_override on part_planning (so every future run agrees), then
 // reflects it on the line locally: action + source 'override'. This is the
@@ -260,15 +186,24 @@ export function lineMakeBuyTooltip(line) {
     const made = line.qty_made_12mo == null ? '—' : line.qty_made_12mo;
     const pur  = line.qty_purchased_12mo == null ? '—' : line.qty_purchased_12mo;
     const src  = line.action_source ? ` · via ${line.action_source}` : '';
-    return `12mo made ${made} · purchased ${pur}${src}`;
+    return `3yr made ${made} · purchased ${pur}${src}`;
 }
 
-// loadReleaseDue — approved lines whose release date has arrived, each MAKE
-// line stamped with material readiness (direct BOM children on hand vs needed:
-// 'ready' | 'partial' | 'waiting' | null when no BOM/not a make).
+// isPlanLineDue — is this approved line ready to go out (dated today or
+// earlier)? Future-dated lines are "scheduled" and cannot release yet. Pure,
+// reactive: editing a line's date to today flips it without a reload.
+export function isPlanLineDue(line) {
+    const d = line && line.planned_release_date;
+    return !!d && d <= _today();
+}
+
+// loadReleaseDue — the full send schedule: ALL approved lines (any date), each
+// MAKE line stamped with material readiness (direct BOM children on hand vs
+// needed: 'ready' | 'partial' | 'waiting' | null when no BOM/not a make).
+// Only lines dated today-or-earlier (isPlanLineDue) actually release.
 export async function loadReleaseDue() {
     try {
-        const { data, error } = await db.fetchReleaseDueLines(_today());
+        const { data, error } = await db.fetchApprovedLines();
         if (error) throw error;
         const makes = data.filter(l => l.action !== 'buy');
         if (makes.length) {
@@ -296,11 +231,33 @@ export async function loadReleaseDue() {
     }
 }
 
+// The routing fields a released make line prefills onto its wo_request.
+const _RELEASE_ROUTING_FIELDS = ['fab', 'fab_print', 'weld', 'weld_print', 'assy_wo',
+    'color', 'bent_rolled_part', 'set_up_time', 'estimated_lead_time', 'staging_area'];
+
+// _mergeReleaseRouting — routing prefill for a released make line. The part's
+// LAST ACTUALLY-MADE WO wins field by field; the learned part_approval_defaults
+// row fills only what that WO left blank; anything neither knows stays null for
+// the manager to fill at approval. `false` and `0` are real values, not blanks.
+function _mergeReleaseRouting(lastMade, defaults) {
+    const a = lastMade || {}, b = defaults || {};
+    const isBlank = v => v === null || v === undefined || v === '';
+    const out = {};
+    _RELEASE_ROUTING_FIELDS.forEach(f => {
+        out[f] = !isBlank(a[f]) ? a[f] : (!isBlank(b[f]) ? b[f] : null);
+    });
+    return out;
+}
+
 // releaseLine — the release gate. Re-nets against LIVE numbers first (snapshot
 // gross + min − live on-hand/WO/PO, batch rules re-applied); a line that is no
-// longer needed is skipped, not created. Make/review → pending wo_request with
-// learned routing prefilled; buy → purchasing part request.
-export async function releaseLine(line) {
+// longer needed is skipped, not created. Make/review → a manager_review
+// wo_request (lands in Approve WO Creation, awaiting the manager's Final
+// Approve) with routing prefilled from the last WO actually made, falling back
+// to learned defaults; buy → purchasing part request.
+// opts.deferRunCheck skips the "run fully executed?" check (batch callers run
+// it once at the end instead of per line).
+export async function releaseLine(line, opts = {}) {
     if (store.releasingLineId.value) return;
     // Unclassified lines have no destination — a WO request and a PO request are
     // different pipelines. Force a Make/Buy choice before anything is created.
@@ -335,6 +292,7 @@ export async function releaseLine(line) {
             await db.updateRunLine(line.id, { line_status: 'skipped', updated_by: store.sessionRole.value || null });
             store.releaseDueLines.value = store.releaseDueLines.value.filter(l => l.id !== line.id);
             store.showToast(`${part}: covered by live stock/supply — skipped.`, 'success');
+            if (!opts.deferRunCheck && await maybeMarkRunExecuted(line.run_id)) loadPlanningRuns();
             return;
         }
 
@@ -344,9 +302,13 @@ export async function releaseLine(line) {
             if (error) throw error;
             refType = 'purchasing_order'; refId = data.id;
         } else {
-            const { data: defs } = await db.fetchRoutingDefaultsForParts([part]);
+            const [{ data: defs }, lastMade] = await Promise.all([
+                db.fetchRoutingDefaultsForParts([part]),
+                db.fetchLastMadeRoutingForPart(part),
+            ]);
+            const routing = _mergeReleaseRouting(lastMade.data, defs[part]);
             const { data, error } = await db.createWoRequestFromLine(
-                line, qty, defs[part] || null, store.sessionRole.value);
+                line, qty, routing, store.sessionRole.value);
             if (error) throw error;
             refType = 'wo_request'; refId = data.id;
         }
@@ -358,7 +320,8 @@ export async function releaseLine(line) {
         store.releaseDueLines.value = store.releaseDueLines.value.filter(l => l.id !== line.id);
         const inRun = store.runLines.value.find(l => l.id === line.id);
         if (inRun) Object.assign(inRun, { line_status: 'released', created_ref_type: refType, created_ref_id: refId });
-        store.showToast(`${part}: ${qty} → ${refType === 'wo_request' ? 'WO request' : 'PO request'} created.`, 'success');
+        store.showToast(`${part}: ${qty} → ${refType === 'wo_request' ? 'sent to Approve WO Creation' : 'PO request created'}.`, 'success');
+        if (!opts.deferRunCheck && await maybeMarkRunExecuted(line.run_id)) loadPlanningRuns();
     } catch (err) {
         store.showToast('Release failed: ' + err.message);
         logError('releaseLine', err, { id: line.id });
@@ -367,40 +330,142 @@ export async function releaseLine(line) {
     }
 }
 
-// releaseAllDue — release every due line sequentially (order preserved).
+// releaseAllDue — commit the whole schedule. DUE lines (today-or-earlier) go
+// out to the shop now (WO/PO); FUTURE lines are committed to line_status
+// 'scheduled' — they leave the panel and live on the scheduling view until
+// their date arrives (Patch 4 auto-releases them). Panel returns to approved
+// drafts only.
 export async function releaseAllDue() {
-    const due = [...store.releaseDueLines.value];
-    for (const line of due) await releaseLine(line);
+    const all    = store.releaseDueLines.value;
+    const due    = all.filter(isPlanLineDue);
+    const future = all.filter(l => !isPlanLineDue(l));
+    if (!due.length && !future.length) { store.showToast('Nothing to send.'); return; }
+    // 1) Send the due lines into production / ordering.
+    for (const line of due) await releaseLine(line, { deferRunCheck: true });
+    // 2) Commit the future lines to the scheduling view.
+    let scheduled = 0;
+    for (const line of future) {
+        const { error } = await db.updateRunLine(line.id, {
+            line_status: 'scheduled', updated_by: store.sessionRole.value || null,
+        });
+        if (error) { logError('releaseAllDue.schedule', error, { id: line.id }); continue; }
+        scheduled++;
+    }
+    if (scheduled) {
+        const gone = new Set(future.map(l => l.id));
+        store.releaseDueLines.value = store.releaseDueLines.value.filter(l => !gone.has(l.id));
+    }
+    await _finalizeReleasedRuns(due);
+    store.showToast(`${due.length} sent · ${scheduled} scheduled.`, 'success');
 }
 
-// releaseAllDueGroup — release one action group (Make or Buy) from the split
-// release-due panel. Same per-line gate as releaseLine (live re-net, skip).
+// releaseAllDueGroup — send one action group's DUE lines (Make or Buy). Future
+// lines are skipped. Same per-line gate as releaseLine (live re-net, skip).
 export async function releaseAllDueGroup(lines) {
-    for (const line of [...(lines || [])]) await releaseLine(line);
+    const grp = (lines || []).filter(isPlanLineDue);
+    if (!grp.length) { store.showToast('Nothing due to send in this group.'); return; }
+    for (const line of grp) await releaseLine(line, { deferRunCheck: true });
+    await _finalizeReleasedRuns(grp);
 }
 
-// closeRun / cancelRun — run lifecycle.
-export async function closeRun(run) {
+// releaseScheduledDue — auto-release: any committed 'scheduled' line whose date
+// has arrived (≤ today) goes out to the shop now. Called on planning-view open
+// and from the Schedule tab's manual button. Re-nets live per line (releaseLine)
+// so a part covered since scheduling is skipped, not created. Returns the count
+// released. Toasts only when it actually releases something.
+export async function releaseScheduledDue() {
+    const { data, error } = await db.fetchScheduledLines();
+    if (error) { logError('releaseScheduledDue', error); return 0; }
+    const today = _today();
+    const due = (data || []).filter(l => l.planned_release_date && l.planned_release_date <= today);
+    if (!due.length) return 0;
+    for (const line of due) await releaseLine(line, { deferRunCheck: true });
+    await _finalizeReleasedRuns(due);
+    const gone = new Set(due.map(l => l.id));
+    store.scheduledLines.value = store.scheduledLines.value.filter(l => !gone.has(l.id));
+    store.showToast(`${due.length} scheduled line(s) reached their date — released.`, 'success');
+    return due.length;
+}
+
+// maybeMarkRunExecuted — flip a run to 'executed' (kept as history) once it has
+// no pending (proposed/approved) lines left AND at least one released line.
+// Returns whether it flipped. Self-contained: swallows its own errors so the
+// release itself is never failed by this bookkeeping.
+async function maybeMarkRunExecuted(runId) {
+    if (!runId) return false;
     try {
-        const { error } = await db.updatePlanningRun(run.id, { status: 'closed' });
-        if (error) throw error;
-        store.showToast('Run closed.', 'success');
-        store.selectedRun.value = null;
-        loadPlanningRuns();
+        const [{ count: pending, error: pErr }, { count: released, error: rErr }] =
+            await Promise.all([db.countRunPendingLines(runId), db.countRunReleasedLines(runId)]);
+        if (pErr || rErr || pending > 0 || released < 1) return false;
+        const { error } = await db.updatePlanningRun(runId, { status: 'executed' });
+        if (error) return false;
+        if (store.selectedRun.value?.id === runId) store.selectedRun.value = null;
+        return true;
     } catch (err) {
-        store.showToast('Close failed: ' + err.message);
-        logError('closeRun', err, { id: run.id });
+        logError('maybeMarkRunExecuted', err, { runId });
+        return false;
     }
 }
-export async function cancelRun(run) {
+
+// _finalizeReleasedRuns — after a batch release, mark each affected run
+// executed at most once; refresh the run list if any flipped.
+async function _finalizeReleasedRuns(lines) {
+    const runIds = [...new Set((lines || []).map(l => l.run_id).filter(Boolean))];
+    let any = false;
+    for (const id of runIds) if (await maybeMarkRunExecuted(id)) any = true;
+    if (any) loadPlanningRuns();
+}
+
+// dueGroupCheckedCount — how many lines in a release-due group are checked
+// (for the Delete button's label + disabled state).
+export function dueGroupCheckedCount(lines) {
+    return (lines || []).filter(l => l.checked).length;
+}
+
+// toggleSelectAllDue — check every line in a due group, or clear them all when
+// they are already fully checked.
+export function toggleSelectAllDue(lines) {
+    const grp = lines || [];
+    const next = !(grp.length && grp.every(l => l.checked));
+    grp.forEach(l => { l.checked = next; });
+}
+
+// deleteCheckedDue — hard-delete the checked lines of a due group (planning
+// artifacts, no downstream WO/PO yet). Confirms with the count, then drops the
+// rows from the release-due panel AND the run grid so both stay in sync.
+export async function deleteCheckedDue(lines) {
+    const targets = (lines || []).filter(l => l.checked);
+    if (!targets.length) { store.showToast('Check the lines you want to delete first.'); return; }
+    if (!window.confirm(`Delete ${targets.length} planning line(s)? This cannot be undone.`)) return;
+    const ids = targets.map(l => l.id);
     try {
-        const { error } = await db.updatePlanningRun(run.id, { status: 'cancelled' });
+        const { error } = await db.deleteRunLines(ids);
         if (error) throw error;
-        store.showToast('Run cancelled.', 'success');
-        store.selectedRun.value = null;
-        loadPlanningRuns();
+        const gone = new Set(ids);
+        store.releaseDueLines.value = store.releaseDueLines.value.filter(l => !gone.has(l.id));
+        store.runLines.value = store.runLines.value.filter(l => !gone.has(l.id));
+        store.showToast(`${targets.length} line(s) deleted.`, 'success');
     } catch (err) {
-        store.showToast('Cancel failed: ' + err.message);
-        logError('cancelRun', err, { id: run.id });
+        store.showToast('Delete failed: ' + err.message);
+        logError('deleteCheckedDue', err, { count: ids.length });
     }
 }
+
+// closeRun / cancelRun — abandon a run: hard-delete its header + all lines.
+// A run is only kept once fully executed (auto-marked on final release).
+async function _deleteRunConfirmed(run, verb) {
+    if (!window.confirm(`${verb} and delete this run (${run.family_name || 'run'})? Its lines are removed. This cannot be undone.`)) return;
+    try {
+        const { error } = await db.deletePlanningRun(run.id);
+        if (error) throw error;
+        store.showToast('Run removed.', 'success');
+        store.selectedRun.value = null;
+        loadPlanningRuns();
+        loadReleaseDue();
+    } catch (err) {
+        store.showToast(`${verb} failed: ` + err.message);
+        logError('deletePlanningRun', err, { id: run.id });
+    }
+}
+export async function closeRun(run)  { await _deleteRunConfirmed(run, 'Close'); }
+export async function cancelRun(run) { await _deleteRunConfirmed(run, 'Cancel'); }

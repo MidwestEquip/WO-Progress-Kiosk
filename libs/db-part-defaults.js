@@ -186,7 +186,7 @@ export async function fetchPartLastMade(partNumber) {
 }
 
 // fetchPartsUsageSummaryBatch — calls get_parts_usage_summary_batch RPC for a batch of parts.
-// Returns { data: { [part_normalized]: { qty_made_12mo, qty_used_mfg_12mo } }, error }.
+// Returns { data: { [part_normalized]: { qty_made_12mo, qty_used_mfg_12mo, qty_purchased_12mo, qty_made_36mo, qty_purchased_36mo } }, error }.
 export async function fetchPartsUsageSummaryBatch(partNumbers) {
     if (!partNumbers || partNumbers.length === 0) return { data: {}, error: null };
     const normalized = partNumbers.map(p => normalizePartNumber(p)).filter(Boolean);
@@ -197,7 +197,8 @@ export async function fetchPartsUsageSummaryBatch(partNumbers) {
     if (error) return { data: {}, error };
     const map = {};
     (data || []).forEach(r => { map[r.part_normalized] = { qty_made_12mo: r.qty_made_12mo,
-        qty_used_mfg_12mo: r.qty_used_mfg_12mo, qty_purchased_12mo: r.qty_purchased_12mo }; });
+        qty_used_mfg_12mo: r.qty_used_mfg_12mo, qty_purchased_12mo: r.qty_purchased_12mo,
+        qty_made_36mo: r.qty_made_36mo, qty_purchased_36mo: r.qty_purchased_36mo }; });
     return { data: map, error: null };
 }
 
